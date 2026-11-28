@@ -19,6 +19,7 @@ import {
 } from "../../api/social_client";
 import { hocColors, hocDangerAlertSx, hocInputSx, hocPrimaryButtonSx, hocSpinnerSx } from "../hocTheme";
 import { startVisibleInterval } from "../visibleInterval";
+import { t, tf } from "../../i18n/i18n";
 
 interface ConversationPanelProps {
     friend: FriendEntry | null;
@@ -329,7 +330,7 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
                                 sx={{ color: hocColors.muted, alignSelf: "center" }}
                                 onClick={() => void loadOlder()}
                             >
-                                Load older messages
+                                {t("Load older messages")}
                             </Button>
                         ) : null}
                         {conversation.messages.map((message) => {
@@ -376,7 +377,7 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
                     </Stack>
                 ) : (
                     <Typography level="body-sm" sx={{ color: hocColors.muted, textAlign: "center", py: 4 }}>
-                        No messages yet. Say hello to {activeFriend?.username}.
+                        {tf("No messages yet. Say hello to {player}.", { player: activeFriend?.username ?? "" })}
                     </Typography>
                 )}
             </Box>
@@ -404,8 +405,8 @@ export const ConversationPanel: React.FC<ConversationPanelProps> = ({
                     }}
                 />
                 <IconButton
-                    aria-label="Send message"
-                    title="Send"
+                    aria-label={t("Send message")}
+                    title={t("Send")}
                     disabled={!conversation || !draft.trim() || sending}
                     loading={sending}
                     sx={{

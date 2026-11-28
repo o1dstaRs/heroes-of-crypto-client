@@ -26,7 +26,7 @@ import { GOLD, PARCHMENT, WOOD_DARK, creatureImgSrc, imgSrc, teamColor, teamName
 import { CasualtyChartPanel } from "../FightStats/CasualtyChartPanel";
 import { DamageBreakdown } from "../FightStats/DamageBreakdown";
 import { ReportPlayerDialog } from "../Reputation/ReportPlayerDialog";
-import { t } from "../../i18n/i18n";
+import { getLanguage, t, tf } from "../../i18n/i18n";
 import { NextAiDoctrinePicker } from "./NextAiDoctrinePicker";
 import { activeArmySynergies, FightArmySetupIcons, FightArmySynergies } from "./FightSetupSummary";
 import { canShowFightResults, nextFinishedResultsView, type FinishedResultsView } from "./resultsVisibility";
@@ -296,7 +296,7 @@ const CasualtyColumn: React.FC<{
                         lineHeight: 1,
                     }}
                 >
-                    {fellPct}% FELL
+                    {tf("{percent}% FELL", { percent: fellPct })}
                 </Typography>
             </Stack>
             <Box
@@ -366,7 +366,7 @@ const CasualtyColumn: React.FC<{
                         <Typography
                             sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", p: 1, whiteSpace: "nowrap" }}
                         >
-                            No casualties — flawless.
+                            {t("No casualties — flawless.")}
                         </Typography>
                     )}
                     {deaths.map((d) => (
@@ -893,7 +893,7 @@ export const ResultParticipantCard: React.FC<{
                                 lineHeight: 1.2,
                             }}
                         >
-                            YOU
+                            {t("YOU")}
                         </Box>
                     )}
                 </Stack>
@@ -947,7 +947,7 @@ export const ResultParticipantCard: React.FC<{
                 >
                     {!participant.showRewards ? (
                         <Typography sx={{ color: "#9d927e", fontSize: "0.61rem", fontWeight: 800 }}>
-                            {teamName(participant.team).toUpperCase()} ARMY
+                            {tf("{team} ARMY", { team: t(teamName(participant.team)).toUpperCase() })}
                         </Typography>
                     ) : participant.settled ? (
                         <>
@@ -984,13 +984,13 @@ export const ResultParticipantCard: React.FC<{
                                         whiteSpace: "nowrap",
                                     }}
                                 >
-                                    +{Math.round(goldEarned).toLocaleString("en-US")} GOLD
+                                    +{Math.round(goldEarned).toLocaleString(getLanguage())} {t("GOLD")}
                                 </Box>
                             )}
                         </>
                     ) : (
                         <Typography sx={{ color: "#9d927e", fontSize: "0.61rem", fontWeight: 800 }}>
-                            FINAL REWARDS PENDING…
+                            {t("FINAL REWARDS PENDING…")}
                         </Typography>
                     )}
                 </Stack>
@@ -1405,7 +1405,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                 {/* Close button */}
                 <Box
                     component="button"
-                    aria-label="Close fight results"
+                    aria-label={t("Close fight results")}
                     onClick={() => setDismissed(true)}
                     sx={{
                         position: "absolute",
@@ -1484,7 +1484,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 <Box
                                     component="img"
                                     src={imgSrc("fight_results_trophy_v1")}
-                                    alt="Victory trophy"
+                                    alt={t("Victory trophy")}
                                     sx={{ width: 45, height: 45, objectFit: "contain" }}
                                 />
                             )}
@@ -1513,8 +1513,8 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                                 lineHeight: 1,
                             }}
                         >
-                            {mode === "ranked" || previewMode ? "RANKED" : mode === "vs-ai" ? "VS AI" : "BATTLE"} ·{" "}
-                            {Math.max(0, stats.totalLaps)} LAPS
+                            {t(mode === "ranked" || previewMode ? "RANKED" : mode === "vs-ai" ? "VS AI" : "BATTLE")} ·{" "}
+                            {tf("{count} LAPS", { count: Math.max(0, stats.totalLaps) })}
                         </Typography>
                     </Box>
                     <ResultParticipantCard
@@ -1581,7 +1581,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                             },
                         }}
                     >
-                        <ResultsSectionPlaque label="DAMAGE DEALT" />
+                        <ResultsSectionPlaque label={t("DAMAGE DEALT")} />
                         <DamageBreakdown
                             entries={stats.damageByUnit ?? []}
                             armyHeader={(team) => (
@@ -1645,7 +1645,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {canReplay && (
                         <ActionButton
-                            label="REPLAY"
+                            label={t("REPLAY")}
                             labelColor="#dfcf91"
                             tone="gray"
                             frameTone="brown"
@@ -1656,7 +1656,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {showRematchAction && (
                         <ActionButton
-                            label="REMATCH"
+                            label={t("REMATCH")}
                             leadingIcon="⚔"
                             labelColor="#dfcf91"
                             primary
@@ -1674,7 +1674,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {showSandboxActions && (
                         <ActionButton
-                            label="+ NEW BATTLE"
+                            label={t("+ NEW BATTLE")}
                             labelColor="#dfcf91"
                             tone="brown"
                             backgroundOpacity={0.5}
@@ -1740,7 +1740,7 @@ export const FightFinishedOverlay: React.FC<FightFinishedOverlayProps> = ({
                     )}
                     {!showSandboxActions && !onPlayAgainVsAi && !onBackToLobby && (
                         <ActionButton
-                            label="Close"
+                            label={t("Close")}
                             primary
                             onClick={() => {
                                 clearReplayTimers();

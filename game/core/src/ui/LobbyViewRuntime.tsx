@@ -394,9 +394,11 @@ export const LobbyView: React.FC = () => {
                 <ArenaNavBar current="lobbies" />
                 <Stack alignItems="center" sx={{ position: "relative", zIndex: 1, py: 8 }}>
                     <Sheet sx={{ ...arenaCardSx, p: 4, textAlign: "center" }}>
-                        <Typography sx={{ color: hocColors.parchment, mb: 2 }}>This lobby has been closed.</Typography>
+                        <Typography sx={{ color: hocColors.parchment, mb: 2 }}>
+                            {t("This lobby has been closed.")}
+                        </Typography>
                         <Button sx={hocPrimaryButtonSx} onClick={() => navigate("/lobbies")}>
-                            Back to lobbies
+                            {t("Back to lobbies")}
                         </Button>
                     </Sheet>
                 </Stack>
@@ -438,7 +440,7 @@ export const LobbyView: React.FC = () => {
                         sx={{ ...hocSoftButtonSx, flexShrink: 0 }}
                         onClick={() => void handleLeave()}
                     >
-                        Leave
+                        {t("Leave")}
                     </Button>
                 </Stack>
 
@@ -528,17 +530,17 @@ export const LobbyView: React.FC = () => {
                 {needsPin ? (
                     <Sheet sx={{ ...hocPanelSx, p: 2 }}>
                         <Typography sx={{ color: hocColors.parchment, mb: 1 }}>
-                            This is a private lobby — enter the PIN to join.
+                            {t("This is a private lobby — enter the PIN to join.")}
                         </Typography>
                         <Stack direction="row" spacing={1}>
                             <Input
-                                placeholder="4-digit PIN"
+                                placeholder={t("4-digit PIN")}
                                 value={pin}
                                 onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
                                 slotProps={{ input: { inputMode: "numeric", maxLength: 4 } }}
                             />
                             <Button sx={hocPrimaryButtonSx} loading={busy} onClick={() => void handleJoinPrivate()}>
-                                Join
+                                {t("Join")}
                             </Button>
                         </Stack>
                     </Sheet>
@@ -547,19 +549,19 @@ export const LobbyView: React.FC = () => {
                 {!isMember && status === LobbyStatus.LOBBY_STARTED && lobby.game_id ? (
                     <Sheet sx={{ ...hocPanelSx, p: 2 }}>
                         <Typography sx={{ color: hocColors.parchment, mb: 1 }}>
-                            This game is already in progress — the lobby is full.
+                            {t("This game is already in progress — the lobby is full.")}
                         </Typography>
                         {viewerInLiveMatch ? (
                             <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                                You can watch it once your own match is over.
+                                {t("You can watch it once your own match is over.")}
                             </Typography>
                         ) : (
                             <>
                                 <Typography level="body-sm" sx={{ color: hocColors.muted, mb: 1.5 }}>
-                                    Every game is public, so you can watch it live.
+                                    {t("Every game is public, so you can watch it live.")}
                                 </Typography>
                                 <Button sx={hocPrimaryButtonSx} onClick={spectate}>
-                                    Spectate live
+                                    {t("Spectate live")}
                                 </Button>
                             </>
                         )}
@@ -569,7 +571,7 @@ export const LobbyView: React.FC = () => {
                 {!isMember && (status === LobbyStatus.LOBBY_FULL || status === LobbyStatus.LOBBY_STARTING) ? (
                     <Sheet sx={{ ...hocPanelSx, p: 2 }}>
                         <Typography sx={{ color: hocColors.muted }}>
-                            This lobby is full — you can watch here once the game starts.
+                            {t("This lobby is full — you can watch here once the game starts.")}
                         </Typography>
                     </Sheet>
                 ) : null}
@@ -584,7 +586,7 @@ export const LobbyView: React.FC = () => {
                             disabled={!bothReady || busy}
                             onClick={() => void handleStart()}
                         >
-                            Start game
+                            {t("Start game")}
                         </Button>
                     </Stack>
                 ) : null}
@@ -603,7 +605,7 @@ export const LobbyView: React.FC = () => {
                         }}
                     >
                         <Typography level="body-lg" sx={{ color: hocColors.muted }}>
-                            Game starting in
+                            {t("Game starting in")}
                         </Typography>
                         <Typography sx={{ color: hocColors.parchment, fontSize: 96, fontWeight: 700, lineHeight: 1 }}>
                             {countdownSeconds}

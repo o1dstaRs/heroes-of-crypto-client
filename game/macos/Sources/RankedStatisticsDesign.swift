@@ -65,7 +65,7 @@ private struct StatisticsMetrics: View {
                         .font(.system(size: compact ? 21 : 25, weight: .semibold, design: .monospaced))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
-                    Text(item.label)
+                    Text(LocalizedStringKey(item.label))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(StatisticsTheme.muted)
                         .lineLimit(1)
@@ -87,12 +87,12 @@ struct StatisticsHero: View {
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 12 : 16) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(title)
+                Text(LocalizedStringKey(title))
                     .font(BattleResources.display(compact ? 33 : 43))
                     .lineLimit(1)
                     .minimumScaleFactor(0.68)
                     .accessibilityAddTraits(.isHeader)
-                Text(subtitle)
+                Text(LocalizedStringKey(subtitle))
                     .font(.system(size: compact ? 12 : 13, weight: .medium))
                     .foregroundStyle(StatisticsTheme.muted)
                     .lineLimit(1)
@@ -194,7 +194,7 @@ struct StatisticsPodium: View {
                     .truncationMode(.tail)
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                     Text(row.lead).font(.system(size: compact ? 13 : 15, weight: .semibold, design: .monospaced))
-                    Text(measure).font(.system(size: 10, weight: .medium)).foregroundStyle(StatisticsTheme.muted)
+                    Text(LocalizedStringKey(measure)).font(.system(size: 10, weight: .medium)).foregroundStyle(StatisticsTheme.muted)
                 }
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
@@ -239,7 +239,7 @@ struct StatisticsLeaderboard<Controls: View>: View {
         let matches = query.isEmpty ? lines : lines.filter { $0.name.localizedStandardContains(query) }
         VStack(spacing: 0) {
             HStack(spacing: 9) {
-                Text(title)
+                Text(LocalizedStringKey(title))
                     .font(BattleResources.display(22))
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
@@ -267,7 +267,7 @@ struct StatisticsLeaderboard<Controls: View>: View {
             .padding(.vertical, 11)
 
             if matches.isEmpty {
-                Text(query.isEmpty ? "No standings yet" : "No matching players")
+                Text(LocalizedStringKey(query.isEmpty ? "No standings yet" : "No matching players"))
                     .font(.subheadline)
                     .foregroundStyle(StatisticsTheme.muted)
                     .frame(maxWidth: .infinity, minHeight: 80)
@@ -289,7 +289,7 @@ struct StatisticsLeaderboard<Controls: View>: View {
             Text("Rank").frame(width: 33, alignment: .leading)
             Text("Player").frame(maxWidth: .infinity, alignment: .leading)
             ForEach(Array(columns.enumerated()), id: \.offset) { _, column in
-                Text(column.title)
+                Text(LocalizedStringKey(column.title))
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .frame(width: column.width, alignment: .trailing)
@@ -328,7 +328,7 @@ private struct StatisticsPlayerRow: View {
                         Text(row.name)
                             .font(.system(size: 13, weight: .semibold))
                             .lineLimit(1)
-                        Text(row.subtitle)
+                        Text(LocalizedStringKey(row.subtitle))
                             .font(.system(size: 10))
                             .foregroundStyle(StatisticsTheme.muted)
                             .lineLimit(1)
@@ -487,8 +487,8 @@ struct StatisticsPlayerDetail: View {
         let player = period.player
         return HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(period.title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                Text(period.isCurrent ? "Live" : "Final")
+                Text(LocalizedStringKey(period.title)).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                Text(LocalizedStringKey(period.isCurrent ? "Live" : "Final"))
                     .font(.caption).foregroundStyle(StatisticsTheme.muted)
             }
             Spacer(minLength: 6)
@@ -505,7 +505,7 @@ struct StatisticsPlayerDetail: View {
     private func historyValue(_ name: String, _ value: String) -> some View {
         VStack(alignment: .trailing, spacing: 4) {
             Text(value).font(.system(size: 12, weight: .semibold, design: .monospaced))
-            Text(name).font(.caption).foregroundStyle(StatisticsTheme.muted)
+            Text(LocalizedStringKey(name)).font(.caption).foregroundStyle(StatisticsTheme.muted)
         }
         .frame(minWidth: 60, alignment: .trailing)
     }

@@ -4,6 +4,8 @@ struct SandboxTeamLoadout: View {
     let model: SkirmishModel
     let options: SandboxLoadoutOptions
     let preview: SandboxTeamPreview
+    let compact: Bool
+    @Environment(\.locale) private var locale
     @State private var augmentsOpen = true
     @State private var openAugment: SandboxAugment? = .placement
     private var loadout: SandboxLoadout { model.loadouts[preview.team] ?? SandboxLoadout() }
@@ -27,7 +29,7 @@ struct SandboxTeamLoadout: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(BattleButtonStyle())
-            .accessibilityValue(augmentsOpen ? "Expanded" : "Collapsed")
+            .accessibilityValue(Text(LocalizedStringKey(augmentsOpen ? "Expanded" : "Collapsed")))
             if augmentsOpen {
                 augmentIcons
                 Text("Remaining Points: \(remaining)")
@@ -35,12 +37,7 @@ struct SandboxTeamLoadout: View {
                     .foregroundStyle(accent)
                 if let openAugment { augmentChoices(openAugment) }
             }
-            Divider()
-            Text("Artifacts").font(BattleResources.display(14)).foregroundStyle(accent)
-                .accessibilityAddTraits(.isHeader)
-            artifactGrid(tier: 1, selected: loadout.tier1)
-            if loadout.tier1 == options.barrelBarricade { barrelControls }
-            artifactGrid(tier: 2, selected: loadout.tier2)
+            artifactPicker
         }
         .font(.caption)
         .foregroundStyle(BattlePalette.parchment)
@@ -58,7 +55,7 @@ struct SandboxTeamLoadout: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(preview.team.title) faction synergies")
+        .accessibilityLabel("\(Text(LocalizedStringKey(preview.team.title))) faction synergies")
     }
 
     private func synergy(faction: String, variant: Int) -> some View {
@@ -67,8 +64,12 @@ struct SandboxTeamLoadout: View {
         let key = "\(faction):\(variant)"
         let artKey = "\(key):\(max(1, level))"
         let art = BattleResources.synergies[artKey]
-        let name = "\(faction) \(Self.synergyNames[key] ?? "Synergy")"
-        let unlock = level == 0 ? "Deploy two distinct \(faction) creatures to unlock." : "Level \(level)"
+        let factionName = GameLocalization.text(faction, locale: locale)
+        let synergyName = GameLocalization.text(Self.synergyNames[key] ?? "Synergy", locale: locale)
+        let name = "\(factionName) · \(synergyName)"
+        let unlock = level == 0 ? GameLocalization.format("Deploy two distinct %@ creatures to unlock.", locale: locale, factionName) :
+            GameLocalization.format("Level %lld", locale: locale, level)
+        let description = art.map { locale.language.languageCode?.identifier == "ru" ? $0.descriptionRu ?? $0.description : $0.description }
         return Button {
             if level > 0 && !selected { model.editLoadout(for: preview.team) { $0.synergies[faction] = variant } }
         } label: {
@@ -89,9 +90,9 @@ struct SandboxTeamLoadout: View {
         }
         .buttonStyle(BattleButtonStyle())
         .disabled(level == 0)
-        .help(art.map { "\(name) · \(unlock)\n\($0.description)" } ?? "\(name) · \(unlock)")
+        .help(description.map { "\(name) · \(unlock)\n\($0)" } ?? "\(name) · \(unlock)")
         .accessibilityLabel(name)
-        .accessibilityValue(level == 0 ? "Locked" : "Level \(level)\(selected ? ", active" : "")")
+        .accessibilityValue(level == 0 ? GameLocalization.text("Locked", locale: locale) : unlock)
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
@@ -112,8 +113,8 @@ struct SandboxTeamLoadout: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(BattleButtonStyle())
-                .help(augment.title)
-                .accessibilityLabel(augment.title)
+                .help(Text(LocalizedStringKey(augment.title)))
+                .accessibilityLabel(Text(LocalizedStringKey(augment.title)))
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }
         }
@@ -123,7 +124,7 @@ struct SandboxTeamLoadout: View {
         let current = loadout.augments[augment.rawValue, default: 0]
         let labels = options.augmentLabels[augment.rawValue] ?? []
         return VStack(alignment: .leading, spacing: 2) {
-            Text(augment.title).font(BattleResources.display(12)).foregroundStyle(BattlePalette.sidebarTitle)
+            Text(LocalizedStringKey(augment.title)).font(BattleResources.display(12)).foregroundStyle(BattlePalette.sidebarTitle)
             ForEach(labels.indices, id: \.self) { level in
                 let selected = level == current
                 let allowed = level <= remaining + current
@@ -133,7 +134,7 @@ struct SandboxTeamLoadout: View {
                     HStack(spacing: 5) {
                         SidebarRadio(selected: selected)
                             .frame(width: 17, height: 17)
-                        Text(labels[level]).fixedSize(horizontal: false, vertical: true)
+                        Text(LocalizedStringKey(labels[level])).fixedSize(horizontal: false, vertical: true)
                         Spacer(minLength: 0)
                     }
                     .frame(minHeight: 22)
@@ -152,17 +153,33 @@ struct SandboxTeamLoadout: View {
         .overlay { RoundedRectangle(cornerRadius: 4).strokeBorder(BattlePalette.bronze.opacity(0.6)) }
     }
 
+    private var artifactPicker: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Rectangle().fill(BattlePalette.bronze.opacity(0.55)).frame(height: 1)
+            Text("Artifacts").font(BattleResources.display(17)).tracking(1)
+                .foregroundStyle(accent)
+                .padding(.horizontal, 4).padding(.vertical, 2)
+                .accessibilityAddTraits(.isHeader)
+            artifactGrid(tier: 1, selected: loadout.tier1)
+            if loadout.tier1 == options.barrelBarricade { barrelControls.padding(.vertical, 4) }
+            artifactGrid(tier: 2, selected: loadout.tier2)
+            Divider().opacity(0.45).padding(.top, 2)
+        }
+    }
+
     private func artifactGrid(tier: Int, selected: Int) -> some View {
-        let equipped = options.artifacts.first { $0.tier == tier && $0.id == selected }
-        return VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 4) {
-                Text("Tier \(tier)").font(BattleResources.display(12))
-                if let equipped {
-                    Spacer(minLength: 4)
-                    Text(equipped.name).lineLimit(1).foregroundStyle(BattlePalette.gold)
-                }
-            }
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 4), spacing: 4) {
+        let columnCount = 4
+        let tileSide: CGFloat = compact ? 35 : 52
+        let spacing: CGFloat = compact ? 2 : 4
+        let artworkInset: CGFloat = compact ? 1 : 2
+        let columns = Array(repeating: GridItem(.flexible(minimum: 0, maximum: tileSide), spacing: spacing), count: columnCount)
+        let gridWidth = tileSide * CGFloat(columnCount) + spacing * CGFloat(columnCount - 1)
+        return VStack(spacing: 0) {
+            Text("Tier \(tier)").font(BattleResources.display(13))
+                .foregroundStyle(BattlePalette.sidebarTitle)
+                .frame(height: 22)
+                .accessibilityAddTraits(.isHeader)
+            LazyVGrid(columns: columns, spacing: spacing) {
                 ForEach(options.artifacts.filter { $0.tier == tier }) { artifact in
                     let chosen = artifact.id == selected
                     Button {
@@ -172,23 +189,29 @@ struct SandboxTeamLoadout: View {
                             else { loadout.tier2 = value }
                         }
                     } label: {
-                        SidebarIcon(asset: artifact.imageKey, symbol: "seal")
+                        Color.clear
                             .aspectRatio(1, contentMode: .fit)
-                            .frame(maxWidth: 51)
-                            .padding(2)
-                            .opacity(chosen ? 1 : 0.77)
-                            .background(BattlePalette.backdrop.opacity(0.56), in: RoundedRectangle(cornerRadius: 4))
-                            .overlay { RoundedRectangle(cornerRadius: 4).strokeBorder(BattlePalette.gold.opacity(chosen ? 1 : 0.24)) }
+                            .overlay { SidebarIcon(asset: artifact.imageKey, symbol: "seal").padding(artworkInset) }
+                            .overlay {
+                                if chosen {
+                                    RoundedRectangle(cornerRadius: 4).strokeBorder(BattlePalette.gold, lineWidth: 2)
+                                        .shadow(color: BattlePalette.gold.opacity(0.7), radius: 3)
+                                        .padding(1)
+                                        .allowsHitTesting(false)
+                                }
+                            }
                             .contentShape(Rectangle())
                     }
-                    .buttonStyle(BattleButtonStyle())
+                    .buttonStyle(BattleButtonStyle(magnifies: true))
                     .help("\(artifact.name)\n\(artifact.description)")
-                    .accessibilityLabel(artifact.name)
+                    .accessibilityLabel(Text(LocalizedStringKey(artifact.name)))
                     .accessibilityHint(artifact.description)
                     .accessibilityAddTraits(chosen ? .isSelected : [])
                 }
             }
+            .frame(maxWidth: gridWidth)
         }
+        .frame(maxWidth: .infinity)
     }
 
     private var barrelControls: some View {

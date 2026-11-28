@@ -1,11 +1,13 @@
 import { describe, expect, it, afterEach } from "bun:test";
 import { GridVals } from "@heroesofcrypto/common";
+import { fightLogDisplay } from "../ui/RightSideBar/fightLogDisplay";
 import { ARMY_COLOR_PRESETS } from "../settings/playerArmyColor";
 import { getMapDisplay } from "../ui/PickAndBan/mapDisplay";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, getLanguage, setLanguage, t, tf } from "./i18n";
+import { localizeAbilityDescription } from "./abilityDescription";
 import { RU_TRANSLATIONS } from "./ru";
 import { standingLabel } from "./standing";
 
@@ -60,8 +62,28 @@ describe("game-client i18n", () => {
     it("falls back to the English key for untranslated strings and rejects unknown codes", () => {
         setLanguage("ru");
         expect(t("Some brand new chrome string")).toBe("Some brand new chrome string");
+        expect(t("constructor")).toBe("constructor");
         setLanguage("xx");
         expect(getLanguage()).toBe("ru");
+    });
+
+    it("localizes canonical game names and keeps live values in ability descriptions", () => {
+        const name = "Deep Wounds Level 2";
+        const description =
+            "Applies Deep Wounds effect on attack or response to deal 19.5% more damage next time. Only for the ability owner. The effect stacks";
+        expect(localizeAbilityDescription(name, description)).toBe(description);
+        setLanguage("ru");
+        expect(t("Troglodyte")).toBe("Троглодит");
+        expect(localizeAbilityDescription(name, description)).toContain("19.5% ран");
+    });
+
+    it("localizes visible battle log values while preserving an unknown line", () => {
+        const hit = " takes 82.5 damage from Fire Wall 💀 4";
+        expect(fightLogDisplay(hit)).toBe(hit);
+        setLanguage("ru");
+        expect(fightLogDisplay(hit)).toBe(` получает 82.5 урона от «${t("Fire Wall")}» 💀 4`);
+        expect(fightLogDisplay(" moved TO (3, 9)")).toBe(" перемещается в (3, 9)");
+        expect(fightLogDisplay("Unrecognized event")).toBe("Unrecognized event");
     });
 
     it("has no empty or accidental identity Russian entries", () => {
@@ -155,7 +177,7 @@ describe("ranked flow localization", () => {
             "Draft blind, field the strongest army",
             "Standard",
             "FIRE PIT",
-            "Cemetery",
+            "Barrels",
             "Water",
             "Open stone field — no central hazard.",
             "A lava pool scars the center of the board.",
@@ -170,8 +192,7 @@ describe("ranked flow localization", () => {
     });
 
     it("has Russian for every map name and blurb the map reveal shows", () => {
-        // The reveal reads these off getMapDisplay at runtime, so a renamed map (Standard -> Normal,
-        // Cemetery -> Barrels) left the Russian behind without the literal scan noticing.
+        // The reveal reads these from getMapDisplay at runtime, outside the literal key scan.
         const missing = [GridVals.NORMAL, GridVals.LAVA_CENTER, GridVals.BLOCK_CENTER, GridVals.WATER_CENTER]
             .map((mapType) => getMapDisplay(mapType))
             .flatMap((display) => (display ? [display.name, display.blurb] : ["<no display>"]))

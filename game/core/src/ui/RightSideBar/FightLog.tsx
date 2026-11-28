@@ -8,6 +8,7 @@ import { TeamVals } from "@heroesofcrypto/common";
 import { drawnSideOf } from "../../pixi/boardMirror";
 import { personalArmyCssColor } from "../../scenes/personalArmyTint";
 import { t, useTranslation } from "../../i18n/i18n";
+import { fightLogDisplay } from "./fightLogDisplay";
 import { fightLogClipboardText, groupFightLogEntries } from "./fightLogGrouping";
 import { fightLogMarkTeam, fightLogSegments } from "./fightLogTeamNames";
 
@@ -67,7 +68,8 @@ const formatFightLogLine = (text: string): string => text.replace(/\bto\s*\(/gi,
  */
 const renderFightLogMarkers = (text: string): React.ReactNode =>
     fightLogSegments(text).map((segment, index) => {
-        if (!segment.color) return segment.text;
+        if (!segment.color) return fightLogDisplay(segment.text);
+        const name = t(segment.text);
         const team = segment.mark ? fightLogMarkTeam(segment.mark) : undefined;
         const personal = team === undefined ? undefined : personalArmyCssColor(team);
         const drawnSide = team === undefined ? undefined : drawnSideOf(team);
@@ -78,10 +80,10 @@ const renderFightLogMarkers = (text: string): React.ReactNode =>
                 aria-label={
                     drawnSide === undefined
                         ? undefined
-                        : `${segment.text}, ${drawnSide === TeamVals.LEFT ? t("Left side") : t("Right side")}`
+                        : `${name}, ${drawnSide === TeamVals.LEFT ? t("Left side") : t("Right side")}`
                 }
             >
-                {segment.text}
+                {name}
             </span>
         );
     });
@@ -226,7 +228,8 @@ export const FightLog = React.memo(({ text, paintKey, copyText }: IFightLogProps
     const groups = useMemo(() => groupFightLogEntries(entries, (entry) => entry.text), [entries]);
     const newestEntryId = entries[0]?.id;
 
-    const { t } = useTranslation();
+    const { t, language } = useTranslation();
+    const localizedPaintKey = `${paintKey}:${language}`;
     const [copied, setCopied] = useState(false);
     const copyResetRef = useRef<number | undefined>(undefined);
     useEffect(
@@ -305,7 +308,7 @@ export const FightLog = React.memo(({ text, paintKey, copyText }: IFightLogProps
                         color: hocColors.gold,
                     }}
                 >
-                    BATTLE LOG
+                    {t("BATTLE LOG")}
                 </Typography>
                 {hasEntries && (
                     <Box
@@ -385,7 +388,7 @@ export const FightLog = React.memo(({ text, paintKey, copyText }: IFightLogProps
                                 userSelect: "none",
                             }}
                         >
-                            Fight log
+                            {t("Fight log")}
                         </Box>
                     ) : (
                         groups.map((group, groupIdx) => (
@@ -399,7 +402,7 @@ export const FightLog = React.memo(({ text, paintKey, copyText }: IFightLogProps
                                     <FightLogHeader
                                         label={group.headerLabel ?? ""}
                                         first={groupIdx === 0}
-                                        paintKey={paintKey}
+                                        paintKey={localizedPaintKey}
                                     />
                                 )}
                                 {group.entries.map((entry) => (
@@ -408,7 +411,7 @@ export const FightLog = React.memo(({ text, paintKey, copyText }: IFightLogProps
                                         text={entry.text}
                                         newest={entry.id === newestEntryId}
                                         indented={!!group.headerEntry}
-                                        paintKey={paintKey}
+                                        paintKey={localizedPaintKey}
                                     />
                                 ))}
                             </Box>

@@ -8,7 +8,7 @@ final class SkirmishModel {
     private(set) var battle: BattleView?
     private(set) var problem: String?
     private(set) var spellbookOpen = false
-    private(set) var effectsEnabled = true
+    var effectsEnabled: Bool { audio.level(for: .effects).audible }
     private(set) var log: [String] = []
     private(set) var inspected: Int?
     private(set) var playback = BattlePlayback()
@@ -47,7 +47,13 @@ final class SkirmishModel {
     @ObservationIgnored private var turnClock = SandboxTurnClock()
     @ObservationIgnored private var consecutiveTimeouts = 0
     @ObservationIgnored private var graceTurnUsed = false
-    @ObservationIgnored private let sound = BattleSound()
+    @ObservationIgnored private let sound: BattleSound
+    private let audio: GameAudioSettings
+
+    init(audio: GameAudioSettings = GameAudioSettings()) {
+        self.audio = audio
+        sound = BattleSound(audio: audio)
+    }
 
     private enum SoundCue {
         case effect(String)
@@ -118,6 +124,11 @@ final class SkirmishModel {
         loadoutEngine = configuration.loadouts
         loadoutOptions = configuration.loadouts.options
         catalogue = configuration.setup.creatures
+        for level in 1...3 {
+            if let clip = BattleStatusEffects.bundled?.clips["Deep Wounds \(level)"] {
+                BattlefieldAtlas.prefetch(clip.resource, maxDimension: clip.pixelLimit, combat: true)
+            }
+        }
     }
 
     func closeSandbox() {
@@ -622,8 +633,19 @@ final class SkirmishModel {
     }
 
     func toggleEffects() {
-        effectsEnabled.toggle()
-        if !effectsEnabled { sound.stopMovement() }
+        audio.setMuted(effectsEnabled, for: .effects)
+        sound.refreshMix()
+    }
+
+    func refreshAudioMix() { sound.refreshMix() }
+
+    func suggestedTurn(revision: Int) async -> BattleSuggestion? {
+        guard let engine, battle?.revision == revision, battle?.playerTurn == true,
+              battle?.started == true, !isAnimating, !isReplaying, !spellbookOpen else { return nil }
+        let suggestion = await Task.detached(priority: .utility) { engine.suggestion() }.value
+        guard !Task.isCancelled, self.engine === engine, battle?.revision == revision,
+              !isAnimating, !isReplaying, !spellbookOpen else { return nil }
+        return suggestion
     }
 
     private func update(_ accepted: Bool, manualAction: Bool = false) {

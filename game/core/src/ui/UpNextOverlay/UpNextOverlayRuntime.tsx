@@ -25,6 +25,8 @@ import {
 import { hocColors, hocDisplayFontFamily } from "../hocTheme";
 import { AltExitStrip } from "../exitRules/AltExitStrip";
 import type { IExitStanding } from "../exitRules/exitRulesModel";
+import { t, tf } from "../../i18n/i18n";
+
 const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
 const hourglassImg = new URL("../../../images/hourglass.webp", import.meta.url).toString();
 
@@ -330,7 +332,7 @@ export const UpNextOverlay: React.FC<{ exitStanding?: IExitStanding }> = ({ exit
                         textShadow: "0 2px 4px rgba(0, 0, 0, 0.95)",
                     }}
                 >
-                    LAP {visibleState.lapNumber}
+                    {tf("LAP {number}", { number: visibleState.lapNumber })}
                 </Typography>
             </Box>
             <Stack
@@ -439,7 +441,7 @@ export const UpNextOverlay: React.FC<{ exitStanding?: IExitStanding }> = ({ exit
                                     {unit.isSkipping ? (
                                         <img
                                             src={stopImg}
-                                            alt="Skipping"
+                                            alt={t("Skipping")}
                                             style={{
                                                 position: "absolute",
                                                 top: 0,
@@ -452,7 +454,7 @@ export const UpNextOverlay: React.FC<{ exitStanding?: IExitStanding }> = ({ exit
                                     ) : unit.isOnHourglass ? (
                                         <img
                                             src={hourglassImg}
-                                            alt="On Hourglass"
+                                            alt={t("On Hourglass")}
                                             style={{
                                                 position: "absolute",
                                                 top: 0,

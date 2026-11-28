@@ -2,6 +2,7 @@ import { Box, Typography } from "@mui/joy";
 import React from "react";
 
 import type { PremiumEvidence } from "../../api/premium_client";
+import { t } from "../../i18n/i18n";
 
 const metricLabels: Record<string, string> = {
     damageHp: "Damage taken (HP)",
@@ -68,10 +69,10 @@ const metricLabels: Record<string, string> = {
 export const EvidenceText: React.FC<{ evidence?: PremiumEvidence }> = ({ evidence }) =>
     !evidence ? (
         <Typography level="body-xs" sx={{ color: "#ceb399" }}>
-            Policy guidance · evidence snapshot unavailable
+            {t("Policy guidance · evidence snapshot unavailable")}
         </Typography>
     ) : "metrics" in evidence ? (
-        <Box sx={{ color: "#ceb399" }}>
+        <Box sx={{ "& .MuiTypography-root": { color: "#ceb399" } }}>
             <Typography level="body-xs">
                 {evidence.independentFamilies
                     ? `${evidence.independentFamilies} matched training families · observed unit averages`
@@ -90,10 +91,15 @@ export const EvidenceText: React.FC<{ evidence?: PremiumEvidence }> = ({ evidenc
                 ))}
         </Box>
     ) : (
-        <Typography level="body-xs" sx={{ color: "#ceb399" }}>
-            {evidence.independentFamilies
-                ? `${evidence.independentFamilies} matched training families · ${evidence.scoreRate === null ? "observed score unavailable" : `observed score ${Math.round(evidence.scoreRate * 100)}% · 95% interval ${evidence.interval95.map((n) => `${Math.round(n * 100)}%`).join("–")}`}`
-                : "No exact matches in this snapshot."}
-            {evidence.independentFamilies > 0 && " · Association, not a win prediction."}
-        </Typography>
+        <Box sx={{ color: "#ceb399" }}>
+            {evidence.independentFamilies > 0 && evidence.label && (
+                <Typography level="body-xs">{evidence.label}</Typography>
+            )}
+            <Typography level="body-xs">
+                {evidence.independentFamilies
+                    ? `${evidence.independentFamilies} matched training families · ${evidence.scoreRate === null ? "observed score unavailable" : `observed score ${Math.round(evidence.scoreRate * 100)}% · 95% interval ${evidence.interval95.map((n) => `${Math.round(n * 100)}%`).join("–")}`}`
+                    : "No exact matches in this snapshot."}
+                {evidence.independentFamilies > 0 && " · Observed association."}
+            </Typography>
+        </Box>
     );

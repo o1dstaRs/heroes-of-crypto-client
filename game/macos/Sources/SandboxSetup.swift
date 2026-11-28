@@ -71,13 +71,19 @@ struct SandboxRosterPlacement {
     let anchors: [Cell: Team]
     let hasStackSlot: Bool
 
-    func hint(for creature: SandboxCreature) -> String? {
-        guard hasStackSlot else { return "Stack limit reached. Remove a stack to place \(creature.name)." }
+    func hint(for creature: SandboxCreature, locale: Locale = Locale(identifier: "en")) -> String? {
+        let name = GameLocalization.text(creature.name, locale: locale)
+        guard hasStackSlot else {
+            return GameLocalization.format("Stack limit reached. Remove a stack to place %@.", locale: locale, name)
+        }
         guard let team = anchors.values.first else {
             let footprint = creature.footprint
-            return "No room for \(creature.name). Clear a \(footprint.width)×\(footprint.height) space in a deployment zone."
+            return GameLocalization.format("No room for %@. Clear a %d×%d space in a deployment zone.",
+                                           locale: locale, name, footprint.width, footprint.height)
         }
-        return anchors.values.allSatisfy { $0 == team } ? "Only \(team.title) has room for \(creature.name)." : nil
+        guard anchors.values.allSatisfy({ $0 == team }) else { return nil }
+        return GameLocalization.format("Only %@ has room for %@.", locale: locale,
+                                       GameLocalization.text(team.title, locale: locale), name)
     }
 }
 

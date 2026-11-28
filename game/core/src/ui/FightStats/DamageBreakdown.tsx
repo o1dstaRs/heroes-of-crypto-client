@@ -12,6 +12,7 @@ import { IFightDamageEntry } from "../../scenes/VisibleState";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import { GOLD, PARCHMENT, WOOD_DARK, creatureImgSrc, teamColor, teamName } from "./CasualtyChart";
+import { t } from "../../i18n/i18n";
 
 const fmt = (n: number): string => Math.round(n).toLocaleString("en-US");
 
@@ -179,7 +180,7 @@ export const DamageBreakdown: React.FC<{
 }> = ({ entries, armyHeader }) => {
     const noDamage = !entries.length ? (
         <Typography sx={{ color: PARCHMENT, opacity: 0.6, fontStyle: "italic", fontSize: "0.82rem" }}>
-            No damage was dealt.
+            {t("No damage was dealt.")}
         </Typography>
     ) : null;
     if (noDamage && !armyHeader) return noDamage;

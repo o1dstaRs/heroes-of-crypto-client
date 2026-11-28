@@ -6,7 +6,13 @@
 #include <stdint.h>
 
 typedef struct HOCSkirmish HOCSkirmish;
+typedef struct HOCSuggestionBoard HOCSuggestionBoard;
 typedef struct { int32_t x; int32_t y; } HOCDeploymentCell;
+
+// Copy under the battle lock, then search the snapshot without blocking player input.
+HOCSuggestionBoard *hoc_macos_suggestion_board(const HOCSkirmish *battle);
+void hoc_macos_release_suggestion_board(HOCSuggestionBoard *board);
+size_t hoc_macos_suggest(const HOCSuggestionBoard *board, uint8_t *buffer, size_t capacity);
 
 typedef enum {
     HOCWait = 1,

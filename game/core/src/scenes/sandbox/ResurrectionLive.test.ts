@@ -1,9 +1,16 @@
-import { expect, spyOn, test } from "bun:test";
-import { Container, Mesh } from "pixi.js";
+import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
+import { Container, DOMAdapter, Mesh } from "pixi.js";
 import { GridConstants, GridSettings, type GameEvent, type UnitsHolder } from "@heroesofcrypto/common";
 import { Sandbox } from "../Sandbox";
 import { CombatVisuals } from "./CombatVisuals";
 import { RESURRECTION_BURST_DURATION_MS } from "../../settings/statusEffectTiming";
+
+let adapter: ReturnType<typeof DOMAdapter.get>;
+beforeEach(() => {
+    adapter = DOMAdapter.get();
+    DOMAdapter.set({ ...adapter, createCanvas: () => ({ getContext: () => null }) as unknown as HTMLCanvasElement });
+});
+afterEach(() => DOMAdapter.set(adapter));
 
 function fixture(ranked = false) {
     const root = new Container();

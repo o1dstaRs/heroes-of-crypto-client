@@ -1,3 +1,5 @@
+import { onMacPreferenceChange } from "./macPreferences";
+
 export type PremiumCapability = "chat" | "draft" | "setup" | "suggestedMoves";
 export type PremiumPreference = "enabled" | PremiumCapability;
 
@@ -37,3 +39,20 @@ export const setPremiumPreference = (preference: PremiumPreference, enabled: boo
     }
     for (const listener of listeners) listener();
 };
+
+const macPreferences = ["enabled", "suggestedMoves"] as const;
+onMacPreferenceChange(
+    macPreferences.map((preference) => `hoc.premium.${preference}`),
+    () => {
+        try {
+            for (const preference of macPreferences) {
+                const stored = globalThis.localStorage?.getItem(`hoc.premium.${preference}`);
+                if (stored === "true" || stored === "false") sessionPreferences[preference] = stored === "true";
+            }
+        } catch {
+            // Keep the current choices when browser storage is unavailable.
+            return;
+        }
+        for (const listener of listeners) listener();
+    },
+);

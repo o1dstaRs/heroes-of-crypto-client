@@ -9,14 +9,17 @@ struct DesktopSignInAttempt {
 
     let verifier: String
     private let state: String
+    private let language: String
 
-    init() throws {
+    init(language: String = "en") throws {
         verifier = try Self.makeSecret()
         state = try Self.makeSecret()
+        self.language = language == "ru" ? "ru" : "en"
     }
 
     var startURL: URL {
         var url = URLComponents(url: Self.signInPage, resolvingAgainstBaseURL: false)!
+        url.queryItems = [URLQueryItem(name: "lang", value: language)]
         let challenge = Data(SHA256.hash(data: Data(verifier.utf8)))
         url.fragment = "challenge=\(Self.base64URL(challenge))&state=\(state)"
         return url.url!
@@ -56,9 +59,9 @@ final class DesktopBrowserSignIn: NSObject, ASWebAuthenticationPresentationConte
     private var completion: CheckedContinuation<URL, Error>?
     private var activeAttempt: UUID?
 
-    func authorize(presenting window: NSWindow) async throws -> (code: String, verifier: String) {
+    func authorize(presenting window: NSWindow, language: String) async throws -> (code: String, verifier: String) {
         guard activeAttempt == nil else { throw NativeAuthFailure.couldNotStartBrowser }
-        let attempt = try DesktopSignInAttempt()
+        let attempt = try DesktopSignInAttempt(language: language)
         let id = UUID()
         let callback = try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<URL, Error>) in

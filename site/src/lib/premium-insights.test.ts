@@ -60,7 +60,7 @@ test("snapshot highlights compare units within level and never headline tiny sam
     expect(result.unitLaggards).toEqual([]);
     expect(JSON.stringify(data)).toBe(before);
     const html = renderPremiumInsights(data, catalog, view);
-    expect(html).toContain("Current meta");
+    expect(html).toContain("Simulated meta");
     expect(html).not.toContain("Snapshot results");
     expect(html).toContain("Overlapping intervals do not establish a winner");
     expect(html).toContain('data-add-crew="3"');

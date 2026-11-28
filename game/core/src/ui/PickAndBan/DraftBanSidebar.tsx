@@ -89,7 +89,7 @@ export const DraftBanSidebar: React.FC<{
                         lineHeight: 1.25,
                     }}
                 >
-                    BANS
+                    {t("BANS")}
                 </Typography>
                 <Box
                     className="draft-ban-groups"

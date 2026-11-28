@@ -31,7 +31,7 @@ struct NativeAuthAPI: Sendable {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 15
         config.timeoutIntervalForResource = 25
-        self.network = network ?? URLSession(configuration: config, delegate: RefuseAuthRedirects(), delegateQueue: nil)
+        self.network = network ?? URLSession(configuration: config, delegate: RefuseServiceRedirects(), delegateQueue: nil)
     }
 
     func authenticate(email: String, password: String, username: String? = nil) async throws -> NativeAccountSession {
@@ -137,7 +137,7 @@ struct NativeAuthAPI: Sendable {
     }
 }
 
-private final class RefuseAuthRedirects: NSObject, URLSessionTaskDelegate {
+final class RefuseServiceRedirects: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
                     newRequest request: URLRequest, completionHandler: @escaping @Sendable (URLRequest?) -> Void) {
         completionHandler(nil)

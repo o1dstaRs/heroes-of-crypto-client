@@ -2,6 +2,7 @@ import { Box, Typography } from "@mui/joy";
 import React from "react";
 
 import type { PremiumDraftAssessment } from "./premiumDraftAssessment";
+import { t } from "../../i18n/i18n";
 
 export const PremiumDraftRoutes: React.FC<Pick<PremiumDraftAssessment, "routes" | "remaining" | "routeWarning">> = ({
     routes,
@@ -10,9 +11,9 @@ export const PremiumDraftRoutes: React.FC<Pick<PremiumDraftAssessment, "routes" 
 }) => {
     if (!routes.length) return null;
     return (
-        <Box aria-label="Possible draft routes" sx={{ mt: 1.25, pt: 1, borderTop: "1px solid #a9582555" }}>
+        <Box aria-label={t("Possible draft routes")} sx={{ mt: 1.25, pt: 1, borderTop: "1px solid #a9582555" }}>
             <Typography level="title-sm" sx={{ color: "#f3c791" }}>
-                Remaining routes
+                {t("Remaining routes")}
             </Typography>
             <Typography level="body-xs" sx={{ color: "#c7ac93", mt: 0.25 }}>
                 {remaining}
@@ -93,8 +94,9 @@ export const PremiumDraftRoutes: React.FC<Pick<PremiumDraftAssessment, "routes" 
                 </Box>
             ))}
             <Typography level="body-xs" sx={{ color: "#bba38b", mt: 0.75 }}>
-                Possible targets under revealed information. Opposing picks can remove them. Only this turn’s offers are
-                selectable now.
+                {t(
+                    "Possible targets under revealed information. Opposing picks can remove them. Only this turn’s offers are selectable now.",
+                )}
             </Typography>
         </Box>
     );

@@ -32,6 +32,7 @@ import type { PremiumSearchPrompt } from "./PremiumSearch";
 import { premiumSourceHref } from "./premiumSourceHref";
 import { usePremiumCapability } from "./usePremiumPreference";
 import { usePremiumSandboxState } from "./usePremiumSandboxState";
+import { t } from "../../i18n/i18n";
 
 interface BriefingRequest {
     question: string;
@@ -273,7 +274,7 @@ export const PremiumGuide: React.FC<{
                 component="button"
                 ref={buttonRef}
                 type="button"
-                aria-label="Open Premium guide"
+                aria-label={t("Open Premium guide")}
                 aria-haspopup="dialog"
                 aria-expanded={open}
                 aria-controls={open ? id : undefined}
@@ -310,7 +311,7 @@ export const PremiumGuide: React.FC<{
                 }}
             >
                 <PremiumIcon size={18} />
-                <span className="premium-guide-label">Premium guide</span>
+                <span className="premium-guide-label">{t("Premium guide")}</span>
             </Box>
             <Popper
                 open={open}
@@ -369,7 +370,7 @@ export const PremiumGuide: React.FC<{
                             </Typography>
                         </Box>
                         <IconButton
-                            aria-label="Close Premium guide"
+                            aria-label={t("Close Premium guide")}
                             variant="plain"
                             size="sm"
                             onClick={() => {
@@ -388,7 +389,7 @@ export const PremiumGuide: React.FC<{
                             {matchChanged && lastRequest && (
                                 <Box sx={{ borderLeft: "2px solid #bd8c55", pl: 1 }}>
                                     <Typography role="status" level="body-xs" sx={{ color: "#d5b591" }}>
-                                        The position changed since this plan.
+                                        {t("The position changed since this plan.")}
                                     </Typography>
                                     <PremiumButton
                                         startDecorator={null}
@@ -451,7 +452,7 @@ export const PremiumGuide: React.FC<{
                                     }}
                                     sx={{ alignSelf: "flex-start", px: 0, minHeight: 26, fontSize: 12 }}
                                 >
-                                    Stop
+                                    {t("Stop")}
                                 </PremiumButton>
                             )}
                             {focus && !busy && (
@@ -462,7 +463,7 @@ export const PremiumGuide: React.FC<{
                                     onClick={preparePlan}
                                     sx={{ alignSelf: "flex-start", px: 0, minHeight: 26, fontSize: 12 }}
                                 >
-                                    Back to battle plan
+                                    {t("Back to battle plan")}
                                 </PremiumButton>
                             )}
                             {answer && !busy && !matchChanged && !focus && (
@@ -473,12 +474,12 @@ export const PremiumGuide: React.FC<{
                                     onClick={preparePlan}
                                     sx={{ alignSelf: "flex-start", px: 0, minHeight: 26, fontSize: 12 }}
                                 >
-                                    Refresh plan
+                                    {t("Refresh plan")}
                                 </PremiumButton>
                             )}
                             {evidenceAvailable === false && (
                                 <Typography level="body-xs" sx={{ color: "#b99d80" }}>
-                                    Battle statistics are unavailable for this briefing.
+                                    {t("Battle statistics are unavailable for this briefing.")}
                                 </Typography>
                             )}
                             {(sources.length > 0 || evidence.length > 0) && (
@@ -487,7 +488,7 @@ export const PremiumGuide: React.FC<{
                                     sx={{ borderTop: "1px solid #96714d44", pt: 1, fontSize: 11, color: "#c9ad8e" }}
                                 >
                                     <Box component="summary" sx={{ cursor: "pointer" }}>
-                                        Battle data & sources
+                                        {t("Battle data & sources")}
                                     </Box>
                                     {sources.map((source) => {
                                         const href = premiumSourceHref(source.href);
@@ -541,7 +542,7 @@ export const PremiumGuide: React.FC<{
                             textUnderlineOffset: 3,
                         }}
                     >
-                        Questions and comparisons on the website ↗
+                        {t("Questions and comparisons on the website ↗")}
                     </Box>
                 </Box>
             </Popper>

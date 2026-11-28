@@ -6,6 +6,7 @@ import { images } from "../../generated/image_imports";
 import { DoctrineIcon } from "../DoctrineIcon";
 import { SYNERGY_KEY_TO_IMAGE } from "../LeftSideBar/SynergiesConstants";
 import type { DraftUpgradeSource, projectPremiumDraft } from "./premiumDraftProjection";
+import { t } from "../../i18n/i18n";
 
 type Projection = ReturnType<typeof projectPremiumDraft>;
 
@@ -117,7 +118,7 @@ export const DraftBuildStrip: React.FC<{
             {(!!doctrine || plan.artifacts.length > 0 || projectedArtifact) && (
                 <Group name="Artifacts">
                     {!!doctrine && (
-                        <Box title="Doctrine" sx={{ display: "inline-flex" }}>
+                        <Box title={t("Doctrine")} sx={{ display: "inline-flex" }}>
                             <DoctrineIcon doctrineId={doctrine} size={26} />
                         </Box>
                     )}

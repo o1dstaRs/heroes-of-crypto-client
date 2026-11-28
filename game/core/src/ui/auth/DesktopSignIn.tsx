@@ -2,6 +2,7 @@ import { Alert, Box, Button, Sheet, Stack, Typography } from "@mui/joy";
 import React, { useRef, useState, useSyncExternalStore } from "react";
 
 import { axiosAuthInstance, endpoints } from "../../api/axios";
+import { tf, useTranslation } from "../../i18n/i18n";
 import { hocColors, hocPanelSx, hocPrimaryButtonSx } from "../hocTheme";
 import { useAuthContext } from "./context/auth_context";
 import { GoogleSignInButton } from "./GoogleSignInButton";
@@ -22,6 +23,7 @@ export default function DesktopSignIn() {
 
 function BrowserSignIn({ fragment }: { fragment: string }) {
     const { authenticated, loading, loginWithGoogle, user } = useAuthContext();
+    const { t } = useTranslation();
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const [returnURL, setReturnURL] = useState("");
@@ -73,18 +75,18 @@ function BrowserSignIn({ fragment }: { fragment: string }) {
                         Heroes of Crypto
                     </Typography>
                     <Typography textColor={hocColors.sidebarTitle}>
-                        {valid ? "Sign in to the Mac app" : "Start sign-in from the Heroes of Crypto Mac app."}
+                        {t(valid ? "Sign in to the Mac app" : "Start sign-in from the Heroes of Crypto Mac app.")}
                     </Typography>
                     {valid &&
                         (loading ? (
                             <Typography role="status" textColor={hocColors.sidebarTitle}>
-                                Checking your session…
+                                {t("Checking your session…")}
                             </Typography>
                         ) : (
                             <>
                                 {returnURL && (
                                     <Button component="a" href={returnURL} sx={hocPrimaryButtonSx}>
-                                        Return to Heroes of Crypto
+                                        {t("Return to Heroes of Crypto")}
                                     </Button>
                                 )}
                                 {!returnURL && authenticated && user?.username && (
@@ -93,7 +95,7 @@ function BrowserSignIn({ fragment }: { fragment: string }) {
                                         onClick={() => void continueOnMac()}
                                         sx={hocPrimaryButtonSx}
                                     >
-                                        Continue as {user.username}
+                                        {tf("Continue as {player}", { player: user.username })}
                                     </Button>
                                 )}
                                 {!returnURL && (
@@ -105,8 +107,8 @@ function BrowserSignIn({ fragment }: { fragment: string }) {
                                 )}
                             </>
                         ))}
-                    {busy && <Typography role="status">Returning to the Mac app…</Typography>}
-                    {error && <Alert color="danger">{error}</Alert>}
+                    {busy && <Typography role="status">{t("Returning to the Mac app…")}</Typography>}
+                    {error && <Alert color="danger">{t(error)}</Alert>}
                 </Stack>
             </Sheet>
         </Box>

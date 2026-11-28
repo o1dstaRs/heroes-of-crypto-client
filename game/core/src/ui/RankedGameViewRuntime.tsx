@@ -75,7 +75,7 @@ import type { PlayAction, PlaySnapshot, PlayUnitState } from "../api/play_protoc
 import type { SceneGameActionTransport, SceneGameActionTransportOptions } from "../game_action_transport";
 import { axiosMMInstance, endpoints } from "../api/axios";
 import { images } from "../generated/image_imports";
-import { t, useTranslation } from "../i18n/i18n";
+import { t, tf, useTranslation } from "../i18n/i18n";
 import { usePixiManager } from "../pixi/PixiGameManager";
 import { shortcutLetter } from "../utils/shortcutLetter";
 import type { SceneEntry } from "../pixi/PixiScene";
@@ -2079,7 +2079,7 @@ export const RankedGameView: React.FC<Props> = ({
                     </Typography>
                     {replayOnly && (
                         <Button variant="soft" sx={hocSoftButtonSx} onClick={() => navigate("/portal")}>
-                            Back to match history
+                            {t("Back to match history")}
                         </Button>
                     )}
                 </Stack>
@@ -2104,7 +2104,7 @@ export const RankedGameView: React.FC<Props> = ({
             >
                 <Stack spacing={2} alignItems="center">
                     <CircularProgress sx={hocSpinnerSx} />
-                    <Typography sx={{ color: hocColors.parchment }}>Loading ranked fight</Typography>
+                    <Typography sx={{ color: hocColors.parchment }}>{t("Loading ranked fight")}</Typography>
                     {error && (
                         <Alert variant="soft" sx={hocDangerAlertSx}>
                             {error}
@@ -2378,7 +2378,7 @@ const CoopMapPicker: React.FC<{ disabled: boolean }> = ({ disabled }) => {
     return (
         <Box sx={{ width: "100%", px: 1, pt: 0.75, pb: 0.5, borderBottom: "1px solid rgba(112, 75, 42, .42)" }}>
             <Typography level="body-xs" sx={{ color: hocColors.sidebarTitle, mb: 0.25 }}>
-                Map
+                {t("Map")}
             </Typography>
             <Stack direction="row" spacing={0.5}>
                 {options.map((option) => (
@@ -2549,7 +2549,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                             value={sliderValue}
                             disabled={!canSplit}
                             step={1}
-                            aria-label="Ranked unit split slider"
+                            aria-label={t("Ranked unit split slider")}
                             onChange={(_, value) => setSplitAmount(Array.isArray(value) ? value[0] : value)}
                         />
                     ))}
@@ -2578,7 +2578,7 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                             py: 0,
                         }}
                     >
-                        Split
+                        {t("Split")}
                     </Button>
                 )}
                 <Button
@@ -2612,12 +2612,12 @@ export const RankedPlacementStackActions: React.FC<RankedPlacementStackActionsPr
                         ...(deleteArmed ? { fontWeight: "lg", textDecoration: "underline" } : {}),
                     }}
                 >
-                    {deleteArmed ? "Sure?" : "Delete"}
+                    {t(deleteArmed ? "Sure?" : "Delete")}
                 </Button>
             </Stack>
             {selectedUnit && !hasStackCapacity && maxUnits > 0 && (
                 <Typography level="body-xs" sx={{ mt: 0.75, px: 1.5, textAlign: "center", color: hocColors.muted }}>
-                    Board stack limit reached ({teamUnitCount}/{maxUnits})
+                    {tf("Board stack limit reached ({count}/{limit})", { count: teamUnitCount, limit: maxUnits })}
                 </Typography>
             )}
         </Box>
@@ -2638,23 +2638,23 @@ const ArtifactTierIcons: React.FC<{ tier1Id: number; tier2Id: number }> = ({ tie
         <Box sx={{ display: "flex", gap: 0.6 }}>
             {entries.map(({ key, art }) => {
                 const src = art ? artifactImageFor(art.imageKey) : undefined;
-                const tierLabel = key === "t1" ? "Tier 1" : "Tier 2";
+                const tier = key === "t1" ? 1 : 2;
                 // Rich hover: name + tier + the effect text with its real numbers substituted in
                 // (art.description keeps {}/[]/<> placeholders — formatArtifactDescription fills them).
                 const tip = art ? (
                     <Box sx={{ maxWidth: 260, py: 0.5 }}>
                         <Typography level="title-sm" textColor={hocColors.gold}>
-                            {art.name}
+                            {t(art.name)}
                         </Typography>
                         <Typography level="body-xs" textColor={hocColors.muted} sx={{ mb: 0.5 }}>
-                            {tierLabel} artifact
+                            {tf("Tier-{tier} artifact", { tier })}
                         </Typography>
                         <Typography level="body-xs" textColor={hocColors.parchment}>
                             {Artifact.formatArtifactDescription(art)}
                         </Typography>
                     </Box>
                 ) : (
-                    `No ${tierLabel} artifact`
+                    tf("Tier-{tier} artifact — not drafted yet", { tier })
                 );
                 return (
                     <Tooltip
@@ -2684,7 +2684,7 @@ const ArtifactTierIcons: React.FC<{ tier1Id: number; tier2Id: number }> = ({ tie
                                 <Box
                                     component="img"
                                     src={src}
-                                    alt={art?.name ?? ""}
+                                    alt={art ? t(art.name) : ""}
                                     sx={{ width: 36, height: 36, objectFit: "contain" }}
                                 />
                             ) : (
@@ -2717,13 +2717,13 @@ const RankedArtifactsPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamTyp
     return (
         <Stack spacing={0.5}>
             <Typography level="body-sm" textColor={hocColors.parchment}>
-                Artifacts
+                {t("Artifacts")}
             </Typography>
             <Stack direction="row" spacing={1.5} flexWrap="wrap">
                 {hasYours && (
                     <Stack spacing={0.25}>
                         <Typography level="body-xs" textColor={hocColors.muted}>
-                            Yours
+                            {t("Yours")}
                         </Typography>
                         <ArtifactTierIcons tier1Id={yours.tier1} tier2Id={yours.tier2} />
                     </Stack>
@@ -2731,7 +2731,7 @@ const RankedArtifactsPanel: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamTyp
                 {hasTheirs && (
                     <Stack spacing={0.25}>
                         <Typography level="body-xs" textColor={hocColors.muted}>
-                            Opponent
+                            {t("Opponent")}
                         </Typography>
                         <ArtifactTierIcons tier1Id={theirs.tier1} tier2Id={theirs.tier2} />
                     </Stack>
@@ -3021,12 +3021,12 @@ const RankedAugmentSummary: React.FC<{
     return (
         <Stack spacing={0.5}>
             <Typography level="body-sm" textColor={hocColors.parchment}>
-                Your augments ({spent}/{budget} pts)
+                {tf("Your augments ({spent}/{budget} pts)", { spent, budget })}
             </Typography>
             <Stack direction="row" spacing={0.6} flexWrap="wrap" useFlexGap>
                 {chosen.length === 0 ? (
                     <Typography level="body-xs" textColor={hocColors.muted}>
-                        No augments chosen yet
+                        {t("No augments chosen yet")}
                     </Typography>
                 ) : (
                     chosen.map((r) => {
@@ -3038,7 +3038,10 @@ const RankedAugmentSummary: React.FC<{
                                 title={
                                     <Box sx={{ maxWidth: 240, py: 0.5 }}>
                                         <Typography level="title-sm" textColor={hocColors.gold}>
-                                            {r.label} augment — level {displayLevel}
+                                            {tf("{augment} augment — level {level}", {
+                                                augment: t(r.label),
+                                                level: displayLevel,
+                                            })}
                                         </Typography>
                                         <Typography level="body-xs" textColor={hocColors.parchment}>
                                             {augmentEffectText(r.label, r.level)}
@@ -3102,13 +3105,13 @@ const RankedAugmentSummary: React.FC<{
             {/* Selected synergies read as their own block under augments, at the same tile size as augments
                 and artifacts. */}
             <Typography level="body-sm" textColor={hocColors.parchment} sx={{ mt: 0.75 }}>
-                Synergies
+                {t("Synergies")}
             </Typography>
             {synergies.length ? (
                 <SynergiesRow synergies={synergies} size={36} />
             ) : (
                 <Typography level="body-xs" textColor={hocColors.muted}>
-                    None yet — field two units of a faction, then choose one bonus
+                    {t("None yet — field two units of a faction, then choose one bonus")}
                 </Typography>
             )}
         </Stack>
@@ -3243,10 +3246,10 @@ const RankedOpponentArmyPrivacyCard: React.FC = () => (
             }}
         >
             <Typography level="title-sm" sx={{ color: "#ffb0b0", fontWeight: 700 }}>
-                Opponent army
+                {t("Opponent army")}
             </Typography>
             <Typography level="body-xs" sx={{ color: "rgba(240,231,233,0.64)" }}>
-                Revealed during board placement
+                {t("Revealed during board placement")}
             </Typography>
         </Sheet>
     </Box>
@@ -3266,7 +3269,7 @@ const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamT
     return (
         <Stack spacing={1.1}>
             <RankedRosterRow
-                title="Opponent"
+                title={t("Opponent")}
                 accent="#ff9d9d"
                 borderColor="rgba(138,43,43,0.6)"
                 bgcolor="#241416"
@@ -3274,7 +3277,7 @@ const RankedPlacementRosters: React.FC<{ snapshot: PlaySnapshot; userTeam: TeamT
             />
             <RankedRosterDivider />
             <RankedRosterRow
-                title="Your army"
+                title={t("Your army")}
                 accent="#dcb158"
                 borderColor="rgba(255,255,255,0.12)"
                 bgcolor="#171a23"
@@ -4113,7 +4116,7 @@ const RankedOverlay: React.FC<RankedOverlayProps> = ({
                     <Stack direction="row" spacing={1} alignItems="center">
                         <CircularProgress size="sm" sx={hocSpinnerSx} />
                         <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                            Submitting
+                            {t("Submitting")}
                         </Typography>
                     </Stack>
                 )}

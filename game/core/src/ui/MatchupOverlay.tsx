@@ -19,6 +19,7 @@ import type { OpponentConnectionLabel } from "./opponentConnection";
 import { LeagueEmblem } from "./PlayerPortal/LeagueEmblem";
 import { PlayerRankedRecord, rankedRecordText } from "./PlayerRankedRecord";
 import { useFullscreenActive } from "./useFullscreenActive";
+import { t } from "../i18n/i18n";
 
 export type MatchupPlayer = Readonly<{
     playerId?: string;
@@ -357,7 +358,7 @@ const MatchupPlayerCard: React.FC<{
 
             {player.isAi ? (
                 <Typography sx={{ mt: 1, color: "#9d907a", fontSize: "0.65rem", lineHeight: 1.35 }}>
-                    Computer-controlled rival. Ranked player statistics are not applicable.
+                    {t("Computer-controlled rival. Ranked player statistics are not applicable.")}
                 </Typography>
             ) : (
                 <>
@@ -366,11 +367,11 @@ const MatchupPlayerCard: React.FC<{
                     >
                         <DetailStat label="MMR" value={(profile?.mmr ?? 0) > 0 ? Math.round(profile?.mmr ?? 0) : "—"} />
                         <DetailStat
-                            label="Peak"
+                            label={t("Peak")}
                             value={(profile?.peakMmr ?? 0) > 0 ? Math.round(profile?.peakMmr ?? 0) : "—"}
                         />
-                        <DetailStat label="Games" value={profile?.totalGames ?? "—"} />
-                        <DetailStat label="Streak" value={streak} color={streakColor} />
+                        <DetailStat label={t("Games")} value={profile?.totalGames ?? "—"} />
+                        <DetailStat label={t("Streak")} value={streak} color={streakColor} />
                     </Box>
 
                     <Typography
@@ -384,7 +385,7 @@ const MatchupPlayerCard: React.FC<{
                             textTransform: "uppercase",
                         }}
                     >
-                        Recent battles
+                        {t("Recent battles")}
                     </Typography>
                     <Box sx={{ mt: 0.5, display: "grid", gap: 0.45 }}>
                         {recent.length > 0 ? (
@@ -462,7 +463,7 @@ const MatchupPlayerCard: React.FC<{
                             })
                         ) : (
                             <Typography sx={{ color: "#857a69", fontSize: "0.6rem" }}>
-                                No recent public matches.
+                                {t("No recent public matches.")}
                             </Typography>
                         )}
                     </Box>
@@ -480,7 +481,7 @@ const MatchupPlayerCard: React.FC<{
                                     textTransform: "uppercase",
                                 }}
                             >
-                                Popular picks
+                                {t("Popular picks")}
                             </Typography>
                             {popularPicks.map((pick, index) => (
                                 <PickPortrait key={`${pick.creatureId}:${index}`} creatureId={pick.creatureId} />

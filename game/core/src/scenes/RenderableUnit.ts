@@ -291,6 +291,7 @@ import { applyScavengerHitRegistration, clearScavengerHitRegistration } from "./
 import { staticBattlefieldTextureNameForUnit, TextureType, unitToTextureName } from "@/pixi/PixiUnitsFactory";
 import { legacyBoardChildScaleCompensation } from "@/pixi/boardFit";
 import { CREATURE_SPRITE_ANIMATION_SETTINGS, usesApprovedBaseAnimations } from "@/pixi/creatureAnimationSettings";
+import { animationAtlases as approvedAnimationAtlases } from "../animations/levelOneAtlases";
 import { animationAtlases, AnimationUnitName, type AnimationAtlasMeta } from "../generated/animation_atlases";
 import { images, type ImageKey } from "../imageAssets";
 import { buildAtlasPingPongTiming, AtlasPingPongTiming } from "./atlasAnimationTiming";
@@ -2406,7 +2407,10 @@ function getAnimationStateConfig(
     if (!normalized) return null;
     const resolvedState = resolveAnimationAtlasState(unitName, state);
     const unitStates = animationAtlases[normalized] as unknown as Record<string, AtlasMeta>;
-    const meta = unitStates[resolvedState];
+    const meta =
+        normalized === TROGLODYTE_UNIT_NAME && resolvedState === "walk"
+            ? approvedAnimationAtlases.Troglodyte.walk
+            : unitStates[resolvedState];
     if (!meta) return null;
     const imageKey = atlasImageKeyFromUnitAndState(normalized, resolvedState, footprintWidth, footprintHeight);
     if (!imageKey) return null;

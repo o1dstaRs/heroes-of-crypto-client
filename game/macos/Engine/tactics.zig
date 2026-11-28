@@ -70,7 +70,7 @@ pub fn attack(ctx: *ai.Ctx, target: u8) ?rec.Action {
 pub const max_attack_angles = 16;
 pub const Splash = struct { center: Cell, single: bool = false };
 pub const RangedReply = struct { target: u8, splash: ?Splash };
-pub const AreaAim = struct { aim: Cell, splash: Splash, hits: []const projectile.ShotHit = &.{} };
+pub const AreaAim = struct { aim: Cell, splash: Splash, divisor: f64, hits: []const projectile.ShotHit = &.{} };
 pub const AttackAngle = struct {
     cell: Cell,
     side: ?u8 = null,
@@ -111,9 +111,8 @@ pub fn attackAngles(ctx: *ai.Ctx, target: u8, moves: []const Cell, output: *[max
         std.sort.insertion(AttackAngle, output[0..count], unit, prefersRangeEdge);
     } else if (canAimMelee(ctx, target)) {
         const base = engine.baseCell(unit);
-        const victim = &ctx.s.units[target];
         if (ai.adjacent(engine.unitCells(unit).slice(), target_cells.slice())) {
-            output[count] = meleeAngle(ctx, victim, base, 1, storage);
+            output[count] = meleeAngle(ctx, target, base, 1, storage);
             count += 1;
         }
         const paths = if (moves.len > 0) movePath(ctx) else null;
@@ -121,18 +120,18 @@ pub fn attackAngles(ctx: *ai.Ctx, target: u8, moves: []const Cell, output: *[max
             if (ai.sameCell(anchor, base) or !ai.adjacent(ai.footprintForAnchor(unit, anchor).slice(), target_cells.slice())) continue;
             const route = if (paths) |path| path.get(pathing.key(anchor.x, anchor.y)) else null;
             const length = if (route) |r| paths.?.routeCells(r, &ctx.route_buf) else 1;
-            output[count] = meleeAngle(ctx, victim, anchor, length, storage);
+            output[count] = meleeAngle(ctx, target, anchor, length, storage);
             count += 1;
         }
     }
     return output[0..count];
 }
 
-fn meleeAngle(ctx: *const ai.Ctx, victim: *const st.Unit, anchor: Cell, length: usize, storage: ?std.mem.Allocator) AttackAngle {
+fn meleeAngle(ctx: *const ai.Ctx, victim: u8, anchor: Cell, length: usize, storage: ?std.mem.Allocator) AttackAngle {
     return .{
         .cell = anchor,
-        .hit = projectile.meleeHit(ctx.s, ctx.unit(), victim, anchor, length),
-        .hits = if (storage) |arena| projectile.spinHits(ctx.s, ctx.ui, anchor, length, arena) else &.{},
+        .hit = if (storage != null) projectile.meleeHit(ctx.s, ctx.ui, victim, anchor, length) else null,
+        .hits = if (storage) |arena| projectile.meleeRiders(ctx.s, ctx.ui, victim, anchor, length, arena) else &.{},
     };
 }
 
@@ -219,6 +218,7 @@ pub fn areaAim(state: *const State, slot: u8, cell: Cell, storage: ?std.mem.Allo
     return .{
         .aim = cell,
         .splash = splash,
+        .divisor = divisor,
         .hits = if (storage) |arena| projectile.splashHits(state, slot, members[0..count], divisor, arena) else &.{},
     };
 }

@@ -26,8 +26,8 @@ describe("sandbox right-sidebar contract", () => {
 
     test("the UnitSplitter carries both the Split and Delete controls with their shortcuts", () => {
         const splitter = read("UnitSplitter.tsx");
-        expect(splitter).toContain('title="Split (S)"');
-        expect(splitter).toContain('title="Delete (D)"');
+        expect(splitter).toContain('title={t("Split (S)")}');
+        expect(splitter).toContain('title={t("Delete (D)")}');
         expect(splitter).toContain("manager.Delete()");
         // The S/D keyboard shortcuts stay registered (and stay off editable targets).
         expect(splitter).toContain('window.addEventListener("keydown", handleActionShortcut');

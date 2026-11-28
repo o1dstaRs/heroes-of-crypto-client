@@ -41,6 +41,9 @@ enum AuthSmoke {
 
         let attempt = try DesktopSignInAttempt()
         precondition(attempt.startURL.path == "/desktop-sign-in.html")
+        let russianAttempt = try DesktopSignInAttempt(language: "ru")
+        let signInURL = URLComponents(url: russianAttempt.startURL, resolvingAgainstBaseURL: false)
+        precondition(signInURL?.queryItems?.first(where: { $0.name == "lang" })?.value == "ru")
         try await api.checkDesktopSignIn(page: URL(string: "https://account.example.test/desktop-sign-in.html")!)
         do {
             try await api.checkDesktopSignIn(page: URL(string: "https://account.example.test/spa-fallback.html")!)
@@ -76,11 +79,153 @@ enum AuthSmoke {
         precondition(stillRanked?.token == AccountFixture.rankedRefresh)
         guard let session = ranked.verifiedSession else { preconditionFailure("Missing account for Premium") }
         checkPremium(session)
-        print("Native account flows, desktop proof, Ranked refresh, and Premium website handoff passed.")
+        checkBundleLanguages()
+        checkPreferences()
+        try await checkCoopRequests(session)
+        checkCoopCarry()
+        print("Native account flows, desktop proof, Ranked refresh, preferences, and Co-op invitations passed.")
+    }
+
+    private static func checkCoopRequests(_ account: NativeAccountSession) async throws {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [CoopFixture.self]
+        let network = URLSession(configuration: config)
+        let api = NativeCoopAPI(matchmaking: URL(string: "https://friends.example.test/v1")!,
+                                games: URL(string: "https://games.example.test/v1")!,
+                                network: network)
+        let premium = NativePremiumAccess(endpoint: URL(string: "https://games.example.test/v1/premium/account")!, network: network)
+        let allowed = await premium.canSuggest(for: account, deviceID: "fixture-device")
+        let inactive = NativePremiumAccess(endpoint: URL(string: "https://games.example.test/v1/premium/account?inactive=1")!, network: network)
+        let denied = await inactive.canSuggest(for: account, deviceID: "fixture-device")
+        precondition(allowed && !denied)
+        let friends = try await api.friends(account: account, deviceID: "fixture-device")
+        precondition(friends.map(\.username) == ["On Board", "Away"])
+        let game = try await api.invite(friends[0], gridType: 3, account: account, deviceID: "fixture-device")
+        precondition(game == CoopFixture.game)
+        do {
+            _ = try await api.invite(friends[1], gridType: 3, account: account, deviceID: "fixture-device")
+            preconditionFailure("A busy friend opened a second sandbox")
+        } catch {
+            precondition(error.localizedDescription.contains("already in a game"))
+        }
+    }
+
+    private static func checkCoopCarry() {
+        let context = JSContext()!
+        context.evaluateScript("""
+            const location = {pathname: "/lobbies"};
+            const stored = new Map();
+            class Storage {
+                getItem(key) { return stored.get(key) ?? null; }
+                setItem(key, value) { stored.set(key, value); }
+                removeItem(key) { stored.delete(key); }
+            }
+            const sessionStorage = new Storage();
+            const taken = [];
+            const window = {webkit: {messageHandlers: {hocMacCoopArmyTaken: {postMessage(game) { taken.push(game); }}}}};
+            """)
+        let game = CoopFixture.game
+        let army = #"[{"unitName":"Griffin","cells":[{"x":1,"y":1},{"x":2,"y":1},{"x":1,"y":2},{"x":2,"y":2}]}]"#
+        let script = NativeCoopAPI.carryArmyScript(gameID: game, army: Data(army.utf8))
+        context.evaluateScript(script)
+        precondition(context.evaluateScript("stored.size === 0").toBool())
+        context.evaluateScript("location.pathname = '/sandbox/\(game)'")
+        context.evaluateScript(script)
+        let key = "hoc:coop-carry:\(game)"
+        precondition(context.evaluateScript("sessionStorage.getItem('\(key)')").toString() == army)
+        precondition(context.evaluateScript("taken.length === 0").toBool())
+        context.evaluateScript("sessionStorage.removeItem('\(key)')")
+        context.evaluateScript(script)
+        precondition(context.exception == nil && context.evaluateScript("sessionStorage.getItem('\(key)')").isNull)
+        precondition(context.evaluateScript("taken.length === 1 && taken[0] === '\(game)'").toBool())
+    }
+
+    private static func checkBundleLanguages() {
+        let bundle = Bundle.main
+        guard bundle.bundleURL.pathExtension == "app" else { return }
+        precondition(bundle.developmentLocalization == "en", "English must be the app's fallback language")
+        let available = bundle.localizations
+        precondition(Bundle.preferredLocalizations(from: available, forPreferences: ["en-US", "ru-US"]).first == "en",
+                     "The app fell back to Russian on an English Mac")
+        precondition(Bundle.preferredLocalizations(from: available, forPreferences: ["ru-RU", "en-US"]).first == "ru" &&
+                     bundle.url(forResource: "Localizable", withExtension: "strings", subdirectory: nil, localization: "ru") != nil,
+                     "The app lost its Russian localization")
+    }
+
+    private static func checkPreferences() {
+        let suite = "hoc.settings.fixture.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(0.18, forKey: "hoc.music.volume")
+        let mix = GameAudioSettings(defaults: defaults)
+        let online = OnlinePreferences(defaults: defaults)
+        precondition(online.get(.language) == "en")
+        mix.setVolume(0.4, for: .master)
+        mix.setMuted(true, for: .music)
+        precondition(mix.gain(.music) == 0 && abs(mix.gain(.effects) - 0.2) < 0.00001)
+        mix.setMuted(true, for: .master)
+        precondition(mix.gain(.effects) == 0)
+        mix.setMuted(false, for: .master)
+        precondition(mix.level(for: .music).muted && mix.level(for: .music).volume == 0.18)
+        online.set("right", for: .boardSide)
+
+        let context = JSContext()!
+        context.evaluateScript("""
+            class Storage {
+                getItem(key) { return this[key] ?? null; }
+                setItem(key, value) { this[key] = String(value); }
+            }
+            class CustomEvent {
+                constructor(type, options) { this.type = type; this.detail = options.detail; }
+            }
+            const localStorage = new Storage();
+            const sessionStorage = new Storage();
+            const reports = [], events = [];
+            const queueMicrotask = callback => callback();
+            const window = {
+                webkit: {messageHandlers: {hocMacPreferences: {postMessage(values) { reports.push(values); }}}},
+                dispatchEvent(event) { events.push(event); }
+            };
+            localStorage.setItem("accessToken", "existing");
+            """)
+        context.evaluateScript("(() => { \(OnlinePreferences.bridgeScript(online.values.merging(mix.webValues) { _, volume in volume })) })();")
+        precondition(context.exception == nil)
+        precondition(context.evaluateScript("""
+            localStorage.getItem("hoc.ranked.boardSide") === "right" &&
+            localStorage.getItem("hoc:themeMuted") === "1" &&
+            localStorage.getItem("accessToken") === "existing";
+            """)?.toBool() == true)
+        precondition(context.evaluateScript("""
+            localStorage.setItem("accessToken", "rotated");
+            localStorage.setItem("hoc:effectsVolume", "0.75");
+            window.hocMacApplyPreferences({"hoc:language":"ru","accessToken":"other"});
+            window.hocMacApplyPreferences({"hoc:language":"ru"});
+            reports.length === 1 && localStorage.getItem("hoc:language") === "ru" &&
+            localStorage.getItem("accessToken") === "rotated" && events.length === 1 &&
+            events[0].type === "hoc:mac-preferences" && events[0].detail.join() === "hoc:language";
+            """)?.toBool() == true)
+        precondition(context.evaluateScript("""
+            localStorage.setItem("hoc:language", "en");
+            localStorage.setItem("hoc:language", "ru");
+            reports.length === 3 && reports[2]["hoc:effectsVolume"] === "0.75" &&
+            reports[2]["hoc:language"] === "ru" && !("accessToken" in reports[2]);
+            """)?.toBool() == true)
+        guard let snapshot = context.evaluateScript("reports[2]")?.toDictionary() as? [String: String] else {
+            preconditionFailure("The hosted preferences report lost its values")
+        }
+        online.receive(snapshot)
+        mix.receiveWebValues(snapshot)
+        precondition(OnlinePreferences(defaults: defaults).get(.language) == "ru")
+        precondition(GameAudioSettings(defaults: defaults).level(for: .effects).volume == 0.75)
     }
 
     private static func checkPremium(_ session: NativeAccountSession) {
         precondition(PremiumSite.route(PremiumSite.entry, opensWindow: false, userLink: false) == .website)
+        let english = URL(string: "https://heroesofcrypto.io/premium/?tab=builder#army")!
+        let russian = PremiumSite.workspaceURL(english, language: "ru")
+        precondition(russian.path == "/ru/premium" && russian.query == english.query && russian.fragment == english.fragment)
+        precondition(PremiumSite.workspaceLanguage(russian) == "ru")
+        precondition(PremiumSite.workspaceURL(russian, language: "en") == english)
         let login = URL(string: "https://heroesofcrypto.io/ru/auth/login")!
         precondition(PremiumSite.route(login, opensWindow: false, userLink: true) == .signIn)
         let link = URL(string: "https://example.test/help?accessToken=fixture&page=1#authorization=fixture")!
@@ -158,6 +303,60 @@ enum AuthSmoke {
         for context in [javascript(origin: "https://example.test", session: session),
                         javascript(origin: PremiumSite.origin, session: nil)] {
             precondition(context.evaluateScript("localStorage.getItem('accessToken') === null")?.toBool() == true)
+        }
+    }
+}
+
+private final class CoopFixture: URLProtocol, @unchecked Sendable {
+    static let game = "2a82c813-7bb1-4010-9000-000000000001"
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func stopLoading() {}
+
+    override func startLoading() {
+        precondition(request.value(forHTTPHeaderField: "Authorization") == AccountFixture.rankedRefresh)
+        precondition(request.value(forHTTPHeaderField: "X-HoC-Device") == "fixture-device")
+        let url = request.url!
+        let status: Int
+        let body: String
+        switch (url.host, url.path) {
+        case ("games.example.test", "/v1/premium/account"):
+            precondition(request.httpMethod == "GET")
+            status = 200
+            body = url.query == nil ? #"{"entitlement":{"active":true}}"# : #"{"entitlement":{"active":false}}"#
+        case ("friends.example.test", "/v1/friends"):
+            precondition(request.httpMethod == "GET")
+            status = 200
+            body = #"{"friends":[{"playerId":"busy","username":"Away","online":false},{"playerId":"friend","username":"On Board","online":true}]}"#
+        case ("games.example.test", "/v1/sandbox-create"):
+            precondition(request.httpMethod == "POST" && request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+            let payload = Self.readBody(request)
+            let json = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any]
+            precondition(json?["gridType"] as? Int == 3)
+            let friend = json?["toPlayerId"] as? String
+            precondition(friend == "friend" || friend == "busy")
+            status = friend == "busy" ? 409 : 200
+            body = friend == "busy" ? "already in a game" : "{\"gameId\":\"\(Self.game)\"}"
+        default:
+            preconditionFailure("Unexpected Co-op API request")
+        }
+        let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(body.utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    private static func readBody(_ request: URLRequest) -> Data {
+        if let body = request.httpBody { return body }
+        guard let stream = request.httpBodyStream else { return Data() }
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 1024)
+        while true {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            guard count > 0 else { return data }
+            data.append(contentsOf: buffer.prefix(count))
         }
     }
 }

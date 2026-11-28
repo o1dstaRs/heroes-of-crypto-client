@@ -14,6 +14,7 @@ import React, { useEffect, useState } from "react";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { SYNERGY_KEY_TO_IMAGE } from "../LeftSideBar/SynergiesConstants";
 import { SynergyLadderTip } from "../LeftSideBar/SynergyLadderTip";
+import { t } from "../../i18n/i18n";
 
 const SYNERGIES = [
     { key: "Life:1", label: "Life Supply", name: LifeSynergyNames.PLUS_SUPPLY_PERCENTAGE, variant: 1 },
@@ -73,11 +74,11 @@ export const SynergySlotTip: React.FC<{
             label={label.slice(faction.length + 1)}
             level={appliedLevel}
             previewLevel={appliedLevel || unlockedLevel}
-            previewHint="Click to field this synergy instead"
+            previewHint={t("Click to field this synergy instead")}
         />
         {appliedLevel > 0 && (
             <Typography level="body-xs" sx={{ mt: 0.25, color: "#FFB300" }}>
-                Selected synergy
+                {t("Selected synergy")}
             </Typography>
         )}
     </Box>

@@ -38,6 +38,8 @@ Use the same asset variables with `bash game/macos/build.sh --test` to check the
 
 The native build's test command also checks the account flows with fixture responses and verifies the Google return code and proof. With both asset variables omitted, `--test` runs the fixture checks in a temporary directory. The playable app is packaged only when both asset locations are set.
 
+For a public download, set the same asset variables, `HOC_MACOS_SIGNING_IDENTITY` to the full Developer ID Application certificate name, and `HOC_MACOS_NOTARY_PROFILE` to the notarytool keychain profile. Run `bash game/macos/build.sh --release` on the target architecture. It signs the app with hardened runtime, submits it for notarization, staples and validates the ticket, then writes an architecture-specific zip beside the app.
+
 ## Engine and client
 
 SwiftUI uses the web client's hand-traced floor geometry for painted tiles, highlights, and input. The app statically links the pinned [common Zig engine](../heroes-of-crypto-common/zig/BRIDGE.md). The [C interface](Engine/include/HOCEngine.h) owns one battle, accepts commands, and projects available moves, attacks, spell targets, and combat actions to Swift. The build uses Bun and the common snapshot exporter to prepare the bundled opening states from the canonical unit definitions. The installed app runs offline with Swift and Zig.

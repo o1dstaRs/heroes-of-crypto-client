@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 
 import { images } from "../generated/image_imports";
 import { usePixiManager } from "../pixi/PixiGameManager";
+import { t, tf } from "../i18n/i18n";
 
 interface BarrelPlacementControlsProps {
     team: TeamType;
@@ -54,15 +55,19 @@ export default function BarrelPlacementControls({ team, barrels, disabled = fals
                     alt=""
                     sx={{ width: 32, height: 32 }}
                 />
-                <Typography level="title-sm">Barrel Barricade · {positions.length}/2 placed</Typography>
+                <Typography level="title-sm">
+                    {tf("Barrel Barricade · {count}/2 placed", { count: positions.length })}
+                </Typography>
             </Box>
             {[0, 1].map((index) => {
                 const barrel = positions.find((entry) => entry.index === index);
                 return (
                     <Stack key={index} direction="row" spacing={0.5} useFlexGap flexWrap="wrap" alignItems="center">
                         <Typography level="body-xs" sx={{ flex: 1 }}>
-                            Barrel {index + 1}
-                            {barrel ? ` · ${barrel.cell.x + 1}, ${barrel.cell.y + 1}` : " · unplaced"}
+                            {tf("Barrel {number} · {position}", {
+                                number: index + 1,
+                                position: barrel ? `${barrel.cell.x + 1}, ${barrel.cell.y + 1}` : t("unplaced"),
+                            })}
                         </Typography>
                         <Button
                             size="sm"
@@ -81,7 +86,7 @@ export default function BarrelPlacementControls({ team, barrels, disabled = fals
                                 disabled={disabled}
                                 onClick={() => manager.RemovePlacedBarrel(team, index)}
                             >
-                                Remove
+                                {t("Remove")}
                             </Button>
                         )}
                     </Stack>
@@ -90,7 +95,7 @@ export default function BarrelPlacementControls({ team, barrels, disabled = fals
             {placing !== undefined ? (
                 <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" alignItems="center">
                     <Typography level="body-xs" sx={{ flex: 1 }}>
-                        Click an empty cell in your deployment zone. Esc cancels.
+                        {t("Click an empty cell in your deployment zone. Esc cancels.")}
                     </Typography>
                     <Button
                         size="sm"
@@ -100,13 +105,13 @@ export default function BarrelPlacementControls({ team, barrels, disabled = fals
                             setPlacing(undefined);
                         }}
                     >
-                        Cancel
+                        {t("Cancel")}
                     </Button>
                 </Stack>
             ) : (
                 !disabled && (
                     <Typography level="body-xs">
-                        Drag a white-outlined barrel, or click it and choose an empty cell. One hit destroys it.
+                        {t("Drag a white-outlined barrel, or click it and choose an empty cell. One hit destroys it.")}
                     </Typography>
                 )
             )}

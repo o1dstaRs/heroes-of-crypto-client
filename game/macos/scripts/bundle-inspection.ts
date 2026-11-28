@@ -1,6 +1,8 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { russianSpellTemplate } from "../../../site/src/lib/spells-data";
+import { abilityDescription } from "../../../site/src/lib/units-data";
 import abilities from "../../heroes-of-crypto-common/src/configuration/abilities.json";
 import auras from "../../heroes-of-crypto-common/src/configuration/aura_effects.json";
 import { getAbilityConfig, getSpellConfig } from "../../heroes-of-crypto-common/src/configuration/config_provider";
@@ -22,6 +24,7 @@ export function bundleInspection(output: string, abilityDescriptions: ReadonlyMa
                       name,
                       {
                           description: desc.join(" ").replaceAll("{}", String(power)),
+                          descriptionRu: russianSpellTemplate(faction, name)?.replaceAll("{}", String(power)),
                           applied: desc
                               .filter((line) => !line.startsWith("Lasts "))
                               .join(" ")
@@ -35,7 +38,12 @@ export function bundleInspection(output: string, abilityDescriptions: ReadonlyMa
         if (typeof definition !== "object") return [];
         const { desc, power, stack_powered } = getAbilityConfig(name);
         const description = abilityDescriptions.get(name) || desc.join("\n").replaceAll("{}", String(power));
-        return [[name, { description, stackPowered: stack_powered }] as const];
+        return [
+            [
+                name,
+                { description, descriptionRu: abilityDescription(name, "ru"), stackPowered: stack_powered },
+            ] as const,
+        ];
     });
     const statusDescriptions = (definitions: Record<string, number | { desc: string }>) =>
         Object.fromEntries(

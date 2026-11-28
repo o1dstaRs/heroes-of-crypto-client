@@ -178,7 +178,7 @@ private struct GameModeButton: View {
                     }
                     titleLabel
                 }
-                Text(detail)
+                Text(LocalizedStringKey(detail))
                     .font(.system(size: 13))
                     .foregroundStyle(BattlePalette.sidebarTitle)
                     .opacity(hovered ? 1 : 0)
@@ -198,12 +198,12 @@ private struct GameModeButton: View {
             if inside { sweepTrigger.toggle() }
         }
         .modifier(SandboxCursorTarget(hovering: hovered))
-        .accessibilityLabel(title)
-        .accessibilityHint(detail)
+        .accessibilityLabel(Text(LocalizedStringKey(title)))
+        .accessibilityHint(Text(LocalizedStringKey(detail)))
     }
 
     private var titleLabel: some View {
-        let label = Text(title).font(BattleResources.display(titleSize))
+        let label = Text(LocalizedStringKey(title)).font(BattleResources.display(titleSize))
         return label.foregroundStyle(titleColor)
             .overlay {
                 if !reduceMotion {
@@ -274,6 +274,7 @@ private struct AccountPanel: View {
 
     let controller: NativeAccountController
     let destinationTitle: String
+    @Environment(\.locale) private var locale
 
     @State private var mode = Mode.signIn
     @State private var username = ""
@@ -295,7 +296,7 @@ private struct AccountPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
             if controller.checking {
-                title(destinationTitle)
+                title(LocalizedStringKey(destinationTitle))
                 HStack(spacing: 10) {
                     ProgressView().controlSize(.small)
                     Text("Checking your session…").foregroundStyle(BattlePalette.sidebarTitle)
@@ -313,7 +314,7 @@ private struct AccountPanel: View {
             if let activity = controller.activity, activity != .restore {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text(activity.rawValue).font(.subheadline)
+                    Text(LocalizedStringKey(activity.rawValue)).font(.subheadline)
                     Spacer(minLength: 2)
                     if activity == .google {
                         Button("Cancel", action: cancelGoogleSignIn).buttonStyle(.borderless)
@@ -350,7 +351,11 @@ private struct AccountPanel: View {
 
     private var signInForm: some View {
         VStack(alignment: .leading, spacing: 14) {
-            title(mode == .register ? "Create an account" : "Sign in to open \(destinationTitle)")
+            if mode == .register {
+                title("Create an account")
+            } else {
+                title("Sign in to open \(Text(LocalizedStringKey(destinationTitle)))")
+            }
             googleButton
             HStack(spacing: 11) {
                 Rectangle().fill(BattlePalette.bronze.opacity(0.7)).frame(height: 1)
@@ -383,13 +388,17 @@ private struct AccountPanel: View {
     private var googleButton: some View {
         Button {
             let window = GameWindow.current
-            googleSignIn = Task { await controller.signInWithGoogle(window: window) }
+            let language = locale.language.languageCode?.identifier ?? "en"
+            googleSignIn = Task { await controller.signInWithGoogle(window: window, language: language) }
         } label: {
-            if let url = Bundle.main.url(forResource: "google-sign-in", withExtension: "png"),
+            if locale.language.languageCode?.identifier != "ru",
+               let url = Bundle.main.url(forResource: "google-sign-in", withExtension: "png"),
                let image = NSImage(contentsOf: url) {
                 Image(nsImage: image).resizable().scaledToFit().frame(width: 180, height: 40)
             } else {
-                Text("Sign in with Google").frame(height: 40)
+                Text("Sign in with Google").font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.black).frame(minWidth: 180, minHeight: 40)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 4))
             }
         }
         .buttonStyle(.plain)
@@ -481,7 +490,7 @@ private struct AccountPanel: View {
 
     private func input<Content: View>(_ label: String, field: Field, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(label).font(.system(size: 12, weight: .semibold)).foregroundStyle(BattlePalette.sidebarTitle)
+            Text(LocalizedStringKey(label)).font(.system(size: 12, weight: .semibold)).foregroundStyle(BattlePalette.sidebarTitle)
                 .accessibilityHidden(true)
             content()
                 .textFieldStyle(.plain)
@@ -493,25 +502,25 @@ private struct AccountPanel: View {
                     RoundedRectangle(cornerRadius: 6).strokeBorder(focus == field ? BattlePalette.gold : BattlePalette.bronze)
                 }
                 .focused($focus, equals: field)
-                .accessibilityLabel(label)
+                .accessibilityLabel(Text(LocalizedStringKey(label)))
                 .disabled(busy)
         }
     }
 
-    private func title(_ string: String) -> some View {
+    private func title(_ string: LocalizedStringKey) -> some View {
         Text(string).font(BattleResources.display(30)).fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
     }
 
     private func primary(_ label: String, enabled: Bool, action: @escaping @MainActor () async -> Void) -> some View {
-        Button(label) { Task { await action() } }
+        Button(LocalizedStringKey(label)) { Task { await action() } }
             .buttonStyle(GameMenuButtonStyle(prominent: true, fullWidth: true))
             .keyboardShortcut(.defaultAction)
             .disabled(!enabled || busy)
     }
 
     private func textButton(_ label: String, action: @escaping () -> Void) -> some View {
-        Button(label, action: action)
+        Button(LocalizedStringKey(label), action: action)
             .buttonStyle(.plain)
             .modifier(SandboxCursorTarget())
             .font(.system(size: 13, weight: .medium))
@@ -520,7 +529,7 @@ private struct AccountPanel: View {
     }
 
     private func note(_ text: String, icon: String, color: Color) -> some View {
-        Label(text, systemImage: icon)
+        Label(LocalizedStringKey(text), systemImage: icon)
             .font(.subheadline)
             .foregroundStyle(color)
             .fixedSize(horizontal: false, vertical: true)

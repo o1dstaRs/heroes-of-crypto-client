@@ -1,9 +1,9 @@
-import { statusEffectElapsedMs } from "../../settings/statusEffectTiming";
+import { FLOATING_RESULT_DURATION_MS, statusEffectAppearanceElapsedMs } from "../../settings/statusEffectTiming";
 import { Assets, Container, Rectangle, Sprite, Texture } from "pixi.js";
 
 import { animationAtlases } from "../../generated/animation_atlases";
 import { images } from "../../imageAssets";
-import type { DeepWoundsVisualLevel } from "./deepWoundsFlagApplications";
+import type { DeepWoundsVisualLevel } from "./deepWoundsApplications";
 
 type Anchor = Readonly<{ x: number; y: number }>;
 const metas = animationAtlases["Vfx Deep Wounds Level"];
@@ -26,12 +26,12 @@ export function deepWoundsFrameAt(level: DeepWoundsVisualLevel, elapsedMs: numbe
     return undefined;
 }
 
-/** Painted top-to-bottom cuts; fixed flag anchor, independent of creature poses and scene timestep. */
+/** Painted cuts follow the struck figure on the damage clock. */
 export class DeepWoundsPops {
     private readonly frames = new Map<DeepWoundsVisualLevel, Texture[]>();
     private readonly loads = new Map<DeepWoundsVisualLevel, Promise<Texture[] | undefined>>();
     private readonly heldLeases = new Set<DeepWoundsVisualLevel>();
-    private readonly pendingUnits = new Set<string>();
+    private readonly pendingUnits = new Map<string, symbol>();
     private generation = 0;
     private readonly pops: {
         unitId: string;
@@ -47,6 +47,9 @@ export class DeepWoundsPops {
     ) {}
     public get active(): boolean {
         return this.pops.length > 0;
+    }
+    public preload(): void {
+        for (const level of [1, 2, 3] as const) void this.loadFrames(level);
     }
     private loadFrames(level: DeepWoundsVisualLevel): Promise<Texture[] | undefined> {
         const frames = this.frames.get(level);
@@ -94,13 +97,20 @@ export class DeepWoundsPops {
         cellSize: number,
         follow?: () => Anchor | undefined,
     ): Promise<void> {
-        // An exchange may report the same victim twice for Double Punch. Keep one readable flag cue.
-        if (this.pendingUnits.has(unitId) || this.pops.some((pop) => pop.unitId === unitId)) return;
-        this.pendingUnits.add(unitId);
+        const startedAtMs = this.now();
+        const pending = Symbol();
+        this.pendingUnits.set(unitId, pending);
+        const previous = this.pops.findIndex((pop) => pop.unitId === unitId);
+        if (previous >= 0) {
+            this.pops[previous].container.destroy({ children: true });
+            this.pops.splice(previous, 1);
+        }
         const generation = this.generation;
         try {
-            const frames = await this.loadFrames(level);
-            if (!frames || generation !== this.generation) return;
+            // Warm art attaches on the impact frame. A cold decode joins the same clock at its current cel.
+            const frames = this.frames.get(level) ?? (await this.loadFrames(level));
+            if (!frames || generation !== this.generation || this.pendingUnits.get(unitId) !== pending) return;
+            if (this.now() - startedAtMs >= FLOATING_RESULT_DURATION_MS) return;
             const position = follow ? follow() : anchor;
             if (!position) return;
             const container = new Container();
@@ -110,18 +120,19 @@ export class DeepWoundsPops {
             container.addChild(sprite);
             container.position.set(position.x, position.y);
             container.scale.set(1, -1);
-            this.attach(container, 5520);
-            this.pops.push({ unitId, level, container, sprite, startedAtMs: this.now(), follow });
+            this.attach(container, 5519);
+            this.pops.push({ unitId, level, container, sprite, startedAtMs, follow });
             this.update(0);
         } finally {
-            if (generation === this.generation) this.pendingUnits.delete(unitId);
+            if (this.pendingUnits.get(unitId) === pending) this.pendingUnits.delete(unitId);
         }
     }
     public update(_dtSeconds: number): void {
         const now = this.now();
         for (let i = this.pops.length - 1; i >= 0; i--) {
             const pop = this.pops[i];
-            const frame = deepWoundsFrameAt(pop.level, statusEffectElapsedMs(Math.max(0, now - pop.startedAtMs)));
+            const elapsed = ((now - pop.startedAtMs) / FLOATING_RESULT_DURATION_MS) * 1000;
+            const frame = deepWoundsFrameAt(pop.level, statusEffectAppearanceElapsedMs(elapsed));
             const position = pop.follow?.();
             if (frame === undefined || (pop.follow && !position)) {
                 pop.container.destroy({ children: true });

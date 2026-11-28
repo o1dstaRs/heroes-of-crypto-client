@@ -6,7 +6,7 @@ import WebKit
 @MainActor
 @Observable
 final class PremiumWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
-    enum Action { case signIn, signOut, arena, lobby, sandbox }
+    enum Action { case signIn, signOut, arena, lobby, sandbox, language(String) }
 
     private(set) var view: WKWebView?
     private(set) var loading = false
@@ -14,6 +14,7 @@ final class PremiumWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
     @ObservationIgnored private var token: String?
     @ObservationIgnored private var crewPreference: String?
     @ObservationIgnored private var returnURL = PremiumSite.entry
+    @ObservationIgnored private var language = "en"
     @ObservationIgnored private var handle: ((Action) -> Void)?
     @ObservationIgnored private weak var account: NativeAccountController?
     @ObservationIgnored private var authorizationCheck: Task<Void, Never>?
@@ -21,16 +22,23 @@ final class PremiumWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
     @ObservationIgnored private var authorizationExpired = false
     @ObservationIgnored private var triedReconnect = false
 
-    func prepare(_ account: NativeAccountController, handle: @escaping (Action) -> Void) {
+    func prepare(_ account: NativeAccountController, language: String, handle: @escaping (Action) -> Void) {
         let returning = self.handle == nil
         self.account = account
         self.handle = handle
         if returning { triedReconnect = false }
         let session = account.verifiedSession
+        let languageChanged = self.language != language
+        self.language = language
         if view == nil {
             open(session)
         } else if session?.token != token {
             updateAccount(session)
+        } else if languageChanged, let view {
+            let url = view.url.flatMap { PremiumSite.isWorkspace($0) ? $0 : nil } ?? returnURL
+            problem = nil
+            loading = true
+            view.load(URLRequest(url: PremiumSite.workspaceURL(url, language: language)))
         } else if returning, let view {
             if authorizationExpired {
                 reconnect(view)
@@ -107,7 +115,7 @@ final class PremiumWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
         view = web
         problem = nil
         loading = true
-        web.load(URLRequest(url: returnURL))
+        web.load(URLRequest(url: PremiumSite.workspaceURL(returnURL, language: language)))
     }
 
     private func reconnect(_ web: WKWebView, offerSignIn: Bool = true) {
@@ -148,6 +156,12 @@ final class PremiumWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
         }
         let target = route(action, url: url)
         if target == .website {
+            if action.navigationType == .linkActivated, action.sourceFrame.isMainFrame,
+               action.sourceFrame.request.url.map(PremiumSite.owns) == true,
+               let selected = PremiumSite.workspaceLanguage(url), selected != language {
+                language = selected
+                handle?(.language(selected))
+            }
             decisionHandler(.allow)
         } else {
             decisionHandler(.cancel)
@@ -265,6 +279,9 @@ struct InAppPremium: View {
     let session: PremiumWebSession
     let account: NativeAccountController
     let handle: (PremiumWebSession.Action) -> Void
+    @Environment(\.locale) private var locale
+
+    private var language: String { locale.language.languageCode?.identifier ?? "en" }
 
     var body: some View {
         ZStack {
@@ -276,7 +293,7 @@ struct InAppPremium: View {
             }
             if let problem = session.problem {
                 VStack(spacing: 16) {
-                    Text(problem)
+                    Text(LocalizedStringKey(problem))
                     Button("Reload Premium") { session.reload() }
                         .buttonStyle(GameMenuButtonStyle(prominent: true))
                 }
@@ -293,8 +310,9 @@ struct InAppPremium: View {
         }
         .task(id: account.checking) {
             await account.restore()
-            if !Task.isCancelled && !account.checking { session.prepare(account, handle: handle) }
+            if !Task.isCancelled && !account.checking { session.prepare(account, language: language, handle: handle) }
         }
+        .onChange(of: language) { session.prepare(account, language: language, handle: handle) }
         .onDisappear { session.detach() }
     }
 }

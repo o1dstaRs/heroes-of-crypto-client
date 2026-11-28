@@ -63,6 +63,7 @@ private struct UnitInspectionHoverTarget: ViewModifier {
     let detail: UnitInspectionDescription
     let magnifies: Bool
     @Environment(\.unitInspectionHover) private var hover
+    @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var owner = UUID()
     @State private var frame = CGRect.zero
@@ -73,7 +74,7 @@ private struct UnitInspectionHoverTarget: ViewModifier {
             .brightness(inside ? 0.12 : 0)
             .scaleEffect(magnifies && inside && !reduceMotion ? 1.05 : 1)
             .contentShape(Rectangle())
-            .accessibilityHint(Text(verbatim: detail.accessibilityHint))
+            .accessibilityHint(Text(verbatim: GameLocalization.text(detail.accessibilityHint, locale: locale)))
             .modifier(SandboxCursorTarget(hovering: inside))
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
                 frame = $0
@@ -100,15 +101,15 @@ private struct UnitTooltip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(verbatim: detail.title)
+            Text(LocalizedStringKey(detail.title))
                 .font(BattleResources.display(13))
                 .foregroundStyle(BattlePalette.gold)
             if !detail.description.isEmpty {
-                Text(verbatim: detail.description)
+                Text(LocalizedStringKey(detail.description))
                     .foregroundStyle(BattlePalette.parchment)
             }
             if let note = detail.note {
-                Text(verbatim: note)
+                Text(LocalizedStringKey(note))
                     .foregroundStyle(BattlePalette.sidebarTitle)
             }
         }

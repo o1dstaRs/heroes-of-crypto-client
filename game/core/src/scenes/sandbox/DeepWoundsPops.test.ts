@@ -1,4 +1,4 @@
-import { OVERHEAD_EFFECT_PLAYBACK_SPEED } from "../../settings/statusEffectTiming";
+import { FLOATING_RESULT_DURATION_MS } from "../../settings/statusEffectTiming";
 import { describe, expect, spyOn, test } from "bun:test";
 import { Assets, Container, Sprite, Texture, TextureSource } from "pixi.js";
 
@@ -10,7 +10,7 @@ import { DeepWoundsPops, deepWoundsFrameAt } from "./DeepWoundsPops";
 
 const levels = [1, 2, 3] as const;
 
-describe("painted Deep Wounds flag effects", () => {
+describe("painted Deep Wounds impact effects", () => {
     for (const level of levels) {
         test(`${level} cuts play every cel once and expire at exactly 1000ms`, () => {
             const meta = animationAtlases["Vfx Deep Wounds Level"][String(level)];
@@ -32,7 +32,7 @@ describe("painted Deep Wounds flag effects", () => {
             expect(isProductionOmittedDisabledUnitAnimationAssetKey(key)).toBe(false);
         });
     }
-    test("loads the selected cut count, follows a rebuilt flag, preserves scale, and coalesces a double punch", async () => {
+    test("follows the struck body without stretching and restarts synchronously on a second hit", async () => {
         const atlas = new Texture({ source: new TextureSource({ width: 1536, height: 1536 }) });
         const load = spyOn(Assets, "load").mockResolvedValue(atlas as unknown as Record<string, unknown>);
         const unload = spyOn(Assets, "unload").mockResolvedValue();
@@ -42,13 +42,10 @@ describe("painted Deep Wounds flag effects", () => {
         let anchor: { x: number; y: number } | undefined = { x: 100, y: 200 };
         const layer = new DeepWoundsPops(
             (container) => root.addChild(container),
-            () => now / OVERHEAD_EFFECT_PLAYBACK_SPEED,
+            () => now,
         );
         try {
-            await Promise.all([
-                layer.spawn("victim", 2, anchor, 64, () => anchor),
-                layer.spawn("victim", 2, anchor, 64, () => anchor),
-            ]);
+            await layer.spawn("victim", 2, anchor, 64, () => anchor);
             expect(load).toHaveBeenCalledTimes(1);
             expect<unknown>(load.mock.calls[0][0]).toBe(images.vfx_deep_wounds_level_2_atlas);
             expect(root.children).toHaveLength(1);
@@ -70,13 +67,19 @@ describe("painted Deep Wounds flag effects", () => {
             expect(sprite.texture.frame.x).toBe(0);
             expect(sprite.texture.frame.y).toBe(1152);
             expect(container.alpha).toBe(1); // The sprite already carries its fade.
-            now = 649;
+            const second = layer.spawn("victim", 2, anchor, 64, () => anchor);
+            const replacement = root.children[0];
+            expect(container.destroyed).toBe(true);
+            expect((replacement.children[0] as Sprite).texture.frame.y).toBe(0);
+            await second;
+            expect(load).toHaveBeenCalledTimes(1);
+            now = 500 + FLOATING_RESULT_DURATION_MS - 1;
             layer.update(1 / 240);
             expect(layer.active).toBe(true);
-            now = 650;
+            now += 1;
             layer.update(1 / 240);
             expect(layer.active).toBe(false);
-            expect(container.destroyed).toBe(true);
+            expect(replacement.destroyed).toBe(true);
             expect(atlas.destroyed).toBe(false);
             await layer.spawn("victim", 2, anchor, 64, () => anchor);
             expect(layer.active).toBe(true);
@@ -90,7 +93,40 @@ describe("painted Deep Wounds flag effects", () => {
             unload.mockRestore();
         }
     });
-    test("scene teardown cancels an in-flight load without resurrecting a flag pop", async () => {
+    test("a cold sheet joins the damage clock without delaying or prolonging the wound", async () => {
+        const atlas = new Texture({ source: new TextureSource({ width: 1536, height: 1536 }) });
+        let resolve!: (texture: Texture) => void;
+        const load = spyOn(Assets, "load").mockReturnValue(
+            new Promise<Texture>((done) => {
+                resolve = done;
+            }) as unknown as Promise<Record<string, unknown>>,
+        );
+        const unload = spyOn(Assets, "unload").mockResolvedValue();
+        const root = new Container();
+        let now = 0;
+        const layer = new DeepWoundsPops(
+            (container) => root.addChild(container),
+            () => now,
+        );
+        try {
+            const pending = layer.spawn("victim", 2, { x: 100, y: 200 }, 64);
+            now = 500;
+            resolve(atlas);
+            await pending;
+            expect((root.children[0].children[0] as Sprite).texture.frame.y).toBe(1152);
+            now = FLOATING_RESULT_DURATION_MS;
+            layer.update(0);
+            expect(root.children).toHaveLength(0);
+        } finally {
+            layer.clear();
+            await Promise.resolve();
+            load.mockRestore();
+            unload.mockRestore();
+            atlas.destroy(true);
+            root.destroy();
+        }
+    });
+    test("scene teardown cancels an in-flight load without resurrecting the cut", async () => {
         let resolve!: (texture: Texture) => void;
         const load = spyOn(Assets, "load").mockReturnValue(
             new Promise<Texture>((done) => {

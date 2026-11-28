@@ -204,7 +204,7 @@ export const FightArmySynergies: React.FC<{
                             label: t(faction),
                             name: `${t(synergyLabels[`${faction}:${variant}`])} · ${t("Level")} ${level}`,
                             image: (SYNERGY_KEY_TO_IMAGE as Record<string, string>)[key],
-                            detail: t(synergyEffectAtLevel(faction, variant, level)),
+                            detail: synergyEffectAtLevel(faction, variant, level, t),
                         }}
                     />
                     <Box aria-hidden sx={{ display: "flex", gap: "3px", height: 4 }}>

@@ -6,6 +6,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 
 import { pickExitCloseButtonSx } from "./exitFightButtonSx";
+import { t } from "../i18n/i18n";
 
 export const GAME_CORNER_SLOT_INSET = "1rem";
 export const GAME_CORNER_SLOT_TOP = "calc(max(0px, calc(1rem - 2vh)) + 1vh)";
@@ -53,9 +54,15 @@ export const GameCornerExitButton: React.FC<{
 );
 
 export const GameCornerStartOverButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
-    <Tooltip title="Clear the board and start a new sandbox" describeChild variant="soft" size="sm" placement="bottom">
+    <Tooltip
+        title={t("Clear the board and start a new sandbox")}
+        describeChild
+        variant="soft"
+        size="sm"
+        placement="bottom"
+    >
         <IconButton
-            aria-label="Start over"
+            aria-label={t("Start over")}
             onClick={onClick}
             sx={{
                 ...pickExitCloseButtonSx,

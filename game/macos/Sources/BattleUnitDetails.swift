@@ -4,6 +4,7 @@ struct BattleUnitDetails: View {
     let stack: Stack
     let width: CGFloat
     var compact = false
+    @Environment(\.locale) private var locale
 
     var body: some View {
         let abilitySize = compact ? 32 : min(56, max(44, (width - 26) / 4))
@@ -13,7 +14,7 @@ struct BattleUnitDetails: View {
                 section("ABILITIES")
                 tiles(height: abilitySize + 8) {
                     ForEach(Array(stack.abilities.enumerated()), id: \.offset) { _, name in
-                        tile(UnitInspectionDescriptions.ability(name), size: abilitySize, symbol: "sparkles")
+                        tile(UnitInspectionDescriptions.ability(name, locale: locale), size: abilitySize, symbol: "sparkles")
                     }
                 }
             }
@@ -21,7 +22,7 @@ struct BattleUnitDetails: View {
                 section("MAGIC")
                 tiles(height: spellSize + (compact ? 8 : 34)) {
                     ForEach(stack.book, id: \.name) { spell in
-                        let detail = UnitInspectionDescriptions.spell(spell)
+                        let detail = UnitInspectionDescriptions.spell(spell, locale: locale)
                         VStack(alignment: .center, spacing: 3) {
                             art(detail.title, size: spellSize, symbol: "scroll", prefersSpell: true)
                                 .overlay(alignment: .bottomTrailing) {
@@ -32,12 +33,12 @@ struct BattleUnitDetails: View {
                                         .padding(2)
                                 }
                             if !compact {
-                                Text(spell.name).font(BattleResources.display(8)).multilineTextAlignment(.center)
+                                Text(LocalizedStringKey(spell.name)).font(BattleResources.display(8)).multilineTextAlignment(.center)
                                     .lineLimit(2).frame(width: 44)
                             }
                         }
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(spell.name)
+                        .accessibilityLabel(Text(LocalizedStringKey(spell.name)))
                         .unitInspectionHover(detail, magnifies: true)
                     }
                 }
@@ -51,7 +52,7 @@ struct BattleUnitDetails: View {
     private func section(_ title: String) -> some View {
         HStack(spacing: 6) {
             Rectangle().fill(BattlePalette.bronze.opacity(0.55)).frame(height: 1)
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .font(BattleResources.display(10)).tracking(1)
                 .foregroundStyle(BattlePalette.sidebarTitle)
                 .frame(width: 95, height: 17)
@@ -80,7 +81,7 @@ struct BattleUnitDetails: View {
             section(title)
             tiles(height: iconSize + 8) {
                 ForEach(Array(statuses.enumerated()), id: \.offset) { _, status in
-                    tile(UnitInspectionDescriptions.status(status), size: iconSize,
+                    tile(UnitInspectionDescriptions.status(status, locale: locale), size: iconSize,
                          symbol: status.kind == .buff ? "arrow.up" : "arrow.down", prefersSpell: status.kind != .effect)
                 }
             }
@@ -90,7 +91,7 @@ struct BattleUnitDetails: View {
     private func tile(_ detail: UnitInspectionDescription, size: CGFloat, symbol: String, prefersSpell: Bool = false) -> some View {
         art(detail.title, size: size, symbol: symbol, prefersSpell: prefersSpell)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(detail.title)
+            .accessibilityLabel(Text(LocalizedStringKey(detail.title)))
             .unitInspectionHover(detail, magnifies: true)
     }
 

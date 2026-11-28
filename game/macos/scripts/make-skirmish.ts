@@ -2,6 +2,7 @@ import { mkdirSync, copyFileSync, existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { SUPPORTED_LANGUAGES } from "../../core/src/i18n/i18n";
 import {
     BATTLEFIELD_ARTWORK,
     BATTLEFIELD_HORIZONTAL_BIAS,
@@ -15,7 +16,9 @@ import { DEFAULT_MOVEMENT_AREA_TUNING } from "../../core/src/scenes/movementArea
 import { BATTLEFIELD_GRID_ROWS } from "../../core/src/scenes/sandbox/BattlefieldVisualGrid";
 import { AMBIENT_FIRE_DEFINITIONS } from "../../core/src/scenes/sandbox/ambientFireTuning";
 import { SPELL_BOOK_FURNITURE, spellIconTextureKey } from "../../core/src/scenes/spellIcons";
+import { ARMY_COLOR_PRESETS } from "../../core/src/settings/playerArmyColor";
 import { SYNERGY_KEY_TO_IMAGE } from "../../core/src/ui/LeftSideBar/SynergiesConstants";
+import { RU_TRANSLATIONS } from "../../core/src/i18n/ru";
 import { synergyEffectAtLevel } from "../../core/src/ui/LeftSideBar/synergyLadder";
 import spellSounds from "../../core/src/ui/audio/spellSoundManifest.json";
 import { battlePortraitFacingScale } from "../../core/src/ui/battlePortraitFacing";
@@ -113,6 +116,10 @@ function collectIcons(unit: Creature): void {
 }
 
 mkdirSync(output, { recursive: true });
+writeFileSync(
+    join(output, "online-preferences.json"),
+    JSON.stringify({ languages: SUPPORTED_LANGUAGES, armyColors: ARMY_COLOR_PRESETS }),
+);
 writeFileSync(
     join(output, "sandbox-turn-clock.json"),
     JSON.stringify({
@@ -340,6 +347,7 @@ if (images) {
                         {
                             icon: resourceName(link).replace(/\.webp$/, ""),
                             description: synergyEffectAtLevel(faction, variant, Number(level)),
+                            descriptionRu: synergyEffectAtLevel(faction, variant, Number(level), (text) => RU_TRANSLATIONS[text] ?? text),
                         },
                     ];
                 }),

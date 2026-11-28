@@ -5,6 +5,12 @@ import WebKit
 /// The web FightLog component runs against the locally bundled page. Only the log text and copy command cross the bridge.
 struct BattleLogPane: NSViewRepresentable {
     let lines: [String]
+    @Environment(\.locale) private var locale
+
+    struct Snapshot: Equatable {
+        let text: String
+        let language: String
+    }
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -20,7 +26,8 @@ struct BattleLogPane: NSViewRepresentable {
     }
 
     func updateNSView(_ view: WKWebView, context: Context) {
-        context.coordinator.update(lines.reversed().joined(separator: "\n"), in: view)
+        context.coordinator.update(Snapshot(text: lines.reversed().joined(separator: "\n"),
+                                            language: locale.language.languageCode?.identifier ?? "en"), in: view)
     }
 
     static func dismantleNSView(_ view: WKWebView, coordinator: Coordinator) {
@@ -31,8 +38,8 @@ struct BattleLogPane: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandlerWithReply {
         private let page = Bundle.main.url(forResource: "native-fight-log", withExtension: "html")
-        private var pending = ""
-        private var displayed: String?
+        private var pending = Snapshot(text: "", language: "en")
+        private var displayed: Snapshot?
         private var ready = false
 
         func load(_ view: WKWebView) {
@@ -41,17 +48,18 @@ struct BattleLogPane: NSViewRepresentable {
             if let page { view.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent()) }
         }
 
-        func update(_ text: String, in view: WKWebView) {
-            pending = text
-            guard ready, displayed != text else { return }
-            displayed = text
+        func update(_ snapshot: Snapshot, in view: WKWebView) {
+            pending = snapshot
+            guard ready, displayed != snapshot else { return }
+            displayed = snapshot
             Task { [weak self, weak view] in
-                guard let self, let view, ready, displayed == text else { return }
+                guard let self, let view, ready, displayed == snapshot else { return }
                 do {
-                    _ = try await view.callAsyncJavaScript("window.hocSetBattleLog(text)", arguments: ["text": text],
+                    _ = try await view.callAsyncJavaScript("window.hocSetBattleLog(text, language)",
+                                                           arguments: ["text": snapshot.text, "language": snapshot.language],
                                                            in: nil, contentWorld: .page)
                 } catch {
-                    if displayed == text { displayed = nil }
+                    if displayed == snapshot { displayed = nil }
                 }
             }
         }

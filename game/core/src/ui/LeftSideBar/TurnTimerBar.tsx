@@ -4,6 +4,7 @@ import React from "react";
 
 import { hocColors } from "../hocTheme";
 import { useSidebarMetrics } from "./sidebarMetrics";
+import { t } from "../../i18n/i18n";
 
 // The turn timer ticks every 500ms (see Sandbox.updateVisibleTurnTimer), so matching the bar's
 // width transition to that cadence makes it drain continuously instead of stepping twice a second.
@@ -106,7 +107,7 @@ export const TurnTimerBar: React.FC<TurnTimerBarProps> = ({
                             color: hocColors.gold,
                         }}
                     >
-                        Lap
+                        {t("Lap")}
                     </Typography>
                     <Typography
                         sx={{

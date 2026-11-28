@@ -115,11 +115,13 @@ struct BattleResultsOverlay: View {
                     .padding(5)
                     .background(.black.opacity(0.65), in: Circle())
                     .overlay { Circle().strokeBorder(winnerTone.opacity(0.58), lineWidth: 1.6) }
-                Text(title)
+                Text(LocalizedStringKey(title))
                     .font(BattleResources.display(14)).tracking(1.2)
                     .foregroundStyle(winnerTone)
                     .accessibilityAddTraits(.isHeader)
-                Text("BATTLE · \(summary.laps) \(summary.laps == 1 ? "LAP" : "LAPS")")
+                Text(summary.laps == 1
+                     ? LocalizedStringKey("BATTLE · \(summary.laps) LAP")
+                     : LocalizedStringKey("BATTLE · \(summary.laps) LAPS"))
                     .font(.system(size: 9, weight: .semibold)).tracking(0.5)
                     .foregroundStyle(BattlePalette.sidebarTitle)
             }
@@ -147,13 +149,13 @@ struct BattleResultsOverlay: View {
         return HStack(spacing: 12) {
             if !reversed { crest(team, isAI: isAI) }
             VStack(alignment: reversed ? .trailing : .leading, spacing: 6) {
-                Text("\(team.title) \(isAI ? "AI" : "Player")".uppercased())
+                Text(LocalizedStringKey("\(team.title) \(isAI ? "AI" : "Player")".uppercased()))
                     .font(BattleResources.display(20)).tracking(0.65)
                     .lineLimit(1).minimumScaleFactor(0.7)
-                Text(result)
+                Text(LocalizedStringKey(result))
                     .font(BattleResources.display(11)).tracking(1)
                     .foregroundStyle(won ? BattlePalette.gold : tone)
-                Text("\(team.title.uppercased()) ARMY")
+                Text("\(Text(LocalizedStringKey(team.title.uppercased()))) ARMY")
                     .font(.system(size: 9, weight: .semibold)).tracking(0.7)
                     .foregroundStyle(BattlePalette.sidebarTitle)
             }
@@ -255,7 +257,7 @@ struct BattleResultsOverlay: View {
                         .accessibilityHidden(true)
                     VStack(spacing: 4) {
                         HStack {
-                            Text(row.name).font(.system(size: 12, weight: .semibold)).foregroundStyle(BattlePalette.gold)
+                            Text(LocalizedStringKey(row.name)).font(.system(size: 12, weight: .semibold)).foregroundStyle(BattlePalette.gold)
                             Spacer(minLength: 5)
                             Text(hudNumber(row.damage)).font(.system(size: 12, weight: .semibold).monospacedDigit())
                                 .foregroundStyle(tone.opacity(row.damage > 0 ? 1 : 0.56))
@@ -289,7 +291,7 @@ struct BattleResultsOverlay: View {
         } ?? []
         return VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text("\(army.team.title.uppercased()) CASUALTIES")
+                Text("\(Text(LocalizedStringKey(army.team.title.uppercased()))) CASUALTIES")
                     .font(BattleResources.display(12)).tracking(0.65).foregroundStyle(tone)
                     .accessibilityAddTraits(.isHeader)
                 Spacer()

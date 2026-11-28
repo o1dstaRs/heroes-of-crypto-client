@@ -13,6 +13,7 @@ export type GoogleButtonConfiguration = {
     text: "signin_with" | "signup_with" | "continue_with";
     shape: "rectangular";
     logo_alignment: "left";
+    locale?: string;
     width: number;
     state: string;
 };
@@ -103,6 +104,7 @@ export const renderGoogleIdentityButton = (
         state: string;
         action: "login" | "signup" | "link";
         width: number;
+        locale?: string;
         onCredential: (credential: string) => void;
     },
 ): (() => void) => {
@@ -128,6 +130,7 @@ export const renderGoogleIdentityButton = (
             options.action === "login" ? "signin_with" : options.action === "signup" ? "signup_with" : "continue_with",
         shape: "rectangular",
         logo_alignment: "left",
+        locale: options.locale,
         width: Math.max(200, Math.min(400, Math.floor(options.width))),
         state: options.state,
     });

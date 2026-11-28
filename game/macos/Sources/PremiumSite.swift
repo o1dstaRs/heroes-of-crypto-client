@@ -19,6 +19,17 @@ enum PremiumSite {
         owns(url) && localizedPath(url) == "premium"
     }
 
+    static func workspaceURL(_ url: URL = entry, language: String) -> URL {
+        guard isWorkspace(url), var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+        parts.path = language == "ru" ? "/ru/premium/" : "/premium/"
+        return parts.url ?? url
+    }
+
+    static func workspaceLanguage(_ url: URL) -> String? {
+        guard isWorkspace(url) else { return nil }
+        return url.path.hasPrefix("/ru/") ? "ru" : "en"
+    }
+
     static func route(_ url: URL, opensWindow: Bool, userLink: Bool) -> Destination {
         guard isHTTPS(url) else { return .blocked }
         let path = localizedPath(url)

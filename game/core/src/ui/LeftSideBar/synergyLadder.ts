@@ -59,17 +59,22 @@ export const synergyLadder = (faction: string, variant: number | string): Synerg
 };
 
 /** The sentence with its placeholders filled at one level: "Flying units get +24% of additional armor". */
-export const synergyEffectAtLevel = (faction: string, variant: number | string, level: number): string => {
+export function synergyEffectAtLevel(
+    faction: string,
+    variant: number | string,
+    level: number,
+    translate: (text: string) => string = (text) => text,
+): string {
     const key = `${faction}:${variant}:${Math.min(Math.max(level, 1), 3)}`;
     const template = (SYNERGY_NAME_TO_DESCRIPTION as Record<string, string>)[key] ?? "";
     const powers = (SynergyKeysToPower as Record<string, number[]>)[key] ?? [];
     let index = 0;
-    return template.replace(/\{\}/g, () => {
+    return translate(template).replace(/\{\}/g, () => {
         const value = powers[index];
         index += 1;
         return value === undefined ? "—" : `${value}`;
     });
-};
+}
 
 /** How many units of a faction the army needs for the next level, and which level that is; null at the top. */
 export const synergyNextLevel = (units: number, unitsPerLevel = 2): { level: number; unitsAway: number } | null => {

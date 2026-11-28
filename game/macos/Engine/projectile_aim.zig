@@ -47,9 +47,14 @@ pub const ShotHit = struct {
     min: f64,
     max: f64,
     gaze: ?Gaze,
+    redirect: ?Redirect = null,
 };
 
-const DamageBand = struct { min: f64, max: f64 };
+const DamageBand = struct {
+    min: f64 = 0,
+    max: f64 = 0,
+};
+const Redirect = struct { target: u8, min: f64, max: f64 };
 const Gaze = struct {
     min: f64,
     max: f64,
@@ -59,16 +64,23 @@ const Gaze = struct {
     totalHp: f64,
     immune: bool,
     multipleHits: bool,
+    flesh: ?combat.MacFleshGuard,
+    burn: ?combat.MacFireforged,
 };
 
-fn damageBand(state: *const State, from: *const st.Unit, to: *const st.Unit, ranged: bool, divisor: f64, multiplier: f64, area_factor: ?f64) DamageBand {
+const Contact = enum { swing, rider, breath };
+
+fn damageBand(state: *const State, from: *const st.Unit, to: *const st.Unit, ranged: bool, divisor: f64, multiplier: f64, area_factor: ?f64, contact: Contact) DamageBand {
     const first_roll = combat.damageBound(from, to, from.attack_damage_min, ranged, divisor);
     const top_roll = @max(first_roll, combat.damageBound(from, to, from.attack_damage_max, ranged, divisor) - 1);
     const type_multiplier: f64 = if (!ranged and from.attack_type == st.AttackType.RANGE and !from.has(.handyman)) 0.5 else 1;
     const wounds = 1 + abilities.activeDeepWounds(from, to) / 100;
     const element = if (state.elements) combat.physicalElement(from, to) else 1;
-    const lucky = if (from.ability(.lucky_strike)) |ability| abilities.abilityMultiplier(from, ability) else 1;
-    const bite = if (ranged) 0 else abilities.penetratingBite(from, to);
+    const lucky = if (contact == .swing and from.ability(.lucky_strike) != null)
+        abilities.abilityMultiplier(from, from.ability(.lucky_strike).?)
+    else
+        1;
+    const bite = if (ranged or contact != .swing) 0 else abilities.penetratingBite(from, to);
     const low = @floor(first_roll * type_multiplier * multiplier * wounds * element) + bite;
     const high = @floor(@floor(top_roll * type_multiplier * multiplier * wounds * element) * lucky) + bite;
     const factor = area_factor orelse return .{ .min = low, .max = high };
@@ -79,9 +91,9 @@ fn damageBand(state: *const State, from: *const st.Unit, to: *const st.Unit, ran
     };
 }
 
-fn gazeForecast(state: *const State, from: *const st.Unit, to: *const st.Unit, divisor: f64, first: DamageBand, later: DamageBand) ?Gaze {
+fn gazeForecast(state: *const State, from: *const st.Unit, to: *const st.Unit, divisor: f64, first: DamageBand, multiple: bool, guard: ?combat.MacFleshGuard, burn: ?combat.MacFireforged) ?Gaze {
     const ability = from.ability(.petrifying_gaze) orelse return null;
-    if (first.max <= 0 or abilities.absorbsBy(state, to, from)) return null;
+    if (first.max <= 0) return null;
     const is_mind = ability.ty == st.AbilityKind.MIND;
     const percentage = @floor(abilities.applyChance(from, ability));
     const level: f64 = @floatFromInt(to.level);
@@ -96,36 +108,108 @@ fn gazeForecast(state: *const State, from: *const st.Unit, to: *const st.Unit, d
         .hp = to.max_hp,
         .totalHp = engine.cumulativeHp(to),
         .immune = is_mind and abilities.mindResistant(to),
-        .multipleHits = later.max > 0,
+        .multipleHits = multiple,
+        .flesh = guard,
+        .burn = burn,
     };
 }
 
-fn shotHit(state: *const State, from: *const st.Unit, to: *const st.Unit, divisor: f64, through: bool) ShotHit {
+const Volleys = struct {
+    first: DamageBand,
+    later: DamageBand = .{},
+    bonus: f64 = 0,
+    ranged: bool,
+    divisor: f64,
+    contact: Contact = .swing,
+    sweep: bool = false,
+};
+
+fn forecastHit(state: *const State, slot: u8, victim: u8, volleys: Volleys) ShotHit {
+    const from = &state.units[slot];
+    const to = &state.units[victim];
+    const physical = volleys.contact != .breath;
+    const absorbed = if (physical) abilities.absorbsBy(state, to, from) else abilities.absorbsHit(to);
+    const guard = if (physical) combat.macFleshGuard(state, slot, victim, volleys.ranged) else null;
+    const burn = combat.macFireforged(state, from, to);
+    const protector_absorbs = if (guard) |g| abilities.absorbsBy(state, &state.units[g.owner], null) else false;
+    const low = projectVolleys(.{ volleys.first.min, volleys.later.min, 0 }, guard, burn, absorbed, protector_absorbs, volleys.sweep);
+    const high = projectVolleys(.{ volleys.first.max, volleys.later.max, volleys.bonus }, guard, burn, absorbed, protector_absorbs, volleys.sweep);
+    return .{
+        .target = to.uid,
+        .divisor = volleys.divisor,
+        .min = low.damage,
+        .max = high.damage,
+        .gaze = if (absorbed or !physical) null else gazeForecast(state, from, to, volleys.divisor, volleys.first, volleys.later.max > 0 or volleys.bonus > 0, guard, burn),
+        .redirect = if (guard != null and high.redirect > 0)
+            .{ .target = state.units[guard.?.owner].uid, .min = low.redirect, .max = high.redirect }
+        else
+            null,
+    };
+}
+
+fn projectVolleys(hits: [3]f64, initial_guard: ?combat.MacFleshGuard, burn: ?combat.MacFireforged, absorbed: bool, protector_absorbs: bool, sweep: bool) struct { damage: f64, redirect: f64 } {
+    var guard = initial_guard;
+    var damage: f64 = 0;
+    var redirect: f64 = 0;
+    var shield = absorbed;
+    var guard_shield = protector_absorbs;
+    var burned = false;
+    for (hits) |raw| {
+        if (raw <= 0) continue;
+        const split: combat.MacFleshGuard.Split = if (guard) |g| g.split(raw) else .{ .remaining = raw, .cost = 0 };
+        var dealt = if (shield) 0 else split.remaining;
+        if (burn) |f| {
+            if (!sweep or !burned) {
+                dealt += f.burn(if (shield) raw else split.remaining);
+                burned = true;
+            }
+        }
+        var shared = split.cost;
+        if (shared > 0 and guard_shield) {
+            shared = 0;
+            guard_shield = false;
+        }
+        if (guard) |*g| {
+            g.ownerCap = @max(0, g.ownerCap - shared);
+            g.targetCap = @max(0, g.targetCap - dealt);
+        }
+        shield = false;
+        damage += dealt;
+        redirect += shared;
+    }
+    return .{ .damage = damage, .redirect = redirect };
+}
+
+fn shotHit(state: *const State, slot: u8, victim: u8, divisor: f64, through: bool) ShotHit {
+    const from = &state.units[slot];
+    const to = &state.units[victim];
     const wave = if (through) from.ability(.through_shot) else null;
     const paralysis = abilities.paralysisFactor(from) orelse 1;
     const multiplier = if (wave) |ability| abilities.abilityMultiplier(from, ability) else 1;
-    const first: DamageBand = if (abilities.absorbsBy(state, to, from))
-        .{ .min = 0, .max = 0 }
-    else
-        damageBand(state, from, to, true, divisor, multiplier * paralysis, if (through) 1 else null);
-    var later: DamageBand = .{ .min = 0, .max = 0 };
+    const first = damageBand(state, from, to, true, divisor, multiplier * paralysis, if (through) 1 else null, .swing);
+    var later: DamageBand = .{};
     const cost = if (from.has(.endless_quiver)) 0 else if (!through and state.dense and to.ability(.dense_flesh) != null)
         @max(1, @floor(to.ability(.dense_flesh).?.power))
     else
         1;
-    if (combat.doubleShotAbility(from)) |ability| {
-        if (from.range_shots_mod != 0 or engine.getRangeShots(from) > cost) {
+    const shots = engine.getRangeShots(from);
+    const remaining = from.range_shots_mod != 0 or shots > cost;
+    if (remaining) {
+        if (combat.doubleShotAbility(from)) |ability| {
             const second = artifacts.dualStrikeIn(state, from, abilities.abilityMultiplier(from, ability));
-            later = damageBand(state, from, to, true, divisor, multiplier * second * paralysis, if (through) 1 else null);
+            later = damageBand(state, from, to, true, divisor, multiplier * second * paralysis, if (through) 1 else null, .swing);
         }
     }
-    return .{
-        .target = to.uid,
+    const spent = cost * (1 + @as(f64, if (later.max > 0) 1 else 0));
+    const echo = !through and artifacts.echoChance(state, from) > 0 and (from.range_shots_mod != 0 or shots > spent);
+    return forecastHit(state, slot, victim, .{
         .divisor = divisor,
-        .min = first.min + later.min,
-        .max = first.max + later.max,
-        .gaze = gazeForecast(state, from, to, divisor, first, later),
-    };
+        .first = first,
+        .later = later,
+        .bonus = if (echo) first.max else 0,
+        .ranged = true,
+        .sweep = through,
+    });
 }
 
 fn chargedCells(from: *const st.Unit, route_length: usize) f64 {
@@ -135,70 +219,91 @@ fn chargedCells(from: *const st.Unit, route_length: usize) f64 {
         @floatFromInt(route_length);
 }
 
-pub fn meleeHit(state: *const State, from: *const st.Unit, to: *const st.Unit, landing: Cell, route_length: usize) ?ShotHit {
+pub fn meleeHit(state: *const State, slot: u8, target: u8, landing: Cell, route_length: usize) ?ShotHit {
+    const from = &state.units[slot];
+    const to = &state.units[target];
     if (from.has(.lightning_spin)) return null;
     const cells = chargedCells(from, route_length);
     const paralysis = abilities.paralysisFactor(from) orelse 1;
     const position = abilities.positionMultiplierOn(from, landing, engine.baseCell(to), to.fw, to.fh, state.fight.side_oriented);
     const multiplier = abilities.rapidCharge(from, cells) * paralysis * position;
-    const first = if (util.covenantBlocks(to, from, st.Element.UNSET))
-        DamageBand{ .min = 0, .max = 0 }
-    else
-        damageBand(state, from, to, false, 1, multiplier, null);
+    const first = damageBand(state, from, to, false, 1, multiplier, null, .swing);
     const punch = from.ability(.double_punch) orelse from.ability(.crafted_double_punch);
     const later = if (punch) |ability|
-        damageBand(state, from, to, false, 1, artifacts.dualStrikeIn(state, from, abilities.abilityMultiplier(from, ability)) * paralysis, null)
+        damageBand(state, from, to, false, 1, artifacts.dualStrikeIn(state, from, abilities.abilityMultiplier(from, ability)) * paralysis, null, .swing)
     else
-        DamageBand{ .min = 0, .max = 0 };
-    return .{
-        .target = to.uid,
-        .divisor = 1,
-        .min = first.min + later.min,
-        .max = first.max + later.max,
-        .gaze = gazeForecast(state, from, to, 1, first, later),
-    };
+        DamageBand{};
+    return forecastHit(state, slot, target, .{ .first = first, .later = later, .divisor = 1, .ranged = false });
 }
 
-pub fn spinHits(state: *const State, slot: u8, landing: Cell, route_length: usize, storage: std.mem.Allocator) []const ShotHit {
+pub fn meleeRiders(state: *const State, slot: u8, primary: u8, landing: Cell, route_length: usize, storage: std.mem.Allocator) []const ShotHit {
     const from = &state.units[slot];
-    const spin = from.ability(.lightning_spin) orelse return &.{};
-    const common = abilities.abilityMultiplier(from, spin) * abilities.rapidCharge(from, chargedCells(from, route_length)) *
-        (abilities.paralysisFactor(from) orelse 1);
-    var enemies: engine.UnitList = undefined;
-    combat.enemiesAround(state, slot, landing, &enemies);
-    var hits: [st.MAX_UNITS]ShotHit = undefined;
+    const target = &state.units[primary];
+    var hits: [st.MAX_UNITS + 5]ShotHit = undefined;
     var count: usize = 0;
-    for (enemies.slice()) |victim| {
-        const target = &state.units[victim];
-        if (target.isDead() or state.forbids(from, target.uid) or engine.cowardBarred(state, from, target)) continue;
-        // The engine folds Deep Wounds once into the spin multiplier and once into the common damage chain.
-        const multiplier = common * (1 + abilities.activeDeepWounds(from, target) / 100);
-        const first = if (abilities.absorbsBy(state, target, from)) DamageBand{ .min = 0, .max = 0 } else damageBand(state, from, target, false, 1, multiplier, 1);
-        hits[count] = .{
-            .target = target.uid,
-            .divisor = 1,
-            .min = first.min,
-            .max = first.max,
-            .gaze = gazeForecast(state, from, target, 1, first, .{ .min = 0, .max = 0 }),
-        };
-        count += 1;
+    if (from.ability(.lightning_spin)) |spin| {
+        const common = abilities.abilityMultiplier(from, spin) * abilities.rapidCharge(from, chargedCells(from, route_length)) *
+            (abilities.paralysisFactor(from) orelse 1);
+        var enemies: engine.UnitList = undefined;
+        combat.enemiesAround(state, slot, landing, &enemies);
+        for (enemies.slice()) |victim| {
+            const enemy = &state.units[victim];
+            if (enemy.isDead() or state.forbids(from, enemy.uid) or engine.cowardBarred(state, from, enemy)) continue;
+            // The engine folds Deep Wounds into both the spin multiplier and the common damage chain.
+            const multiplier = common * (1 + abilities.activeDeepWounds(from, enemy) / 100);
+            const first = damageBand(state, from, enemy, false, 1, multiplier, 1, .swing);
+            hits[count] = forecastHit(state, slot, victim, .{ .first = first, .ranged = false, .divisor = 1, .sweep = true });
+            count += 1;
+        }
+    }
+    if (from.ability(.fire_breath)) |breath| {
+        var band: engine.Cells = undefined;
+        combat.pierceSweepCells(from, target, landing, &band);
+        var seen = engine.unitBit(slot) | engine.unitBit(primary);
+        for (band.slice()) |cell| {
+            const victim = ai.occupant(state, cell) orelse continue;
+            const bit = engine.unitBit(victim);
+            if (seen & bit != 0) continue;
+            seen |= bit;
+            const enemy = &state.units[victim];
+            if (enemy.isDead()) continue;
+            if (combat.fireImmune(enemy)) break;
+            const physical = damageBand(state, from, enemy, false, 1, abilities.abilityMultiplier(from, breath), null, .breath);
+            const magic = (1 - engine.getMagicResist(enemy) / 100) * spells.magicDamageTakenMultiplier(enemy);
+            const first = DamageBand{ .min = @floor(physical.min * magic), .max = @floor(physical.max * magic) };
+            hits[count] = forecastHit(state, slot, victim, .{ .first = first, .ranged = false, .divisor = 1, .contact = .breath, .sweep = true });
+            count += 1;
+        }
+    }
+    if (from.ability(.skewer_strike)) |skewer| {
+        if (engine.isSmall(target)) {
+            if (combat.pierceCellBehind(from, landing, engine.baseCell(target))) |rear| {
+                if (ai.occupant(state, rear)) |victim| {
+                    const enemy = &state.units[victim];
+                    if (enemy.team != from.team and !enemy.isDead()) {
+                        const first = damageBand(state, from, enemy, false, 1, abilities.abilityMultiplier(from, skewer), 1, .rider);
+                        hits[count] = forecastHit(state, slot, victim, .{ .first = first, .ranged = false, .divisor = 1, .contact = .rider, .sweep = true });
+                        count += 1;
+                    }
+                }
+            }
+        }
     }
     return storage.dupe(ShotHit, hits[0..count]) catch &.{};
 }
 
-fn splashHit(state: *const State, from: *const st.Unit, target: *const st.Unit, divisor: f64, factor: f64, multiplier: f64, next_multiplier: f64, echo: bool) ShotHit {
-    const zero: DamageBand = .{ .min = 0, .max = 0 };
-    const absorbed = abilities.absorbsBy(state, target, from);
-    const first = if (absorbed) zero else damageBand(state, from, target, true, divisor, multiplier, factor);
-    const later = if (next_multiplier > 0) damageBand(state, from, target, true, divisor, multiplier, factor * next_multiplier) else zero;
-    const bonus = if (echo) damageBand(state, from, target, true, divisor, multiplier, factor).max else 0;
-    return .{
-        .target = target.uid,
+fn splashHit(state: *const State, slot: u8, victim: u8, divisor: f64, factor: f64, multiplier: f64, next_multiplier: f64, echo: bool) ShotHit {
+    const from = &state.units[slot];
+    const target = &state.units[victim];
+    const first = damageBand(state, from, target, true, divisor, multiplier, factor, .swing);
+    const later = if (next_multiplier > 0) damageBand(state, from, target, true, divisor, multiplier, factor * next_multiplier, .swing) else DamageBand{};
+    return forecastHit(state, slot, victim, .{
+        .first = first,
+        .later = later,
+        .bonus = if (echo) first.max else 0,
+        .ranged = true,
         .divisor = divisor,
-        .min = first.min + later.min,
-        .max = first.max + later.max + bonus,
-        .gaze = gazeForecast(state, from, target, divisor, first, .{ .min = later.min, .max = later.max + bonus }),
-    };
+    });
 }
 
 pub fn splashHits(state: *const State, slot: u8, members: []const u8, divisor: f64, storage: std.mem.Allocator) []const ShotHit {
@@ -211,26 +316,28 @@ pub fn splashHits(state: *const State, slot: u8, members: []const u8, divisor: f
         @max(1, @floor(first.ability(.dense_flesh).?.power))
     else
         1;
-    const remaining = from.range_shots_mod != 0 or engine.getRangeShots(from) > cost;
+    const shots = engine.getRangeShots(from);
+    const remaining = from.range_shots_mod != 0 or shots > cost;
     const extra = if (remaining) combat.doubleShotAbility(from) else null;
     const next_multiplier = if (extra) |ability|
         artifacts.dualStrikeIn(state, from, if (from.has(.chakram)) abilities.abilityMultiplier(from, ability) else 1)
     else
         0;
-    const echo = remaining and artifacts.echoChance(state, from) > 0;
+    const spent = cost * (1 + @as(f64, if (extra != null) 1 else 0));
+    const echo = artifacts.echoChance(state, from) > 0 and (from.range_shots_mod != 0 or shots > spent);
     var hits: [st.MAX_UNITS]ShotHit = undefined;
     var count: usize = 0;
     for (members) |member| {
         const target = &state.units[member];
         if (target.isDead()) continue;
-        hits[count] = splashHit(state, from, target, divisor, 1, multiplier, next_multiplier, echo);
+        hits[count] = splashHit(state, slot, member, divisor, 1, multiplier, next_multiplier, echo);
         count += 1;
     }
     if (from.has(.chakram)) {
         const path = combat.macChakramPlan(state, slot, members[0]);
         for (path.slots[0..path.len], path.factors[0..path.len]) |victim, factor| {
             if (std.mem.indexOfScalar(u8, members, victim) != null or count == hits.len) continue;
-            hits[count] = splashHit(state, from, &state.units[victim], divisor, factor, multiplier, next_multiplier, echo);
+            hits[count] = splashHit(state, slot, victim, divisor, factor, multiplier, next_multiplier, echo);
             count += 1;
         }
     }
@@ -361,8 +468,8 @@ pub fn rangeEdge(state: *const State, slot: u8, target: u8, cell: Cell, side: u8
         else
             null,
         .primary = if (!stops_at_obstacle and groups.n > 0) state.units[groups.first(0)].uid else null,
-        .hit = if (groups.n > 0 and groups.obstacle == null and !splash and !from.has(.chakram))
-            shotHit(state, from, &state.units[groups.first(0)], groups.divisors[0], false)
+        .hit = if (storage != null and groups.n > 0 and groups.obstacle == null and !splash and !from.has(.chakram))
+            shotHit(state, slot, groups.first(0), groups.divisors[0], false)
         else
             null,
         .hits = if (groups.n > 0 and groups.obstacle == null and (splash or from.has(.chakram)) and storage != null)
@@ -399,7 +506,7 @@ pub fn throughShot(state: *const State, slot: u8, aim: [2]f64, hits: *[st.MAX_UN
     var end = groups.obstacle orelse combat.projectLineToFieldEdge(from.pos_x, from.pos_y, aim[0], aim[1]);
     for (0..groups.n) |index| {
         const hit = &state.units[groups.first(index)];
-        hits[index] = shotHit(state, from, hit, groups.divisors[index], true);
+        hits[index] = shotHit(state, slot, groups.first(index), groups.divisors[index], true);
         if (combat.wingshieldOwner(hit)) {
             // The shield is the last object on this ray, including when the pointer is beyond it.
             const c = groups.entry[index];

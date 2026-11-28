@@ -1,5 +1,63 @@
 import Foundation
 
+struct BattleFloatingResult: Decodable {
+    struct Damage: Decodable {
+        struct Shadow: Decodable {
+            let blur: CGFloat
+            let angle: CGFloat
+            let distance: CGFloat
+        }
+
+        let bottom: CGFloat
+        let fontSize: CGFloat
+        let strokeWidth: CGFloat
+        let shadow: Shadow
+    }
+
+    struct Kills: Decodable {
+        let bottom: CGFloat
+        let fontSize: CGFloat
+        let strokeWidth: CGFloat
+        let iconSize: CGFloat
+        let halfSpacing: CGFloat
+        let y: CGFloat
+    }
+
+    let duration: TimeInterval
+    let fadeIn: Double
+    let fadeOutFrom: Double
+    let flagGap: CGFloat
+    let columnWidth: CGFloat
+    let columns: [Int]
+    let rowStep: CGFloat
+    let damage: Damage
+    let kills: Kills
+
+    static let style = BattleStatusEffects.bundled?.floatingResult ?? Self(
+        duration: 0.65, fadeIn: 0.125, fadeOutFrom: 0.62, flagGap: 6, columnWidth: 160,
+        columns: [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6], rowStep: 46,
+        damage: Damage(bottom: 36, fontSize: 60, strokeWidth: 5, shadow: .init(blur: 4, angle: .pi / 6, distance: 2)),
+        kills: Kills(bottom: 80, fontSize: 40, strokeWidth: 4, iconSize: 40, halfSpacing: 25, y: 55)
+    )
+
+    func opacity(at elapsed: TimeInterval) -> Double {
+        let progress = elapsed / duration
+        return max(0, min(1, progress / fadeIn, (1 - progress) / (1 - fadeOutFrom)))
+    }
+
+    func offset(for lane: Int, casualties: Int, flagX: CGFloat, boardWidth: CGFloat, scale: CGSize) -> CGPoint {
+        let spacing = columnWidth * scale.width
+        let available = columns.filter { column in
+            let center = flagX + CGFloat(column) * spacing
+            return column == 0 || (center >= spacing / 2 && center <= boardWidth - spacing / 2)
+        }
+        let x = CGFloat(available[lane % available.count]) * spacing
+        let bottom = casualties > 0 ? kills.bottom : damage.bottom
+        let y = (bottom + flagGap + CGFloat(lane / available.count) * rowStep) * scale.height
+        return CGPoint(x: x, y: -y)
+    }
+}
+
 struct BattleStatusEffects: Decodable {
     struct Clip: Decodable {
         enum Style: String, Decodable { case common, roar, cut, beholder, procedural, borrow, petrifying }
@@ -59,6 +117,7 @@ struct BattleStatusEffects: Decodable {
     let borrowedClips: Set<String>
     let duration: TimeInterval
     let appearanceSpeed: Double
+    let floatingResult: BattleFloatingResult?
 
     static let bundled: Self? = {
         guard let url = Bundle.main.url(forResource: "status-effects", withExtension: "json") else { return nil }

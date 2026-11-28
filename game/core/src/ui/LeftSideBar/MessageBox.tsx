@@ -35,6 +35,7 @@ import { stonePlateSx } from "./stonePlateStyles";
 import { useSidebarMetrics } from "./sidebarMetrics";
 
 import { commonTooltipSx } from "./tooltipStyles";
+import { t } from "../../i18n/i18n";
 
 // Exact crop supplied for the new command-panel direction. Only the frame and stone surface remain baked
 // into the high-resolution 432x114 plate; START is live HoC Forge text, so the same type system can be used
@@ -136,7 +137,7 @@ const StartButton = ({ onClick, scale, disabled }: { onClick?: () => void; scale
                 },
             }}
         >
-            Start
+            {t("Start")}
         </Button>
     );
 
@@ -145,7 +146,7 @@ const StartButton = ({ onClick, scale, disabled }: { onClick?: () => void; scale
     }
 
     return (
-        <Tooltip title="Place units for both teams to start" placement="top" variant="solid" sx={commonTooltipSx}>
+        <Tooltip title={t("Place units for both teams to start")} placement="top" variant="solid" sx={commonTooltipSx}>
             {/* Joy disables pointer events on a disabled Button, which would swallow the tooltip's hover. */}
             <Box sx={{ display: "flex", width: "100%", justifyContent: "center" }}>{button}</Box>
         </Tooltip>
@@ -676,7 +677,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                 >
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Typography level="title-sm" sx={{ fontSize: `${0.78 * metrics.fontScale}rem` }}>
-                            Placement
+                            {t("Placement")}
                         </Typography>
                         <TimelapseRoundedIcon />
                     </Stack>
@@ -770,7 +771,11 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
 
     if (isArmageddonTurn) {
         footerIndicator = (
-            <Tooltip title="Armageddon wave after this turn." placement="top" sx={{ ...commonTooltipSx, zIndex: 2 }}>
+            <Tooltip
+                title={t("Armageddon wave after this turn.")}
+                placement="top"
+                sx={{ ...commonTooltipSx, zIndex: 2 }}
+            >
                 {/* Wrapped in a Box to separate styling context */}
                 <Box component="span" sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
                     <Box component="img" src={meteorIconDataUrl} sx={{ width: 26, height: 26 }} />
@@ -780,7 +785,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
     } else if (isNarrowingTurn) {
         footerIndicator = (
             <Tooltip
-                title="The map will narrow after this turn."
+                title={t("The map will narrow after this turn.")}
                 placement="top"
                 sx={{ ...commonTooltipSx, zIndex: 2 }}
             >
@@ -882,7 +887,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                         footer={
                             !cannotAct && visibleState.canRequestAdditionalTime && timerProgressValue >= 50 ? (
                                 <Button
-                                    aria-label="More time"
+                                    aria-label={t("More time")}
                                     onClick={() => manager.RequestTime(visibleState.teamTypeTurn)}
                                     size="sm"
                                     variant="plain"

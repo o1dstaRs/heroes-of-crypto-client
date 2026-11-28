@@ -29,6 +29,7 @@ import {
     hocSidebarSectionHeaderSx,
     hocSidebarSectionSx,
 } from "../hocTheme";
+import { t } from "../../i18n/i18n";
 
 const sectionTitleSx = {
     fontFamily: hocDisplayFontFamily,
@@ -231,7 +232,7 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                                                 color: open ? hocColors.gold : sectionTitleSx.color,
                                             }}
                                         >
-                                            Army
+                                            {t("Army")}
                                         </Typography>
                                     </ListItemContent>
                                     <Box component="img" src={images.tr_up} sx={chevronSx(open)} />
@@ -284,7 +285,7 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                                                 color: open ? hocColors.gold : sectionTitleSx.color,
                                             }}
                                         >
-                                            Board
+                                            {t("Board")}
                                         </Typography>
                                     </ListItemContent>
                                     <Box component="img" src={images.tr_up} sx={chevronSx(open)} />
@@ -339,7 +340,7 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                                             level="title-sm"
                                             sx={{ ...sectionTitleSx, color: open ? "#9fc487" : sectionTitleSx.color }}
                                         >
-                                            Green
+                                            {t("Green")}
                                         </Typography>
                                     </ListItemContent>
                                     <Box component="img" src={images.tr_up} sx={chevronSx(open)} />
@@ -397,7 +398,7 @@ const FightControlToggler: React.FC<{ scrollRailInsetPx: number }> = ({ scrollRa
                                             level="title-sm"
                                             sx={{ ...sectionTitleSx, color: open ? "#dc9a78" : sectionTitleSx.color }}
                                         >
-                                            Red
+                                            {t("Red")}
                                         </Typography>
                                     </ListItemContent>
                                     <Box component="img" src={images.tr_up} sx={chevronSx(open)} />

@@ -7,6 +7,7 @@ import Radio from "@mui/joy/Radio";
 import Typography from "@mui/joy/Typography";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { hocDisplayFontFamily, hocFantasyRadioSx } from "../hocTheme";
+import { t } from "../../i18n/i18n";
 
 const TEST_MAP_VALUE = "test" as const;
 type MapSettingValue = GridType | typeof TEST_MAP_VALUE;
@@ -93,7 +94,7 @@ const MapSettingsRadioButtons: React.FC = () => {
                     >
                         <Radio
                             value={GridVals.NORMAL}
-                            label="NORMAL"
+                            label={t("NORMAL")}
                             sx={{
                                 color: "rgba(255, 143, 0, 0.5)",
                                 "&.Mui-checked": {
@@ -116,7 +117,7 @@ const MapSettingsRadioButtons: React.FC = () => {
                         />
                         <Radio
                             value={GridVals.LAVA_CENTER}
-                            label="FIRE PIT"
+                            label={t("FIRE PIT")}
                             sx={{
                                 color: "rgba(255, 143, 0, 0.5)",
                                 "&.Mui-checked": {
@@ -139,7 +140,7 @@ const MapSettingsRadioButtons: React.FC = () => {
                         />
                         <Radio
                             value={GridVals.BLOCK_CENTER}
-                            label="BARRELS"
+                            label={t("BARRELS")}
                             onClick={handleBarrelsClick}
                             sx={{
                                 color: "rgba(255, 143, 0, 0.5)",
@@ -204,7 +205,7 @@ const MapSettingsRadioButtons: React.FC = () => {
                                     letterSpacing: "0.08em",
                                 }}
                             >
-                                NARROWING LEVEL
+                                {t("NARROWING LEVEL")}
                             </Typography>
                             <RadioGroup
                                 aria-label="test-narrowing-level"

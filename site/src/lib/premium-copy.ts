@@ -1,5 +1,5 @@
 export const premiumSections = [
-    ["overview", "Current meta", "Текущая мета"],
+    ["overview", "Simulated meta", "Мета по симуляциям"],
     ["crew", "Your crew", "Ваша армия"],
     ["insights", "Pick rates & results", "Частота выбора"],
     ["matchups", "Matchups", "Противостояния"],

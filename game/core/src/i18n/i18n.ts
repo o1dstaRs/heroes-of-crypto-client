@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from "react";
 
+import { onMacPreferenceChange } from "../settings/macPreferences";
 import { RU_TRANSLATIONS } from "./ru";
+import { RU_NAMES } from "./ruGameNames";
 
 /**
  * Lightweight game-client i18n (owner 2026-08-06): the player picks a language in their profile and
@@ -26,17 +28,17 @@ export const DEFAULT_LANGUAGE = "en";
 
 const STORAGE_KEY = "hoc:language";
 
-const DICTIONARIES: Record<string, Record<string, string>> = {
-    ru: RU_TRANSLATIONS,
-};
-
 const isSupported = (code: string | null | undefined): code is string =>
     !!code && SUPPORTED_LANGUAGES.some((language) => language.code === code);
 
+function readLanguage(): string {
+    const stored = typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+    return isSupported(stored) ? stored : DEFAULT_LANGUAGE;
+}
+
 let currentLanguage: string = (() => {
     try {
-        const stored = typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
-        return isSupported(stored) ? stored : DEFAULT_LANGUAGE;
+        return readLanguage();
     } catch {
         return DEFAULT_LANGUAGE;
     }
@@ -46,20 +48,43 @@ const listeners = new Set<() => void>();
 
 export const getLanguage = (): string => currentLanguage;
 
-export const setLanguage = (code: string): void => {
-    if (!isSupported(code) || code === currentLanguage) {
-        return;
-    }
+const updateDocumentLanguage = (): void => {
+    const root = globalThis.document?.documentElement;
+    if (root) root.lang = currentLanguage;
+};
+updateDocumentLanguage();
+
+const applyLanguage = (code: string): void => {
+    if (code === currentLanguage) return;
     currentLanguage = code;
-    try {
-        localStorage.setItem(STORAGE_KEY, code);
-    } catch {
-        // Storage may be unavailable (private mode); the in-memory choice still applies this session.
+    updateDocumentLanguage();
+    for (const listener of listeners) listener();
+};
+
+export const setLanguage = (code: string, { persist = true } = {}): void => {
+    if (!isSupported(code)) return;
+    if (persist) {
+        try {
+            if (localStorage.getItem(STORAGE_KEY) !== code) localStorage.setItem(STORAGE_KEY, code);
+        } catch {
+            // Storage may be unavailable (private mode); the in-memory choice still applies this session.
+        }
     }
-    for (const listener of listeners) {
-        listener();
+    applyLanguage(code);
+};
+
+const syncLanguage = (): void => {
+    try {
+        applyLanguage(readLanguage());
+    } catch {
+        /* Keep the current language when browser storage is unavailable. */
     }
 };
+
+onMacPreferenceChange([STORAGE_KEY], syncLanguage);
+globalThis.window?.addEventListener?.("storage", (event) => {
+    if (event.key === STORAGE_KEY || event.key === null) syncLanguage();
+});
 
 const subscribe = (listener: () => void): (() => void) => {
     listeners.add(listener);
@@ -70,8 +95,9 @@ const subscribe = (listener: () => void): (() => void) => {
 
 /** Translate an English chrome string; unknown keys (or English itself) render verbatim. */
 export const t = (english: string): string => {
-    const dictionary = DICTIONARIES[currentLanguage];
-    return dictionary?.[english] ?? english;
+    if (currentLanguage !== "ru") return english;
+    if (Object.hasOwn(RU_TRANSLATIONS, english)) return RU_TRANSLATIONS[english];
+    return Object.hasOwn(RU_NAMES, english) ? RU_NAMES[english] : english;
 };
 
 /**

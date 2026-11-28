@@ -5622,6 +5622,9 @@ describe("refreshed idle cadence and quadruped scale", () => {
         first.stepSelectionAnimation(elapsedMs);
         expect(firstInternals.sprite?.texture).toBe(firstInternals.selectionAnimFrames?.[0]);
         first.startBoardWalkAnimation(1);
+        const walk = first.getAnimationAtlasPlayback("walk");
+        expect(walk?.frames).toHaveLength(7);
+        expect(walk?.walk?.last).toBe(6);
         first.setBoardWalkDistanceCells(1.3);
         first.stopBoardWalkAnimation();
         first.ensureVisual(new Container(), gridSettings);

@@ -3,6 +3,7 @@ import React from "react";
 import { useNavigate } from "react-router";
 
 import { hocSidebarImageButtonSx } from "./hocTheme";
+import { t } from "../i18n/i18n";
 
 /**
  * "Play Ranked" link shown in the offline sandbox footer. It lives between the fullscreen and sound
@@ -15,7 +16,7 @@ export const PlayRankedBadge: React.FC = () => {
             variant="plain"
             type="button"
             onClick={() => navigate("/play")}
-            aria-label="Play ranked (vs AI or vs another player)"
+            aria-label={t("Play ranked (vs AI or vs another player)")}
             sx={{
                 ...hocSidebarImageButtonSx("neutral"),
                 justifySelf: "center",
@@ -30,7 +31,7 @@ export const PlayRankedBadge: React.FC = () => {
                 cursor: "var(--hoc-cursor-interactive), pointer",
             }}
         >
-            Play Ranked
+            {t("Play Ranked")}
         </Button>
     );
 };

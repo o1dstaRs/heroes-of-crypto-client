@@ -576,6 +576,8 @@ export const applyPreviewPlayAction = (action: PlayAction): PlayActionResponse =
 
 export const PREVIEW_PLACEMENT_MAPS: Record<string, number> = {
     normal: GridVals.NORMAL,
+    barrels: GridVals.BLOCK_CENTER,
+    // Keep links to the placement preview using the old name working.
     cemetery: GridVals.BLOCK_CENTER,
     lava: GridVals.LAVA_CENTER,
 };

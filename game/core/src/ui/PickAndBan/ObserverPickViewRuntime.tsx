@@ -487,7 +487,7 @@ export const ObserverPickView: React.FC<IObserverPickViewProps> = ({
                                                 <Box
                                                     component="img"
                                                     src={images.x_mark_2_512}
-                                                    alt="banned"
+                                                    alt={t("banned")}
                                                     sx={{
                                                         position: "absolute",
                                                         inset: 8,

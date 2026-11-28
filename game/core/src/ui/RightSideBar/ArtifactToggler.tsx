@@ -6,6 +6,7 @@ import BarrelPlacementControls from "../BarrelPlacementControls";
 import { images } from "../../generated/image_imports";
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { hocColors, hocDisplayFontFamily } from "../hocTheme";
+import { t } from "../../i18n/i18n";
 
 const imageFor = (imageKey: string): string | undefined => (images as Record<string, string>)[imageKey];
 
@@ -242,7 +243,7 @@ export const ArtifactToggler: React.FC<{
                     level="title-sm"
                     sx={{ color: "inherit", fontSize: "1.1rem", letterSpacing: "0.06em", lineHeight: 1.25 }}
                 >
-                    Artifacts
+                    {t("Artifacts")}
                 </Typography>
                 {!alwaysExpanded && (
                     <Box
@@ -261,7 +262,7 @@ export const ArtifactToggler: React.FC<{
                 )}
             </Box>
             <ArtifactRow
-                title="Tier 1"
+                title={t("Tier 1")}
                 tier={Artifact.ArtifactTier.TIER_1}
                 artifacts={Artifact.TIER1_ARTIFACT_LIST}
                 selectedId={tier1Selected}
@@ -270,7 +271,7 @@ export const ArtifactToggler: React.FC<{
             />
             {tier1Selected === Artifact.Tier1Artifact.BARREL_BARRICADE && <BarrelPlacementControls team={teamType} />}
             <ArtifactRow
-                title="Tier 2"
+                title={t("Tier 2")}
                 tier={Artifact.ArtifactTier.TIER_2}
                 artifacts={Artifact.TIER2_ARTIFACT_LIST}
                 selectedId={tier2Selected}

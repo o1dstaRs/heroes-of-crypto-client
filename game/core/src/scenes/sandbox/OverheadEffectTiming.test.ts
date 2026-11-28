@@ -7,7 +7,6 @@ import { CrusadePops } from "./CrusadePops";
 import { MagicReflectionPops } from "./MagicReflectionPops";
 import { UnyieldingPowerPops } from "./UnyieldingPowerPops";
 import { AngelResurrectionPops } from "./AngelResurrectionPops";
-import { DeepWoundsPops } from "./DeepWoundsPops";
 import { BattleRoarPops } from "./BattleRoarPops";
 import { OVERHEAD_EFFECT_DURATION_MS } from "../../settings/statusEffectTiming";
 
@@ -39,7 +38,7 @@ const dedicated = {
     UnyieldingPowerPops,
     AngelResurrectionPops,
 };
-const cases = [...kinds, ...Object.keys(dedicated), "wounds1", "wounds2", "wounds3", "roar1000", "roar1500"];
+const cases = [...kinds, ...Object.keys(dedicated), "roar1000", "roar1500"];
 
 test.each(cases)("%s completes every cel at half speed in 1300 ms regardless of scene-step speed", async (kind) => {
     const art = new Texture({ source: new TextureSource({ width: 4096, height: 4096 }) });
@@ -53,16 +52,13 @@ test.each(cases)("%s completes every cel at half speed in 1300 ms regardless of 
     const clock = () => now;
     const anchor = { x: 100, y: 200 };
     const Klass = dedicated[kind as keyof typeof dedicated];
-    const layer = kind.startsWith("wounds")
-        ? new DeepWoundsPops(attach, clock)
-        : kind.startsWith("roar")
-          ? new BattleRoarPops(attach, clock)
-          : Klass
-            ? new Klass(attach, clock)
-            : new CommonFlagPops(kind as FlagPopKind, attach, clock);
+    const layer = kind.startsWith("roar")
+        ? new BattleRoarPops(attach, clock)
+        : Klass
+          ? new Klass(attach, clock)
+          : new CommonFlagPops(kind as FlagPopKind, attach, clock);
     try {
-        if (layer instanceof DeepWoundsPops) await layer.spawn("unit", Number(kind.at(-1)) as 1 | 2 | 3, anchor, 64);
-        else if (layer instanceof BattleRoarPops) await layer.spawn(anchor, 64, Number(kind.slice(4)) as 1000 | 1500);
+        if (layer instanceof BattleRoarPops) await layer.spawn(anchor, 64, Number(kind.slice(4)) as 1000 | 1500);
         else await layer.spawn("unit", anchor, 64);
         const pop = root.children[0];
         const sprite = pop.children[0] as Sprite;
@@ -73,8 +69,7 @@ test.each(cases)("%s completes every cel at half speed in 1300 ms regardless of 
             seen.add(sprite.texture);
         }
         // Frame views are created once; each must be reached, including the final disappearance cel.
-        const views = (layer as unknown as { frames: Texture[] | Map<number, Texture[]> }).frames;
-        const frames = views instanceof Map ? views.get(Number(kind.at(-1)))! : views;
+        const frames = (layer as unknown as { frames: Texture[] }).frames;
         expect(seen.size).toBe(frames.length);
         expect(sprite.texture).toBe(frames.at(-1)!);
         layer.update(0);

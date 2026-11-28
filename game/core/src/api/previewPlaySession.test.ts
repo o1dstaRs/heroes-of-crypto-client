@@ -4,7 +4,17 @@ import { CreatureVals, GridConstants, GridMath, GridVals, TeamVals, getCreatures
 
 import { PlayActionType } from "./play_protocol";
 import { createPlayActionFromGameAction } from "./game_action_play_codec";
-import { applyPreviewPlayAction, getPreviewPlaySnapshot, startPreviewPlaySession } from "./previewPlaySession";
+import {
+    PREVIEW_PLACEMENT_MAPS,
+    applyPreviewPlayAction,
+    getPreviewPlaySnapshot,
+    startPreviewPlaySession,
+} from "./previewPlaySession";
+
+test("the Barrels placement preview and legacy links resolve to the same map", () => {
+    expect(PREVIEW_PLACEMENT_MAPS.barrels).toBe(GridVals.BLOCK_CENTER);
+    expect(PREVIEW_PLACEMENT_MAPS.cemetery).toBe(PREVIEW_PLACEMENT_MAPS.barrels);
+});
 
 describe("battlefield framing comparison layout", () => {
     test("aligns every level-four creature footprint to the bottom row", () => {

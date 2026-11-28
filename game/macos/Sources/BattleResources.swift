@@ -47,6 +47,7 @@ enum BattleResources {
     struct SynergyArt: Decodable {
         let icon: String
         let description: String
+        let descriptionRu: String?
     }
 
     static let synergies: [String: SynergyArt] = {
@@ -207,6 +208,11 @@ final class BattleSound {
     }()
     private var players: [String: AVAudioPlayer] = [:]
     private var movement: AVAudioPlayer?
+    private let audio: GameAudioSettings
+
+    init(audio: GameAudioSettings) {
+        self.audio = audio
+    }
 
     static func castKey(for spell: String, caster: String) -> String? {
         if caster == "Blacksmith" && spell == "Craft" { return "blacksmith_cast" }
@@ -214,7 +220,10 @@ final class BattleSound {
     }
 
     func play(_ key: String) {
+        let gain = audio.gain(.effects)
+        guard gain > 0 else { return }
         guard let player = player(for: key) else { return }
+        player.volume = gain
         player.numberOfLoops = 0
         player.currentTime = 0
         player.play()
@@ -222,7 +231,10 @@ final class BattleSound {
 
     func startMovement(_ key: String) {
         stopMovement()
+        let gain = audio.gain(.effects)
+        guard gain > 0 else { return }
         guard let player = player(for: key) else { return }
+        player.volume = gain
         player.numberOfLoops = -1
         player.currentTime = 0
         player.play()
@@ -232,6 +244,11 @@ final class BattleSound {
     func stopMovement() {
         movement?.stop()
         movement = nil
+    }
+
+    func refreshMix() {
+        let gain = audio.gain(.effects)
+        for player in players.values { player.volume = gain }
     }
 
     private func player(for key: String) -> AVAudioPlayer? {

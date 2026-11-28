@@ -1,4 +1,5 @@
 import { initPremiumAi } from "./premium-ai-panel";
+import { fetchMetaStats } from "./meta-stats-client";
 import { verifiedParallelRead } from "./verified-parallel-read";
 import { initPremiumCrew } from "./premium-crew-panel";
 import { renderPremiumMatchups } from "./premium-insights";
@@ -28,6 +29,47 @@ export function initPremiumPage(): void {
     const gate = root.querySelector<HTMLElement>("[data-premium-gate]")!;
     const login = root.querySelector<HTMLAnchorElement>("[data-premium-login]")!;
     const workspace = root.querySelector<HTMLElement>("[data-premium-workspace]")!;
+    const rankedStatus = root.querySelector<HTMLElement>("[data-premium-ranked-status]");
+    const rankedUnits = root.querySelector<HTMLUListElement>("[data-premium-ranked-units]");
+    if (rankedStatus && rankedUnits) {
+        void fetchMetaStats().then((stats) => {
+            if (
+                !stats ||
+                !Number.isSafeInteger(stats.games) ||
+                !Number.isSafeInteger(stats.windowDays) ||
+                !Array.isArray(stats.creatures)
+            ) {
+                rankedStatus.textContent = t(
+                    "Ranked results are temporarily unavailable.",
+                    "Рейтинговые результаты временно недоступны.",
+                );
+                return;
+            }
+            const count = new Intl.NumberFormat(lang).format(stats.games);
+            rankedStatus.textContent = stats.games
+                ? t(
+                      `${count} completed ranked matches in the last ${stats.windowDays} days. Most fielded creatures by share of armies.`,
+                      `${count} завершённых рейтинговых матчей за ${stats.windowDays} дн. Самые частые юниты по доле армий.`,
+                  )
+                : t(
+                      `No completed ranked matches in the last ${stats.windowDays} days.`,
+                      `За последние ${stats.windowDays} дн. нет завершённых рейтинговых матчей.`,
+                  );
+            const percent = new Intl.NumberFormat(lang, { style: "percent", maximumFractionDigits: 1 });
+            const mostFielded = [...stats.creatures]
+                .filter(({ games }) => games > 0)
+                .sort((a, b) => b.games - a.games || a.creatureId - b.creatureId)
+                .slice(0, 4);
+            rankedUnits.replaceChildren(
+                ...mostFielded.map(({ creatureId, name, pickRatePct }) => {
+                    const item = document.createElement("li");
+                    item.textContent = `${catalog.units[creatureId]?.name ?? name} · ${percent.format(pickRatePct / 100)}`;
+                    return item;
+                }),
+            );
+            rankedUnits.hidden = mostFielded.length === 0;
+        });
+    }
     const content = root.querySelector<HTMLElement>("[data-premium-content]")!;
     const form = root.querySelector<HTMLFormElement>("[data-premium-filters]")!;
     const refresh = root.querySelector<HTMLElement>("[data-premium-refresh]")!;

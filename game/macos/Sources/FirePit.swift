@@ -6,9 +6,9 @@ struct FirePit: View {
     let projection: BattlefieldProjection
     let boardSize: Int
     let flowing: Bool
+    let registration: [CGFloat]
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.displayScale) private var displayScale
-    @State private var registration: [CGFloat] = []
 
     nonisolated private static let under = "fire_pit_grok_video_fire_under_v2_64_atlas"
     private static let offsets = Task.detached(priority: .utility) {
@@ -35,10 +35,11 @@ struct FirePit: View {
                 }
             }
         }
-        .task(id: flowing) { if flowing { registration = await Self.offsets.value } }
         .accessibilityHidden(true)
         .allowsHitTesting(false)
     }
+
+    static func registrationOffsets() async -> [CGFloat] { await offsets.value }
 
     static func frameIndex(_ time: TimeInterval) -> Int {
         max(0, Int(time * 16)) % 64

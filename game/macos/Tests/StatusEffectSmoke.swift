@@ -7,6 +7,23 @@ extension SkirmishSmoke {
         let art = try BattleStatusEffects.load(resources.appendingPathComponent("status-effects.json"))
         try require(art.duration == 1.30 && art.appearanceSpeed == 1.25 && !art.passive.contains("Stun") &&
                     art.passive.contains("Pegasus Light"), "status timing or passive filtering drifted from web")
+        for level in 1...3 {
+            let cut = try art.clips["Deep Wounds \(level)"].unwrap("missing the Deep Wounds atlas")
+            try require(cut.style == .cut && cut.restarts == true && cut.fades != true &&
+                        cut.sample(at: 0, appearanceSpeed: art.appearanceSpeed, reducedMotion: false)?.frame == 0,
+                        "Deep Wounds must restart on contact and use the atlas fade")
+        }
+        let result = try art.floatingResult.unwrap("missing the browser's combat result presentation")
+        let worldScale = CGSize(width: 1, height: 1)
+        try require(result.duration == 0.65 && result.opacity(at: 0) == 0 && result.opacity(at: 0.08125) == 1 &&
+                    result.opacity(at: 0.403) == 1 && abs(result.opacity(at: 0.5265) - 0.5) < 0.0001 &&
+                    result.opacity(at: 0.65) == 0, "damage and kill counts lost the web fade")
+        try require(result.offset(for: 0, casualties: 0, flagX: 512, boardWidth: 1024, scale: worldScale) ==
+                    CGPoint(x: 0, y: -42) &&
+                    result.offset(for: 1, casualties: 10, flagX: 512, boardWidth: 1024, scale: worldScale) ==
+                    CGPoint(x: -160, y: -86) &&
+                    result.offset(for: 1, casualties: 10, flagX: 40, boardWidth: 1024, scale: worldScale) ==
+                    CGPoint(x: 160, y: -86), "damage results lost the web flag gaps or inward columns")
         try require(art.clips["Mass Riot"]?.resource == art.clips["Riot"]?.resource &&
                     art.clips["Mass Magic Mirror"]?.resource == art.clips["Magic Mirror"]?.resource,
                     "mass casts lost the single-target art they share on web")
@@ -79,6 +96,17 @@ extension SkirmishSmoke {
         }
 
         let (beholder, targetTime) = try encounter("Beholder", enemy: "Squire", enemyAmount: 225)
+        let defender = try targetTime.stacks.first { $0.team == .opponent }.unwrap("no damage result target")
+        let hitTime = Date()
+        let firstHit = BattleCombatCue(stack: defender, position: BattlefieldProjection.logicalCenter(defender.cells),
+                                       kind: .health(delta: -140, casualties: 15), started: hitTime)
+        let secondHit = BattleCombatCue(stack: defender, position: firstHit.position,
+                                        kind: .health(delta: -23.25, casualties: 0), started: hitTime.addingTimeInterval(0.3))
+        let fight = BattlePlayback(previous: targetTime, next: targetTime, priorCombatCues: [firstHit, secondHit])
+        let handoff = BattlePlayback(previous: targetTime, next: targetTime, priorCombatCues: [fight.combatCues[1]])
+        try require(fight.combatCues.map(\.resultLane) == [0, 1] && handoff.combatCues.first?.resultLane == 1 &&
+                    abs(fight.combatCues[0].endsAt.timeIntervalSince(hitTime) - result.duration) < 0.0001,
+                    "a later hit skipped a column or moved during turn handoff")
         let target = Cell(x: 13, y: 7)
         var shot = targetTime
         var sawSpit = false

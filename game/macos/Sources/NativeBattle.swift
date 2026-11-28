@@ -176,6 +176,23 @@ enum SpellAim: String, Decodable {
     case unit, cell, army
 }
 
+struct BattleSuggestion: Decodable, Equatable {
+    enum Kind: String, Decodable {
+        case move, melee, shot, spell, obstacle, wait, defend
+        case endTurn = "end_turn"
+    }
+
+    let kind: Kind
+    let actor: Int
+    let target: Int?
+    let landing: Cell?
+    let path: [Cell]
+    let aim: BattleAimPoint?
+    let mode: AttackMode?
+    let spell: Int32?
+    let rotation: Int
+}
+
 struct BattleSpell: Decodable, Equatable, Identifiable {
     let id: Int32
     let name: String
@@ -246,7 +263,21 @@ struct BattleThroughAim: Decodable, Equatable {
 }
 
 struct BattleShotHit: Decodable, Equatable {
+    struct Redirect: Decodable, Equatable {
+        let target: Int
+        let min: Double
+        let max: Double
+    }
+
     struct Gaze: Codable, Equatable {
+        struct Flesh: Codable, Equatable {
+            let percent, targetCap, ownerCap, targetArmor, ownerArmor: Double
+        }
+
+        struct Burn: Codable, Equatable {
+            let power, heavy, element, resist: Double
+        }
+
         let min: Double
         let max: Double
         let percentageMax: Double
@@ -255,13 +286,40 @@ struct BattleShotHit: Decodable, Equatable {
         let totalHp: Double
         let immune: Bool
         let multipleHits: Bool
+        var flesh: Flesh? = nil
+        var burn: Burn? = nil
     }
 
     let target: Int
     let divisor: Int
-    let min: Double
-    let max: Double
-    let gaze: Gaze?
+    var min: Double
+    var max: Double
+    var gaze: Gaze?
+    var redirect: Redirect? = nil
+
+    static func byVictim(_ hits: [Self]) -> [Self] {
+        var ordered: [Self] = []
+        var indexes: [Int: Int] = [:]
+        func append(_ hit: Self) {
+            if let index = indexes[hit.target] {
+                ordered[index].min += hit.min
+                ordered[index].max += hit.max
+                if ordered[index].gaze == nil { ordered[index].gaze = hit.gaze }
+            } else {
+                indexes[hit.target] = ordered.count
+                ordered.append(hit)
+            }
+        }
+        for var hit in hits {
+            let redirect = hit.redirect
+            hit.redirect = nil
+            append(hit)
+            if let redirect {
+                append(Self(target: redirect.target, divisor: hit.divisor, min: redirect.min, max: redirect.max, gaze: nil))
+            }
+        }
+        return ordered
+    }
 }
 
 struct BattleSpellTarget: Decodable, Equatable {
@@ -306,6 +364,7 @@ struct BattleSplash: Decodable, Equatable {
 struct BattleAreaAim: Decodable, Equatable {
     let aim: Cell
     let splash: BattleSplash
+    var divisor: Int? = nil
     var hits: [BattleShotHit]? = nil
 }
 
@@ -352,6 +411,16 @@ struct Moment: Decodable, Equatable {
         var laps: Double? = nil
     }
 
+    struct Miss: Decodable, Equatable {
+        let actor: Int
+        let target: Int
+    }
+
+    struct RayContact: Decodable, Equatable {
+        let target: Int
+        let progress: Double
+    }
+
     let kind: MomentKind
     let actor: Int
     let target: Int?
@@ -373,6 +442,16 @@ struct Moment: Decodable, Equatable {
     var waterShieldBreaks: [Int]? = nil
     var covenantBreaks: [Int]? = nil
     var covenantAbsorbs: [Int]? = nil
+    var strikes: [Moment]? = nil
+    var misses: [Miss]? = nil
+    var rayContacts: [RayContact]? = nil
+    var piercing: Bool? = nil
+    var obstacleRanged: Bool? = nil
+
+    var playbackMoments: [Moment] {
+        if let strikes, !strikes.isEmpty { return strikes }
+        return [self]
+    }
 }
 
 struct Counterattack: Decodable, Equatable {
@@ -436,21 +515,23 @@ struct BattleView: Decodable, Equatable {
                                  standing: started ? nil : stack?.anchor)
     }
     var playerTurn: Bool { started && !stalled && winner == nil && active != nil && !automatedTurn }
-    func actionHint(at cell: Cell, target: Stack?, canAttackHere: Bool) -> String? {
+    func actionHint(at cell: Cell, target: Stack?, canAttackHere: Bool, locale: Locale = Locale(identifier: "en")) -> String? {
         guard playerTurn, preparedSpell == nil, let actor = activeStack, !canAttackHere else { return nil }
         let enemy = target.flatMap { $0.team == actor.team ? nil : $0 }
         if let enemy, enemy.id == terrifyingGazeTarget {
-            return "Terrifying Gaze — can't attack \(enemy.name)"
+            return GameLocalization.format("Terrifying Gaze — can't attack %@", locale: locale,
+                                           GameLocalization.text(enemy.name, locale: locale))
         }
         let aimingArea = mode == .ranged && actor.abilities.contains("Area Throw")
         if let aggrTarget, enemy?.id != aggrTarget,
            enemy != nil || stones.contains(cell) || canAimThrough == true || aimingArea,
            let source = stacks.first(where: { $0.id == aggrTarget }) {
-            return "Aggr — must attack \(source.name)"
+            return GameLocalization.format("Aggr — must attack %@", locale: locale,
+                                           GameLocalization.text(source.name, locale: locale))
         }
         if target?.id != actor.id && actor.immobilized &&
             actor.statuses.contains(where: { $0.name == "Paralysis" && $0.laps > 0 }) {
-            return "Paralyzed — can't move"
+            return GameLocalization.text("Paralyzed — can't move", locale: locale)
         }
         return nil
     }
@@ -593,6 +674,20 @@ final class NativeBattle: @unchecked Sendable {
     func chooseSpell(_ spell: Int32?) -> Bool { lock.withLock { hoc_macos_choose_spell(handle, spell ?? -1) } }
     func rotateFireWall() -> Bool { lock.withLock { hoc_macos_rotate_fire_wall(handle) } }
     func playOpponent(forced: Bool = false) -> Bool { lock.withLock { hoc_macos_opponent_turn(handle, forced) } }
+
+    func suggestion() -> BattleSuggestion? {
+        guard let board = lock.withLock({ hoc_macos_suggestion_board(handle) }) else { return nil }
+        defer { hoc_macos_release_suggestion_board(board) }
+        var result = Data(count: 4096)
+        let count = withExtendedLifetime(self) {
+            result.withUnsafeMutableBytes { bytes in
+                hoc_macos_suggest(board, bytes.bindMemory(to: UInt8.self).baseAddress, bytes.count)
+            }
+        }
+        guard count > 0 && count <= result.count else { return nil }
+        result.count = count
+        return try? JSONDecoder().decode(BattleSuggestion.self, from: result)
+    }
 
     func opponentTurnView(forced: Bool = false) async throws -> BattleView? {
         try await Task.detached(priority: .userInitiated) {

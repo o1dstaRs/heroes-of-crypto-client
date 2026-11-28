@@ -2,6 +2,7 @@ import Box from "@mui/joy/Box";
 import Typography from "@mui/joy/Typography";
 import React from "react";
 
+import { t, tf } from "../../i18n/i18n";
 import { synergyEffectAtLevel, synergyLadder, synergyNextLevel } from "./synergyLadder";
 
 /**
@@ -34,11 +35,11 @@ export const SynergyLadderTip: React.FC<{
     return (
         <Box sx={{ maxWidth: 260, py: 0.25 }}>
             <Typography level="title-sm" sx={{ color: "#f3ead6" }}>
-                {faction} — {label}
-                {shownLevel ? ` · lvl ${shownLevel}` : ""}
+                {t(faction)} — {t(label)}
+                {shownLevel ? ` · ${tf("lvl {level}", { level: shownLevel })}` : ""}
             </Typography>
             <Typography level="body-xs" sx={{ mt: 0.25, opacity: 0.85 }}>
-                {synergyEffectAtLevel(faction, variant, shownLevel || 1)}
+                {synergyEffectAtLevel(faction, variant, shownLevel || 1, t)}
             </Typography>
             {ladder.map((row, rowIndex) => (
                 <Box
@@ -47,7 +48,7 @@ export const SynergyLadderTip: React.FC<{
                 >
                     {row.label && (
                         <Typography level="body-xs" sx={{ minWidth: 44, opacity: 0.6 }}>
-                            {row.label}
+                            {t(row.label)}
                         </Typography>
                     )}
                     {row.values.map((value, valueIndex) => {
@@ -65,8 +66,8 @@ export const SynergyLadderTip: React.FC<{
                                 )}
                                 <Typography
                                     level="body-xs"
-                                    aria-label={`Level ${valueLevel}${row.label ? ` ${row.label}` : ""}: ${value}${
-                                        isPreview && !isCurrent ? " (preview)" : ""
+                                    aria-label={`${tf("Level {level}", { level: valueLevel })}${row.label ? ` ${t(row.label)}` : ""}: ${value}${
+                                        isPreview && !isCurrent ? ` (${t("preview")})` : ""
                                     }`}
                                     aria-current={isCurrent ? "step" : undefined}
                                     sx={{
@@ -90,12 +91,25 @@ export const SynergyLadderTip: React.FC<{
             ))}
             <Typography level="body-xs" sx={{ mt: 0.4, opacity: 0.7 }}>
                 {previewing
-                    ? (previewHint ?? `Confirming this pick → lvl ${previewLevel}`)
+                    ? (previewHint ?? tf("Confirming this pick → lvl {level}", { level: previewLevel }))
                     : next
                       ? units === undefined
-                          ? `${next.level * 2} different ${faction} creatures → lvl ${next.level}`
-                          : `${next.unitsAway} more ${faction} unit${next.unitsAway === 1 ? "" : "s"} → lvl ${next.level}`
-                      : "Maxed at lvl 3"}
+                          ? tf("{count} different {faction} creatures → lvl {level}", {
+                                count: next.level * 2,
+                                faction: t(faction),
+                                level: next.level,
+                            })
+                          : tf(
+                                next.unitsAway === 1
+                                    ? "{count} more {faction} unit → lvl {level}"
+                                    : "{count} more {faction} units → lvl {level}",
+                                {
+                                    count: next.unitsAway,
+                                    faction: t(faction),
+                                    level: next.level,
+                                },
+                            )
+                      : t("Maxed at lvl 3")}
             </Typography>
         </Box>
     );

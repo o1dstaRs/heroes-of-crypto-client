@@ -154,6 +154,32 @@ test("Orc's axe cannot show Stun before it reaches the victim; the engine still 
     await pending;
 });
 
+test("Deep Wounds starts over the projectile victim on contact with the damage, before the exchange finishes", async () => {
+    const f = fixture(() => {});
+    f.orc.getUnitProperties().abilities.push("Deep Wounds Level 2");
+    f.event.damage.deepWounds = [{ unitId: f.victim.getId(), power: 24 }];
+    const shown: string[] = [];
+    f.scene.combatVisuals.spawnDeepWoundsPop = (target: RenderableUnit, level: number) => {
+        expect(target).toBe(f.victim);
+        expect(level).toBe(2);
+        shown.push("wound");
+    };
+    f.scene.combatVisuals.showFloatingDamage = () => shown.push("damage");
+    f.scene.playReplayOneShot = (_unit: RenderableUnit, pose: string) => {
+        if (pose === "hit") shown.push("reaction");
+        return Promise.resolve();
+    };
+    const pending = f.play();
+    await flush();
+    expect(shown).toEqual([]);
+    f.contact();
+    await flush();
+    expect(shown).toEqual(["wound", "damage", "reaction"]);
+    f.land();
+    await pending;
+    expect(shown).toHaveLength(3);
+});
+
 test.each(["Blindness", "Freeze", "Paralysis", "Whirlpool"])("%s follows the same contact boundary", async (name) => {
     const f = fixture((unit) => {
         if (name === "Whirlpool") unit.getUnitProperties().applied_debuffs.push(name);

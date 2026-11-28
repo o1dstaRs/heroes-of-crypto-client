@@ -34,11 +34,14 @@ struct BattleCombatCue {
     var borrowedIcon = false
     var flashes = false
     var replacedAt: Date? = nil
+    var resultFacing: CGFloat? = nil
+    var resultResponded = false
+    var resultLane: Int? = nil
 
     var duration: TimeInterval {
         switch kind {
-        case .health: 0.65
-        case .status: BattleStatusEffects.overheadDuration
+        case .health: BattleFloatingResult.style.duration
+        case .status: isDeepWoundsImpact ? BattleFloatingResult.style.duration : BattleStatusEffects.overheadDuration
         }
     }
 
@@ -48,6 +51,8 @@ struct BattleCombatCue {
         if case let .status(name, _) = kind { return name }
         return nil
     }
+
+    var isDeepWoundsImpact: Bool { statusName == "Deep Wounds" && !borrowedIcon }
 
     var statusClip: BattleStatusEffects.Clip? {
         guard !borrowedIcon, let name = statusArt ?? statusName else { return nil }
@@ -174,8 +179,12 @@ struct BattlePlayback {
             guard abs(delta) > 0.001 || casualties > 0, let stack = before[target] ?? after[target] else { return }
             if casualties != 0 { casualtyTimes[target, default: []].append((time, casualties)) }
             let position = positions[target] ?? BattlefieldProjection.logicalCenter(stack.cells)
+            let arrival = started.addingTimeInterval(time)
+            let action = phases.last { $0.moment.actor == target && $0.start <= time }
             cues.append(BattleCombatCue(stack: stack, position: position, kind: .health(delta: delta, casualties: casualties),
-                                        started: started.addingTimeInterval(time), damageTone: tone, silentHurt: silentHurt))
+                                        started: arrival, damageTone: tone, silentHurt: silentHurt,
+                                        resultFacing: Self.facing(for: stack, action: action, elapsed: time),
+                                        resultResponded: stack.responded || (feedback[target] ?? .distantPast) > arrival))
         }
 
         func statusCue(_ name: String, kind: StackStatus.Kind, for stack: Stack, at time: TimeInterval,
@@ -196,7 +205,8 @@ struct BattlePlayback {
         }
         func statusCues(_ applications: [Moment.StatusApplication], at time: TimeInterval, source: Stack? = nil) {
             for (index, status) in applications.enumerated() where !applications.prefix(index).contains(status) {
-                guard let stack = after[status.target], !BattleStatusEffects.isPassive(status.name) else { continue }
+                guard let stack = after[status.target] ?? before[status.target],
+                      !BattleStatusEffects.isPassive(status.name) else { continue }
                 statusTimes[status.target] = max(statusTimes[status.target] ?? time, time)
                 if let victim = status.borrowedFrom.flatMap({ before[$0] }) {
                     statusCue("Borrowed Grace", kind: .buff, for: victim, at: time, flashes: false)
@@ -251,7 +261,7 @@ struct BattlePlayback {
             let requestedPose: CreatureAction? = switch moment.kind {
             case .melee: .meleeAttack
             case .shot: .attack
-            case .obstacle: stack?.selectedAttack == .ranged ? .attack : .meleeAttack
+            case .obstacle: (moment.obstacleRanged ?? (stack?.selectedAttack == .ranged)) ? .attack : .meleeAttack
             case .spell: .cast
             default: nil
             }
@@ -276,8 +286,8 @@ struct BattlePlayback {
             // The web commits melee contact in the same tick that both opening animations start.
             var impact = moment.kind == .melee ? moveEnd : moveEnd + (timing?.impact ?? actionTime * 0.5)
             if launchesProjectile, let attackPosition, let destination {
-                let pierces = stack?.abilities.contains("Through Shot") == true &&
-                    stack?.statuses.contains { $0.name == "Break" } != true
+                let pierces = moment.piercing ?? (stack?.abilities.contains("Through Shot") == true &&
+                    stack?.statuses.contains { $0.name == "Break" } != true)
                 let speed = (projectile?.cellsPerSecond ?? 16) * (pierces ? projectile?.piercingSpeedMultiplier ?? 1 : 1)
                 let distance = hypot(destination.x - attackPosition.x, destination.y - attackPosition.y)
                 let windup = projectile?.authoredRelease == false ? 0 : timing?.release ?? actionTime * 0.42
@@ -317,7 +327,7 @@ struct BattlePlayback {
                           damageCast: damageCast, fireTraversal: fireTraversal, chakram: chakram)
         }
 
-        for moment in moments {
+        for moment in moments.flatMap(\.playbackMoments) {
             let flights = moment.chakramFlights ?? []
             let gazes = moment.gazeImpacts ?? []
             func diesInExchange(_ id: Int) -> Bool {
@@ -373,7 +383,11 @@ struct BattlePlayback {
             }
             func contact(for id: Int) -> TimeInterval {
                 if let arrival = impacts.last(where: { $0.contact.target == id && $0.contact.kind == .hit }) { return arrival.time }
-                return strikingAction(for: id).impact
+                let action = strikingAction(for: id)
+                if let release = action.release, let crossing = action.moment.rayContacts?.first(where: { $0.target == id }) {
+                    return release + (action.impact - release) * crossing.progress
+                }
+                return action.impact
             }
             if let id = moment.target { hitTimes[id] = contact(for: id) }
             if let id = reply?.moment.target { hitTimes[id] = contact(for: id) }
@@ -383,7 +397,12 @@ struct BattlePlayback {
                 let ordinary = (moment.healthChanges?.first { $0.target == id }?.delta ?? -1) + gazeDamage
                 if gazeDamage > 0 && ordinary >= -0.001 { continue }
                 cursor = max(cursor, react(id, at: contact(for: id), exchanging: responds ? group : [],
-                                           lethal: gazeDamage > 0 ? false : nil))
+                                           lethal: diesInExchange(id)))
+            }
+            for miss in moment.misses ?? [] {
+                guard let stack = before[miss.target] else { continue }
+                let arrival = reply?.moment.actor == miss.actor ? reply?.impact ?? opening.impact : contact(for: miss.target)
+                statusCue("Miss", kind: .effect, for: stack, at: arrival, flashes: false)
             }
             for arrival in impacts {
                 let hit = arrival.contact
@@ -511,6 +530,19 @@ struct BattlePlayback {
         statusContacts = statusTimes
         casualtyContacts = casualtyTimes
         responseFeedback = feedback
+        // Hold each result in the column available at contact, even after an earlier hit expires.
+        var laneEnds = [Int: [Int: Date]]()
+        for index in cues.indices.sorted(by: { cues[$0].started < cues[$1].started }) {
+            let cue = cues[index]
+            guard case .health = cue.kind else { continue }
+            let occupied = laneEnds[cue.stack.id, default: [:]]
+            var lane = cue.resultLane ?? 0
+            if cue.resultLane == nil {
+                while (occupied[lane] ?? .distantPast) > cue.started { lane += 1 }
+                cues[index].resultLane = lane
+            }
+            laneEnds[cue.stack.id, default: [:]][lane] = cue.endsAt
+        }
         combatCues = cues
         waterShieldBreaks = dissolves
         covenantBreaks = shatteredCovenants
@@ -685,11 +717,15 @@ struct BattlePlayback {
     }
 
     func facing(for stack: Stack, elapsed: TimeInterval, reducedMotion: Bool) -> CGFloat {
+        Self.facing(for: stack, action: reducedMotion ? nil : activeAction(for: stack, at: elapsed), elapsed: elapsed)
+    }
+
+    private static func facing(for stack: Stack, action: Action?, elapsed: TimeInterval) -> CGFloat {
         let home: CGFloat = stack.team == .player ? 1 : -1
-        guard !reducedMotion, let action = activeAction(for: stack, at: elapsed) else { return home }
+        guard let action else { return home }
         if elapsed >= action.moveEnd, let start = action.attackPosition, let target = action.target,
            abs(start.x - target.x) > 0.03 { return start.x < target.x ? 1 : -1 }
-        if let sample = routeSample(action, elapsed: elapsed) {
+        if let sample = Self.routeSample(action, elapsed: elapsed) {
             for index in (0...sample.index).reversed() {
                 let dx = action.route[index + 1].x - action.route[index].x
                 if dx != 0 { return dx > 0 ? 1 : -1 }
@@ -711,7 +747,7 @@ struct BattlePlayback {
     func logicalPosition(_ stack: Stack, at elapsed: TimeInterval) -> CGPoint {
         let final = BattlefieldProjection.logicalCenter(stack.cells)
         if let action = activeAction(for: stack, at: elapsed) {
-            if elapsed < action.moveEnd, let sample = routeSample(action, elapsed: elapsed) {
+            if elapsed < action.moveEnd, let sample = Self.routeSample(action, elapsed: elapsed) {
                 let a = Self.center(at: action.route[sample.index], for: stack)
                 let b = Self.center(at: action.route[sample.index + 1], for: stack)
                 return CGPoint(x: a.x + (b.x - a.x) * sample.progress, y: a.y + (b.y - a.y) * sample.progress)
@@ -726,7 +762,7 @@ struct BattlePlayback {
         actions.last { $0.moment.actor == stack.id && $0.start <= elapsed }
     }
 
-    private func routeSample(_ action: Action, elapsed: TimeInterval) -> (index: Int, progress: Double)? {
+    private static func routeSample(_ action: Action, elapsed: TimeInterval) -> (index: Int, progress: Double)? {
         let count = action.route.count - 1
         guard count > 0, action.moveEnd > action.start else { return nil }
         let lengths = zip(action.route, action.route.dropFirst()).map { a, b in

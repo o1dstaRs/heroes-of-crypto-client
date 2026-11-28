@@ -16,6 +16,7 @@ import { hocColors, hocDisplayFontFamily, hocFantasyRadioSx } from "../hocTheme"
 import { ArtifactToggler } from "./ArtifactToggler";
 import { AugmentSelections, remainingAugmentPoints } from "./augmentSelectionState";
 import { armorAugmentLabel } from "./augmentLabels";
+import { t, tf } from "../../i18n/i18n";
 
 const augmentBoardImg = new URL("../../../images/board_augment_256.webp", import.meta.url).toString();
 const augmentArmorImg = new URL("../../../images/armor_augment_256.webp", import.meta.url).toString();
@@ -110,7 +111,7 @@ const PlacementToggler = ({
         <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>Board Placement</FormLabel>
+                    <FormLabel>{t("Board Placement")}</FormLabel>
                     <RadioGroup
                         name={`${title}-placement-type`}
                         onChange={handleSelectionChange}
@@ -118,7 +119,7 @@ const PlacementToggler = ({
                     >
                         <Radio
                             value={Augment.PlacementAugment.LEVEL_1}
-                            label="Height 3 partial"
+                            label={t("Height 3 partial")}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.PlacementAugment.LEVEL_1 &&
                                 currentSelection !== Augment.PlacementAugment.LEVEL_1
@@ -126,7 +127,7 @@ const PlacementToggler = ({
                         />
                         <Radio
                             value={Augment.PlacementAugment.LEVEL_2}
-                            label="Height 4 full"
+                            label={t("Height 4 full")}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.PlacementAugment.LEVEL_2 &&
                                 currentSelection !== Augment.PlacementAugment.LEVEL_2
@@ -134,7 +135,7 @@ const PlacementToggler = ({
                         />
                         <Radio
                             value={Augment.PlacementAugment.LEVEL_3}
-                            label="Height 6 full + edge line"
+                            label={t("Height 6 full + edge line")}
                             disabled={
                                 totalPoints + (currentSelection ?? 0) < Augment.PlacementAugment.LEVEL_3 &&
                                 currentSelection !== Augment.PlacementAugment.LEVEL_3
@@ -175,13 +176,13 @@ const ArmorToggler = ({
             {/* The Toggler Sheet */}
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>Armor</FormLabel>
+                    <FormLabel>{t("Armor")}</FormLabel>
                     <RadioGroup
                         name={`${title}-armor-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.ArmorAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.ArmorAugment.NO_AUGMENT} label="None" />
+                        <Radio value={Augment.ArmorAugment.NO_AUGMENT} label={t("None")} />
                         <Radio
                             value={Augment.ArmorAugment.LEVEL_1}
                             label={armorAugmentLabel(Augment.ArmorAugment.LEVEL_1)}
@@ -241,13 +242,13 @@ const MightToggler = ({
             {/* The Toggler Sheet */}
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>Might</FormLabel>
+                    <FormLabel>{t("Might")}</FormLabel>
                     <RadioGroup
                         name={`${title}-might-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.MightAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.MightAugment.NO_AUGMENT} label="None" />
+                        <Radio value={Augment.MightAugment.NO_AUGMENT} label={t("None")} />
                         <Radio
                             value={Augment.MightAugment.LEVEL_1}
                             label={`+${Augment.getMightPower(Augment.MightAugment.LEVEL_1)}% Melee attack`}
@@ -307,13 +308,13 @@ const EmpowerToggler = ({
             {/* The Toggler Sheet */}
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>Empower</FormLabel>
+                    <FormLabel>{t("Empower")}</FormLabel>
                     <RadioGroup
                         name={`${title}-empower-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.EmpowerAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.EmpowerAugment.NO_AUGMENT} label="None" />
+                        <Radio value={Augment.EmpowerAugment.NO_AUGMENT} label={t("None")} />
                         <Radio
                             value={Augment.EmpowerAugment.LEVEL_1}
                             label={`+${Augment.getEmpowerPower(Augment.EmpowerAugment.LEVEL_1)}% Magic damage`}
@@ -371,13 +372,13 @@ const SniperToggler = ({
         <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>Sniper</FormLabel>
+                    <FormLabel>{t("Sniper")}</FormLabel>
                     <RadioGroup
                         name={`${title}-sniper-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.SniperAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.SniperAugment.NO_AUGMENT} label="None" />
+                        <Radio value={Augment.SniperAugment.NO_AUGMENT} label={t("None")} />
                         <Radio
                             value={Augment.SniperAugment.LEVEL_1}
                             label={`+${Augment.getSniperPower(Augment.SniperAugment.LEVEL_1)[0]}% attack/+${
@@ -441,13 +442,13 @@ const MovementToggler = ({
         <Box sx={{ width: "100%", mx: "auto", marginBottom: 0 }}>
             <Sheet variant="outlined" sx={compactAugmentSheetSx}>
                 <FormControl>
-                    <FormLabel>Movement</FormLabel>
+                    <FormLabel>{t("Movement")}</FormLabel>
                     <RadioGroup
                         name={`${title}-movement-type`}
                         onChange={handleSelectionChange}
                         value={currentSelection ?? Augment.MovementAugment.NO_AUGMENT}
                     >
-                        <Radio value={Augment.MovementAugment.NO_AUGMENT} label="None" />
+                        <Radio value={Augment.MovementAugment.NO_AUGMENT} label={t("None")} />
                         <Radio
                             value={Augment.MovementAugment.LEVEL_1}
                             label={`+${Augment.getMovementPower(Augment.MovementAugment.LEVEL_1)} Movement steps`}
@@ -627,7 +628,7 @@ const SandboxToggleContainer = ({
                     level="title-sm"
                     sx={{ color: "inherit", fontSize: "1.1rem", letterSpacing: "0.06em", lineHeight: 1.25 }}
                 >
-                    Augments
+                    {t("Augments")}
                 </Typography>
                 <Box
                     component="img"
@@ -742,7 +743,7 @@ const SandboxToggleContainer = ({
                             paddingTop: 0,
                         }}
                     >
-                        Remaining Points: {totalPoints}
+                        {tf("Remaining Points: {count}", { count: totalPoints })}
                     </Typography>
                     {togglerType === "Placement" && (
                         <PlacementToggler

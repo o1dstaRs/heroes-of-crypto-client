@@ -239,7 +239,11 @@ import {
 import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
 import { CrusadeTriggers } from "./sandbox/CrusadeTriggers";
 import { UnyieldingPowerTriggers } from "./sandbox/UnyieldingPowerTriggers";
-import { deepWoundsFlagApplications, type DeepWoundsVisualLevel } from "./sandbox/deepWoundsFlagApplications";
+import {
+    countDeepWoundsApplications,
+    deepWoundsVisualLevel,
+    type DeepWoundsVisualLevel,
+} from "./sandbox/deepWoundsApplications";
 import {
     formatAggrBlockedActionHint,
     isAggrBlockedActionHint,
@@ -793,6 +797,7 @@ export const nextObstacleHits = (
 };
 
 type ObstacleAttackedEvent = Extract<GameEvent, { type: "obstacle_attacked" }>;
+type PresentDeepWounds = (source: RenderableUnit, victim: RenderableUnit | undefined) => void;
 type FireWallBurnedEvent = Extract<GameEvent, { type: "fire_wall_burned" }>;
 
 /** Hover caption for a strike that fells more than one tombstone at once (Double Shot, a pierce, a spin). */
@@ -5539,6 +5544,7 @@ export class Sandbox extends PixiScene {
         const units = new Map(capturedUnits ?? this.unitsHolder.getAllUnits());
         units.set(attacker.getId(), attacker);
         units.set(target.getId(), target);
+        const presentDeepWounds = this.prepareDeepWoundsImpacts(event.damage?.deepWounds, dullingEvents);
         const pendingFireShieldDamage = (event.damage?.secondary ?? []).filter((hit) => hit.source === "fire_shield");
         const pendingFireBreathDamage = (event.damage?.secondary ?? []).filter((hit) => hit.source === "fire_breath");
         // Lightning Spin and Skewer Strike damage lives only in `secondary` (a spin replaces the swing, so even
@@ -5941,6 +5947,7 @@ export class Sandbox extends PixiScene {
                                 events: dullingEvents,
                                 activeAttacks,
                                 simultaneousAttackers,
+                                presentDeepWounds,
                             });
                             return;
                         }
@@ -5988,6 +5995,7 @@ export class Sandbox extends PixiScene {
                         if (receivedDamage && renderedVictim && source.hasAbilityActive?.("Piercing Spear"))
                             this.combatVisuals?.spawnCommonFlagPop(renderedVictim, "piercing_spear");
                         if (receivedDamage) {
+                            presentDeepWounds?.(source, renderedVictim);
                             this.onCombatImpact?.(source, victimTeam, strike.amount, event.attackType);
                             if (renderedVictim && !strike.response) this.playUnitCombatSound(renderedVictim, "hurt");
                             this.combatVisuals.showFloatingDamage(
@@ -6068,6 +6076,7 @@ export class Sandbox extends PixiScene {
                                 continue;
                             const struck = units.get(hit.unitId) as RenderableUnit | undefined;
                             if (!struck) continue;
+                            presentDeepWounds?.(source, struck);
                             this.reactedSweepHitUnitIds?.add(hit.unitId);
                             const showReaction = (): Promise<void> => {
                                 if (
@@ -6162,6 +6171,7 @@ export class Sandbox extends PixiScene {
                                     events: dullingEvents,
                                     activeAttacks,
                                     simultaneousAttackers,
+                                    presentDeepWounds,
                                 });
                             } else {
                                 for (const hit of collateral) consumeLoss(hit.unitId, hit.unitsDied);
@@ -6187,6 +6197,8 @@ export class Sandbox extends PixiScene {
                                 units,
                                 true,
                                 (unitId, hit, direction) => {
+                                    if (hit.amount > 0)
+                                        presentDeepWounds?.(source, units.get(unitId) as RenderableUnit | undefined);
                                     const remaining = flight ? consumeLoss(unitId, hit.unitsDied) : undefined;
                                     const legacyLoss = !flight
                                         ? (splash
@@ -6498,6 +6510,7 @@ export class Sandbox extends PixiScene {
             simultaneousAttackers?: ReadonlySet<string>;
             cyclopsKills?: ReadonlySet<string>;
             response?: boolean;
+            presentDeepWounds?: PresentDeepWounds;
         },
     ): Promise<void> {
         if (this.isSceneDestroyed()) return Promise.resolve();
@@ -6549,6 +6562,7 @@ export class Sandbox extends PixiScene {
                 const center = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(hit.position, gs);
                 const direction = { x: center.x - from.x, y: center.y - from.y };
                 if (unit) {
+                    if (!hit.missed) context.presentDeepWounds?.(attacker, unit);
                     // A counter throw's victims show their wounds silently.
                     if (!context.response) this.playUnitCombatSound(unit, "hurt");
                     this.onCombatImpact?.(attacker, unit.getTeam(), hit.amount, "range");
@@ -6621,6 +6635,7 @@ export class Sandbox extends PixiScene {
         const gs = this.sc_sceneSettings.getGridSettings();
         const units = new Map(capturedUnits ?? this.snapshotRenderableUnits());
         units.set(attacker.getId(), attacker);
+        const presentDeepWounds = this.prepareDeepWoundsImpacts(event.damage.deepWounds, events);
         if ([...units.values()].some((unit) => unit.hasAbilityActive?.("Bitter Experience")))
             this.combatVisuals?.prepareCommonFlagPop?.("bitter_experience");
         if ([...units.values()].some((unit) => unit.hasAbilityActive?.("Leather Armor")))
@@ -6749,6 +6764,7 @@ export class Sandbox extends PixiScene {
                         const center = unit?.getVisualCenter(gs) ?? projectBattlefieldPoint(hit.position, gs);
                         const direction = { x: center.x - from.x, y: center.y - from.y };
                         if (unit) {
+                            if (!hit.missed) presentDeepWounds?.(attacker, unit);
                             this.playUnitCombatSound(unit, "hurt");
                             this.onCombatImpact?.(attacker, unit.getTeam(), hit.amount, "range");
                         }
@@ -7284,12 +7300,6 @@ export class Sandbox extends PixiScene {
             attacker.getTeam?.(),
         );
 
-        // Deep Wounds: rake an orange claw slash across the wounded unit for EVERY application recorded
-        // during this attack (a double-punch wounder produces two entries -> two claws). Driven off the
-        // authoritative damage.deepWounds so it fires per-application (not once via the effect diff) and
-        // matches between the live sandbox and the ranked replay.
-        this.spawnDeepWoundsClaws(damage.deepWounds, attacker, target);
-
         // Ranged chakrams already traversed their full path during projectile playback. Keep the
         // separate impact-time ability flight only for melee attacks.
         if (attackEvent.attackType !== "range") void this.playChakramArcs(attacker, damage, target);
@@ -7336,7 +7346,7 @@ export class Sandbox extends PixiScene {
         const hits = damage.hits ?? [];
 
         // Fully-missed attack: "MISS" + bullet-time dodge instead of a damage number. Placed after the
-        // secondary/deepWounds rendering above (a missed primary can still land Skewer/Lightning-Spin
+        // secondary rendering above (a missed primary can still land Skewer/Lightning-Spin
         // side damage) and before the HP-diff fallback, which must not run for a dodge.
         if (damage.missed) {
             this.playSceneGameSound("miss", undefined, `miss:${attacker.getId()}`);
@@ -11685,34 +11695,22 @@ export class Sandbox extends PixiScene {
         }
         return ids;
     }
-    protected spawnDeepWoundsClaws(
-        deepWounds: { unitId: string; power: number }[] | undefined,
-        attacker: Unit,
-        responder?: Unit,
-    ): void {
-        if (!deepWounds?.length || !this.combatVisuals) {
-            return;
-        }
-        const gs = this.sc_sceneSettings.getGridSettings();
-        const cellSize = gs.getCellSize();
-        for (const dw of deepWounds) {
-            const woundedUnit = this.unitsHolder.getAllUnits().get(dw.unitId) as RenderableUnit | undefined;
-            if (!woundedUnit) {
-                continue;
-            }
-            this.combatVisuals.spawnClawSlash(woundedUnit.getVisualCenter(gs), cellSize, dw.power);
-        }
-        // The flag cue follows the applying card, not the cumulative power on the victim. The same
-        // exchange also contains retaliation wounds; those originate from the primary responder.
-        const applications = deepWoundsFlagApplications(
-            deepWounds,
-            { id: attacker.getId(), abilities: attacker.getUnitProperties().abilities },
-            responder ? { id: responder.getId(), abilities: responder.getUnitProperties().abilities } : undefined,
-        );
-        for (const application of applications) {
-            const recipient = this.unitsHolder.getAllUnits().get(application.unitId) as RenderableUnit | undefined;
-            if (recipient) this.combatVisuals.spawnDeepWoundsPop(recipient, application.level);
-        }
+    private prepareDeepWoundsImpacts(
+        wounds: IVisibleDamage["deepWounds"],
+        events?: readonly GameEvent[],
+    ): PresentDeepWounds | undefined {
+        const pending = countDeepWoundsApplications(wounds, events);
+        if (!pending.size || !this.combatVisuals) return undefined;
+        this.combatVisuals.prewarm?.();
+        return (source, victim) => {
+            if (!victim) return;
+            const id = victim.getId();
+            const count = pending.get(id);
+            if (!count) return;
+            if (count === 1) pending.delete(id);
+            else pending.set(id, count - 1);
+            this.combatVisuals.spawnDeepWoundsPop(victim, deepWoundsVisualLevel(source.getUnitProperties().abilities));
+        };
     }
     protected renderHealVfx(events: readonly GameEvent[]): void {
         if (!this.combatVisuals) {
@@ -12206,6 +12204,7 @@ export class Sandbox extends PixiScene {
         kind: "debuff" | "buff",
     ): void {
         if ((IMPACT_STATUS_NAMES as readonly string[]).includes(effectName)) unit.presentCombatStatusAtImpact?.();
+        if (effectName === "Deep Wounds") return; // The struck figure already carries the cue.
         if (effectName === "Aggr") {
             if (!unit.isDead()) this.combatVisuals?.spawnCommonFlagPop(unit, "aggr");
             return;
@@ -12226,10 +12225,6 @@ export class Sandbox extends PixiScene {
             if (!unit.isDead()) this.combatVisuals?.spawnBoarSalivaPop(unit);
             return;
         }
-        // NOTE: the Deep Wounds orange claw is NO LONGER fired here. The effect-name diff pops only once
-        // (when the name first appears) and can't tell a double-punch's two applications apart, so the claw
-        // is driven per-application off `damage.deepWounds` via spawnDeepWoundsClaws() on both the live and
-        // replay attack paths. Only the effect ICON still pops here.
         // The sidebar's lookup: the Angel's renamed blessings keep their aura art, which the spell-name
         // mapping cannot find, so their pop never appeared at all.
         const iconTextureName =
@@ -13488,6 +13483,7 @@ export class Sandbox extends PixiScene {
                 if (!this.unitsHolder.getAllUnits().has(id)) this.dyingVisualUnits.add(captured);
             }
             const waves = splitAreaThrowWaves(areaEvent?.damage.splash);
+            const presentDeepWounds = this.prepareDeepWoundsImpacts(areaEvent?.damage.deepWounds, events);
             const cyclopsKills = cyclopsMultiKillTargets(unit, waves, remainingAmounts, deadIds, unitSnapshot);
             const throwCount =
                 areaEvent?.damage.rangedVolleyCount ??
@@ -13554,6 +13550,7 @@ export class Sandbox extends PixiScene {
                                     this.destroyReplayAttackUnitsAtImpact([unitId], victim ? [victim] : []);
                                 },
                                 events,
+                                presentDeepWounds,
                             });
                         }
                         if (throwIndex === throwCount - 1 && !shownAnyWave) {
@@ -14346,9 +14343,6 @@ export class Sandbox extends PixiScene {
             );
             // Shatter Armor: red wound gashes across the target on a landed strike.
             this.spawnShatterArmorSlashVfx(attacker, target, skewerAttackEvent?.damage);
-            // Deep Wounds: one orange claw slash per application recorded on this strike (a double-punch
-            // wounder shows two). Shared helper — the ranked replay fires the same one in showReplayAttackDamage.
-            this.spawnDeepWoundsClaws(skewerAttackEvent?.damage?.deepWounds, attacker, target);
             // A knight's answer dulls the attacker; the exchange already popped it at that blow, so this only
             // covers an exchange that drew no strikes (and never pops the same unit twice).
             this.popRecordedDullingDefense(attackActionEvents, new Set([attacker.getId()]));

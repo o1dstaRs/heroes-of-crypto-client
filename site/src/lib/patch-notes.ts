@@ -275,7 +275,7 @@ export const patchNotes = {
                 {
                     title: "A more physical board",
                     items: [
-                        "Cemetery battles roll 9 to 12 barrels from the match itself, so both players and the server see the same obstacles. Barrel Barricade, a Tier 1 artifact, places two more barrels with the army that drafted it.",
+                        "On the Barrels map, the match rolls 9 to 12 barrels, so both players and the server see the same obstacles. Barrel Barricade, a Tier 1 artifact, places two more barrels with the army that drafted it.",
                         "Skewer Strike, Fire Breath, Area Throw, Lightning Spin, and the Cyclops's Large Caliber shot strike barrels as well as units. Splash and lines still reach the units behind the barrel they hit.",
                         "Fire Wall is aimed as a line of four cells and burns a unit that crosses it, including every cell a large body enters. A flyer pays for the cells where it lands.",
                         "The Ash Moth is now the Wandering Mage and carries one bursting Fireball. Blindness blinds the enemy a Unicorn strikes. Castling swaps two units of the same footprint, up to one cell beyond the caster's movement.",
@@ -767,7 +767,7 @@ export const patchNotes = {
                 {
                     title: "Более предметное поле боя",
                     items: [
-                        "На кладбище число бочек от 9 до 12 определяется самим матчем, поэтому оба игрока и сервер видят одни и те же препятствия. Артефакт 1-го уровня Barrel Barricade ставит еще две бочки армии, которая его выбрала.",
+                        "На карте «Бочки» число бочек от 9 до 12 определяется самим матчем, поэтому оба игрока и сервер видят одни и те же препятствия. Артефакт 1-го уровня Barrel Barricade ставит еще две бочки армии, которая его выбрала.",
                         "Skewer Strike, Fire Breath, Area Throw, Lightning Spin и выстрел Large Caliber у Cyclops бьют и по бочкам, и по существам. Область и линия все равно достают существ за бочкой, в которую попали.",
                         "Fire Wall ставится линией из четырех клеток и обжигает того, кто ее пересекает, включая каждую клетку, куда входит крупное тело. Летун платит за клетки, на которые приземляется.",
                         "Ash Moth теперь Wandering Mage и несет один разрывной Fireball. Blindness ослепляет врага, по которому ударил Unicorn. Castling меняет местами двух существ одного размера, вплоть до клетки за пределом хода заклинателя.",

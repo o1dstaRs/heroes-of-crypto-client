@@ -250,12 +250,16 @@ function render(frameTime: number, actors: Record<number, Point> = {}) {
         return active;
     });
 
+    const heat: number[] = [];
     for (const filter of world.filters ?? []) {
         if (!(filter instanceof Filter)) continue;
         const uniforms = filter.resources.atmosphere.uniforms;
         for (let i = 0; i < 16; i++) {
             const region = uniforms[`uRegion${i}`] as Float32Array;
             const energy = uniforms[`uEnergy${i}`] as Float32Array;
+            if (region[2] > 0 && region[3] > 0 && energy[1] > 0) {
+                heat.push(region[0], -region[1], region[2], region[3], energy[1], Number(uniforms.uTime));
+            }
             if (region[2] > 0 && energy[0] > 0) {
                 emit({
                     x: region[0],
@@ -278,6 +282,7 @@ function render(frameTime: number, actors: Record<number, Point> = {}) {
             .sort((a, b) => a.zIndex - b.zIndex)
             .map((node) => ({ depth: node.zIndex, wall: wallLayers.has(node), commands: recordLayer(node) })),
         lights: new Float32Array(lights),
+        heat: new Float32Array(heat),
     };
 }
 

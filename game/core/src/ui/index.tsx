@@ -81,7 +81,7 @@ import { draftRoutePrefightMusic, setPrefightMusicActive } from "./audio/prefigh
 import type { SceneGameActionTransport } from "../game_action_transport";
 import { fetchPickObserveSnapshot, fetchRankedPlaySnapshot } from "../api/ranked_play_client";
 import ObserverPickView from "./PickAndBan/ObserverPickView";
-import { t } from "../i18n/i18n";
+import { t, useTranslation } from "../i18n/i18n";
 import { useStopWatching } from "./useStopWatching";
 import { PlayerPortalLoadingPage } from "./PlayerPortal/PlayerPortalLoading";
 import { GameErrorBoundary } from "./GameErrorBoundary";
@@ -1016,9 +1016,9 @@ const MatchLoadingOverlay: React.FC = () => (
             `}
         </style>
         <div style={{ width: "min(440px, 100%)" }}>
-            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Opening match</div>
+            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>{t("Opening match")}</div>
             <div style={{ color: "#aeb7c5", fontSize: 14, lineHeight: 1.4, marginBottom: 18 }}>
-                Syncing your seat and loading the latest match state.
+                {t("Syncing your seat and loading the latest match state.")}
             </div>
             <div
                 style={{
@@ -1728,6 +1728,7 @@ const AuthedRoutes: React.FC<{ windowSize: IWindowSize }> = ({ windowSize }) => 
 
 const App: React.FC = () => {
     usePreventSelection();
+    useTranslation();
 
     return (
         <AuthProvider>

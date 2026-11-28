@@ -99,6 +99,7 @@ import {
     hocSpinnerSx,
 } from "../hocTheme";
 import { systemNoticeText } from "../exitRules/lockModel";
+import { t } from "../../i18n/i18n";
 
 /**
  * Floating social dock: notification bell, friends list, and direct messages mounted once above
@@ -209,7 +210,7 @@ const GoldBadge: React.FC<{ amount?: number }> = ({ amount }) => {
                 direction="row"
                 spacing={0.35}
                 alignItems="center"
-                title="No season profile yet"
+                title={t("No season profile yet")}
                 sx={{
                     px: 0.7,
                     py: 0.3,
@@ -487,7 +488,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
     return (
         <DockPanelShell open={open} onClose={onClose} width={420} maxWidth="94vw" anchorOffset={66}>
             <DockPanelHeader
-                title="Notifications"
+                title={t("Notifications")}
                 subtitle={
                     history
                         ? `${items.length} earlier ${items.length === 1 ? "update" : "updates"}`
@@ -575,7 +576,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                                             sx={hocPrimaryButtonSx}
                                             onClick={() => void social.respond(notification.requestId ?? "", true)}
                                         >
-                                            Accept
+                                            {t("Accept")}
                                         </Button>
                                         <Button
                                             size="sm"
@@ -583,7 +584,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                                             sx={hocSoftButtonSx}
                                             onClick={() => void social.respond(notification.requestId ?? "", false)}
                                         >
-                                            Decline
+                                            {t("Decline")}
                                         </Button>
                                     </Stack>
                                 ) : null}
@@ -603,7 +604,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ open, onClose, on
                         onClick={loadHistory}
                         sx={{ ...hocSoftButtonSx, minHeight: 30, px: 1.4 }}
                     >
-                        Earlier notifications
+                        {t("Earlier notifications")}
                     </Button>
                 </Box>
             ) : null}
@@ -800,7 +801,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
     return (
         <DockPanelShell open={open} onClose={onClose} width={480} anchorOffset={106}>
             <DockPanelHeader
-                title="Friends"
+                title={t("Friends")}
                 subtitle={
                     overview
                         ? `${overview.friends.filter((friend) => friend.online).length} online · ${overview.friends.length} total`
@@ -813,7 +814,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
             <Stack direction="row" spacing={1}>
                 <Input
                     size="sm"
-                    placeholder="Add a friend by username…"
+                    placeholder={t("Add a friend by username…")}
                     startDecorator={<PersonAddAlt1RoundedIcon sx={{ color: hocColors.muted, fontSize: 18 }} />}
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
@@ -830,7 +831,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                     sx={hocPrimaryButtonSx}
                     onClick={() => void submitRequest(query)}
                 >
-                    Add friend
+                    {t("Add friend")}
                 </Button>
             </Stack>
             {query.trim().length >= MIN_SEARCH_CHARS ? (
@@ -843,7 +844,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                     {suggestions.length === 0 ? (
                         searching ? null : (
                             <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                                No players found — check the spelling, or invite them to the game.
+                                {t("No players found — check the spelling, or invite them to the game.")}
                             </Typography>
                         )
                     ) : (
@@ -880,7 +881,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                                                 disabled={busy}
                                                 onClick={() => void submitRequest(hit.username)}
                                             >
-                                                Add
+                                                {t("Add")}
                                             </Button>
                                         ) : (
                                             // Already connected: say so instead of offering an Add that the
@@ -936,7 +937,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                                         disabled={busy}
                                         onClick={() => void act(() => social.respond(request.requestId, true))}
                                     >
-                                        Accept
+                                        {t("Accept")}
                                     </Button>
                                     <Button
                                         size="sm"
@@ -945,7 +946,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                                         disabled={busy}
                                         onClick={() => void act(() => social.respond(request.requestId, false))}
                                     >
-                                        Decline
+                                        {t("Decline")}
                                     </Button>
                                 </Stack>
                             ))}
@@ -955,7 +956,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                     {sectionTitle(`Friends (${overview.friends.length})`)}
                     {overview.friends.length === 0 ? (
                         <Typography level="body-sm" sx={{ color: hocColors.muted }}>
-                            No friends yet — send a request by username above.
+                            {t("No friends yet — send a request by username above.")}
                         </Typography>
                     ) : (
                         overview.friends.map((friend) => (
@@ -1038,7 +1039,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                                         }}
                                         onClick={() => onMessage(friend)}
                                     >
-                                        Message
+                                        {t("Message")}
                                     </Button>
                                     {joinableFriendLobbyId(friend, overview.viewerInGameId) ? (
                                         <Button
@@ -1075,7 +1076,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                                                 },
                                             }}
                                             disabled={busy}
-                                            title="Join the lobby they are sitting in"
+                                            title={t("Join the lobby they are sitting in")}
                                             onClick={() => {
                                                 const lobbyId = joinableFriendLobbyId(friend, overview.viewerInGameId);
                                                 if (lobbyId) {
@@ -1084,7 +1085,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                                                 }
                                             }}
                                         >
-                                            Join lobby
+                                            {t("Join lobby")}
                                         </Button>
                                     ) : null}
                                     {canSpectateFriend(friend, overview.viewerInGameId) && friend.inGameId ? (
@@ -1103,7 +1104,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                                                 navigate(`/game/${friend.inGameId}`, { state: { from: "friends" } });
                                             }}
                                         >
-                                            Spectate
+                                            {t("Spectate")}
                                         </Button>
                                     ) : null}
                                     {currentLobbyId ? (
@@ -1114,7 +1115,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                                             disabled={busy}
                                             onClick={() => void invite(friend)}
                                         >
-                                            Invite
+                                            {t("Invite")}
                                         </Button>
                                     ) : null}
                                     {sandboxInviteAvailable && !friend.inGameId ? (
@@ -1123,10 +1124,10 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                                             variant="outlined"
                                             sx={{ ...hocSoftButtonSx, minHeight: 32 }}
                                             disabled={busy}
-                                            title="Open a co-op sandbox: you play green, they play red"
+                                            title={t("Open a co-op sandbox: you play green, they play red")}
                                             onClick={() => void inviteToSandbox(friend)}
                                         >
-                                            Invite to sandbox
+                                            {t("Invite to sandbox")}
                                         </Button>
                                     ) : null}
                                     <Box sx={{ flex: 1 }} />
@@ -1175,14 +1176,14 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                                                 disabled={busy}
                                                 onClick={() => void act(() => removeFriend(friend.playerId))}
                                             >
-                                                Remove friend
+                                                {t("Remove friend")}
                                             </MenuItem>
                                             <MenuItem
                                                 disabled={busy}
                                                 sx={{ color: hocColors.danger }}
                                                 onClick={() => void act(() => blockPlayer(friend.playerId))}
                                             >
-                                                Block player
+                                                {t("Block player")}
                                             </MenuItem>
                                         </Menu>
                                     </Dropdown>
@@ -1200,7 +1201,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                                         {request.toUsername}
                                     </Typography>
                                     <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                                        pending
+                                        {t("pending")}
                                     </Typography>
                                 </Stack>
                             ))}
@@ -1222,7 +1223,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ open, onClose, onMessage, p
                                         disabled={busy}
                                         onClick={() => void act(() => unblockPlayer(blocked.playerId))}
                                     >
-                                        Unblock
+                                        {t("Unblock")}
                                     </Button>
                                 </Stack>
                             ))}
@@ -1365,6 +1366,7 @@ export const SocialDock: React.FC = () => {
 
     const popup = social.popupRequest;
     const popupVisible = !!popup && !trayOpen && !friendsOpen && !conversationFriend && !predictionsOpen && !inGame;
+    const [requestPrefix, requestSuffix] = t("{player} wants to add you as a friend.").split("{player}");
     // A room invite gets its own non-blocking toast: the tray badge alone made invites easy to miss.
     const inviteToast = social.inviteToast;
     const inviteToastTarget = inviteToast ? (inviteTarget(inviteToast) ?? null) : null;
@@ -1428,9 +1430,9 @@ export const SocialDock: React.FC = () => {
         >
             {!fightDockSlot && <PremiumSearchDockSlot compact={inGame} />}
             <IconButton
-                aria-label="Bets and predictions"
+                aria-label={t("Bets and predictions")}
                 aria-pressed={predictionsOpen}
-                title="Bets and predictions"
+                title={t("Bets and predictions")}
                 sx={dockButtonSx(dockButtonImages.predictions, predictionsOpen)}
                 onClick={togglePredictions}
             />
@@ -1446,7 +1448,7 @@ export const SocialDock: React.FC = () => {
                 }}
             >
                 <IconButton
-                    aria-label="Friends"
+                    aria-label={t("Friends")}
                     aria-pressed={friendsOpen}
                     title={social.friendsOnline > 0 ? `Friends · ${social.friendsOnline} online` : "Friends"}
                     sx={dockButtonSx(dockButtonImages.friends, friendsOpen)}
@@ -1491,9 +1493,9 @@ export const SocialDock: React.FC = () => {
                 }}
             >
                 <IconButton
-                    aria-label="Notifications"
+                    aria-label={t("Notifications")}
                     aria-pressed={trayOpen}
-                    title="Notifications"
+                    title={t("Notifications")}
                     sx={dockButtonSx(dockButtonImages.notifications, trayOpen)}
                     onClick={toggleNotifications}
                 />
@@ -1774,7 +1776,7 @@ export const SocialDock: React.FC = () => {
                     }}
                 >
                     <IconButton
-                        aria-label="System controls"
+                        aria-label={t("System controls")}
                         aria-expanded={systemMenuOpen}
                         onClick={() => {
                             cancelSystemMenuClose();
@@ -1925,7 +1927,7 @@ export const SocialDock: React.FC = () => {
                                 navigate(inviteToastTarget);
                             }}
                         >
-                            Join
+                            {t("Join")}
                         </Button>
                         <Button
                             size="sm"
@@ -1933,7 +1935,7 @@ export const SocialDock: React.FC = () => {
                             sx={{ color: hocColors.muted }}
                             onClick={social.dismissInviteToast}
                         >
-                            Later
+                            {t("Later")}
                         </Button>
                     </Stack>
                 </Box>
@@ -1941,31 +1943,33 @@ export const SocialDock: React.FC = () => {
             <Modal open={popupVisible} onClose={() => popup && social.dismissPopup(popup.requestId)}>
                 <ModalDialog variant="outlined" sx={{ ...hocPanelSx, width: 380, maxWidth: "92vw" }}>
                     <Typography level="title-lg" sx={{ color: hocColors.gold }}>
-                        Friend request
+                        {t("Friend request")}
                     </Typography>
                     <Typography level="body-md" sx={{ color: hocColors.parchment }}>
-                        <b>{popup?.fromUsername}</b> wants to add you as a friend.
+                        {requestPrefix}
+                        <b>{popup?.fromUsername}</b>
+                        {requestSuffix}
                     </Typography>
                     <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                         <Button
                             sx={hocPrimaryButtonSx}
                             onClick={() => popup && void social.respond(popup.requestId, true)}
                         >
-                            Accept
+                            {t("Accept")}
                         </Button>
                         <Button
                             variant="outlined"
                             sx={hocSoftButtonSx}
                             onClick={() => popup && void social.respond(popup.requestId, false)}
                         >
-                            Decline
+                            {t("Decline")}
                         </Button>
                         <Button
                             variant="plain"
                             sx={{ color: hocColors.muted, ml: "auto" }}
                             onClick={() => popup && social.dismissPopup(popup.requestId)}
                         >
-                            Later
+                            {t("Later")}
                         </Button>
                     </Stack>
                 </ModalDialog>

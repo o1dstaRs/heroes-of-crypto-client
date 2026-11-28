@@ -177,7 +177,6 @@ test("live combat skips other archived procedural effects before allocating or l
         });
         f.visuals.spawnSlash(pos, 64);
         f.visuals.spawnBloodSpray(pos, 64);
-        f.visuals.spawnClawSlash(pos, 64, 3);
         f.visuals.spawnAreaImpact(pos, 64);
         let arrived = 0;
         f.visuals.spawnAbilitySteal(pos, { x: 200, y: 300 }, 64, "Double Punch", Texture.WHITE, () => arrived++);

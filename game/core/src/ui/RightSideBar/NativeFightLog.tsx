@@ -2,6 +2,7 @@ import Box from "@mui/joy/Box";
 import React from "react";
 import { createRoot } from "react-dom/client";
 
+import { DEFAULT_LANGUAGE, setLanguage, t } from "../../i18n/i18n";
 import { hocSidebarSectionSx } from "../hocTheme";
 import { FightLog } from "./FightLog";
 import { FIGHT_LOG_SCROLLBAR_LANE_WIDTH_PX, FIGHT_LOG_SURFACE_BACKGROUND } from "./fightLogLayout";
@@ -13,11 +14,15 @@ declare global {
     }
 }
 
-const root = createRoot(document.getElementById("fight-log")!);
+const container = document.getElementById("fight-log")!;
+const root = createRoot(container);
 const clipboard = window.webkit?.messageHandlers?.copyBattleLog;
 const copyText = clipboard ? (text: string) => clipboard.postMessage(text) : undefined;
 
-function render(text: string): void {
+function render(text: string, language = DEFAULT_LANGUAGE): void {
+    setLanguage(language, { persist: false });
+    document.title = t("Fight log");
+    container.setAttribute("aria-label", document.title);
     root.render(
         <Box
             sx={{

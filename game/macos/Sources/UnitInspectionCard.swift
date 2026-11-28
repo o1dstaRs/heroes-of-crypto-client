@@ -10,13 +10,13 @@ struct UnitInspectionCard: View {
         VStack(alignment: .leading, spacing: 13) {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(stack.name)
+                    Text(LocalizedStringKey(stack.name))
                         .font(BattleResources.display(24))
                         .foregroundStyle(BattlePalette.parchment)
                         .accessibilityAddTraits(.isHeader)
                     HStack(spacing: 7) {
-                        Text(stack.team.title).foregroundStyle(BattlePalette.team(stack.team))
-                        if stack.faction != .none { Text(stack.faction.title) }
+                        Text(LocalizedStringKey(stack.team.title)).foregroundStyle(BattlePalette.team(stack.team))
+                        if stack.faction != .none { Text(LocalizedStringKey(stack.faction.title)) }
                         if let level { Text("Level \(level)") }
                         Text(stack.amount == 1 ? "1 creature" : "\(stack.amount.formatted()) creatures")
                     }
@@ -71,7 +71,7 @@ struct UnitInspectionCard: View {
             SidebarIcon(asset: "stat_\(stat.icon)", symbol: stat.symbol)
                 .frame(width: 16, height: 16)
             VStack(alignment: .leading, spacing: 1) {
-                Text(stat.label)
+                Text(LocalizedStringKey(stat.label))
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(BattlePalette.sidebarTitle)
                 Text(stat.value)
@@ -89,7 +89,7 @@ struct UnitInspectionCard: View {
             RoundedRectangle(cornerRadius: 5).strokeBorder(BattlePalette.bronze.opacity(0.48)).allowsHitTesting(false)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(stat.label)
+        .accessibilityLabel(Text(LocalizedStringKey(stat.label)))
         .accessibilityValue(stat.value)
         .unitInspectionHover(stat.detail)
     }

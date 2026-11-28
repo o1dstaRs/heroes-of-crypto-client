@@ -3,6 +3,7 @@ import React from "react";
 
 import { reportClientError } from "./clientErrorReport";
 import { hocColors, hocPrimaryButtonSx } from "./hocTheme";
+import { t } from "../i18n/i18n";
 
 interface Props {
     /** Names the screen in the report (route + game id). */
@@ -45,16 +46,16 @@ export class GameErrorBoundary extends React.Component<Props, State> {
             >
                 <Stack spacing={2} alignItems="center" sx={{ maxWidth: 640, textAlign: "center" }}>
                     <Typography level="title-lg" sx={{ color: hocColors.gold }}>
-                        Something broke on this screen
+                        {t("Something broke on this screen")}
                     </Typography>
                     <Typography level="body-sm" sx={{ color: hocColors.muted, wordBreak: "break-word" }}>
                         {this.state.message}
                     </Typography>
                     <Typography level="body-xs" sx={{ color: hocColors.muted }}>
-                        The error was reported. Reloading brings you back into the same game.
+                        {t("The error was reported. Reloading brings you back into the same game.")}
                     </Typography>
                     <Button sx={hocPrimaryButtonSx} onClick={() => window.location.reload()}>
-                        Reload
+                        {t("Reload")}
                     </Button>
                 </Stack>
             </Box>

@@ -19,7 +19,8 @@ import {
 import { SkewerSpears, type SkewerSpearPose } from "./SkewerSpear";
 import { WindSpears } from "./WindSpear";
 import { bitterExperienceTriggered } from "../bitterExperienceFlagEffects";
-import { OVERHEAD_EFFECT_DURATION_MS, FLOATING_RESULT_DURATION_MS } from "../../settings/statusEffectTiming";
+import { OVERHEAD_EFFECT_DURATION_MS } from "../../settings/statusEffectTiming";
+import { FLOATING_RESULT } from "./floatingCombatResult";
 import { ResurrectionVfx } from "./ResurrectionVfx";
 import { WildRegenerationEngine } from "./WildRegenerationEngine";
 import { HealCrossPops } from "./HealCrossPops";
@@ -79,7 +80,7 @@ import { ParalysisPops } from "./ParalysisPops";
 import { BoarSalivaPops } from "./BoarSalivaPops";
 import { DevourEssencePops } from "./DevourEssencePops";
 import { AiTurnBrainLoop } from "./AiTurnBrainLoop";
-import type { DeepWoundsVisualLevel } from "./deepWoundsFlagApplications";
+import type { DeepWoundsVisualLevel } from "./deepWoundsApplications";
 import { ZenaBrutalityVfx, prepareBrutalityTarget, type BrutalityTarget } from "./ZenaBrutalityVfx";
 import { HelpingHandLinks } from "./HelpingHandLinks";
 import { EmberCovenantRings } from "./EmberCovenantRings";
@@ -393,21 +394,6 @@ interface IBloodSpray {
     life: number;
 }
 
-interface IClawMark {
-    top: HoCMath.XY[]; // one tapered edge of the gash
-    bot: HoCMath.XY[]; // the other tapered edge
-    spine: HoCMath.XY[]; // bright centerline down the deepest part
-    delay: number; // seconds this mark lags the first, so the set rakes in sequence
-}
-
-interface IClawSlash {
-    container: Container;
-    gfx: Graphics; // all marks, redrawn each frame (rake reveal + flare-out)
-    marks: IClawMark[];
-    age: number; // seconds since spawn
-    life: number; // total seconds on screen
-}
-
 interface IDebuffPop {
     container: Container;
     age: number;
@@ -445,22 +431,16 @@ interface IAbilitySteal {
 }
 
 // Tuning for the floating damage numbers.
-const FT_LIFE = FLOATING_RESULT_DURATION_MS / 1000;
+const FT_LIFE = FLOATING_RESULT.duration;
 const FT_RISE = 72; // world px the number floats up
 const FT_DRIFT = 26; // world px horizontal drift in the hit direction
 const FT_POP_DUR = FT_LIFE * 0.2; // seconds of the spawn "pop"
 const FT_START_SCALE = 0.55; // scale the number pops in from
-const FT_FADE_IN = FT_LIFE * 0.125; // seconds to fade in
-const FT_FADE_OUT_FROM = 0.62; // fraction of life after which it fades out
+const FT_FADE_IN = FT_LIFE * FLOATING_RESULT.fadeIn;
+const FT_FADE_OUT_FROM = FLOATING_RESULT.fadeOutFrom;
 const FT_STACK_DIST = 64; // px: numbers closer than this are stacked, not overlapped
 const FT_STACK_STEP = 46; // px: vertical gap for unanchored labels
-const FT_FLAG_COLUMN_WIDTH = 160; // repeated impacts share one height; never build a tower above the flag
-// Lowest screen-space edge of the authored floating-damage rows at their final 1x scale. Keep these
-// explicit instead of calling getLocalBounds() on every hit: measuring Pixi text there would recreate the
-// exact first-impact canvas/font work that prewarm() exists to remove.
-const FT_DAMAGE_ONLY_BOTTOM = 36;
-const FT_DAMAGE_WITH_KILLS_BOTTOM = 80;
-const FT_FLAG_GAP = 6;
+const FT_FLAG_COLUMN_WIDTH = FLOATING_RESULT.columnWidth;
 
 // Tuning for the applied-debuff pop — a spell icon + name that pops over a unit when a debuff lands
 // (e.g. Beholder's Spit Ball applying Sadness / Quagmire / Weakness). Lives a touch longer than a
@@ -562,19 +542,6 @@ const BLOOD_SPRAY_CONE = 0.5; // half-angle (radians) of the fan around the stri
 const BLOOD_SPRAY_SPEED_CELLS = 4.6; // fastest droplets, in cells/second
 const BLOOD_SPRAY_GRAVITY = 900; // world px/s^2 pulling the spray down (y-up world: subtracted)
 const BLOOD_MIST_LIFE = 0.24; // the red puff at the wound is gone before the droplets land
-
-// Tuning for the Deep Wounds "claw rake" — Ursa-style glowing orange claw marks that streak across the
-// target as the debuff lands. Snappy: each mark rakes in fast (staggered so they read as a swipe), holds,
-// then flares out. The mark count + rake width scale with the effect's power (Deep Wounds L1→L3, which
-// also stacks), so a deeper wound reads as a bigger, angrier claw.
-const CLAW_Z = 2120; // above the debuff pop (2100) so the rake reads on top of the icon
-const CLAW_LIFE = 0.5; // seconds the whole rake lives
-const CLAW_RAKE_DUR = 0.13; // seconds for one mark to streak to full length
-const CLAW_STAGGER = 0.035; // seconds each successive mark lags → they rake in sequence
-const CLAW_FADE_FROM = 0.5; // fraction of life after which the marks flare out
-const CLAW_GLOW = 0xff6a14; // outer orange glow (the torn flesh)
-const CLAW_MID = 0xff9a3a; // mid flame-orange body
-const CLAW_CORE = 0xffe6b0; // hot near-white core down each gash
 
 // Tuning for the MELEE death "cleave" — the killing blow tears the dying stack in TWO along a jagged,
 // near-vertical rip: a white-hot slash flash sweeps the cut first, the body holds together for a beat
@@ -750,7 +717,6 @@ export class CombatVisuals {
     private windSpears?: WindSpears;
     private slashes: ISlash[] = [];
     private bloodSprays: IBloodSpray[] = [];
-    private clawSlashes: IClawSlash[] = [];
     private debuffPops: IDebuffPop[] = [];
     private beholderDebuffPops?: BeholderDebuffPops;
     private battleRoarPops?: BattleRoarPops;
@@ -800,7 +766,7 @@ export class CombatVisuals {
     }
     private readonly commonFlagPops = new Map<string, CommonFlagPops>();
     private angelResurrectionPops?: AngelResurrectionPops;
-    private deepWoundsPops?: DeepWoundsPops;
+    private readonly deepWoundsPops: DeepWoundsPops;
     private paralysisPops?: ParalysisPops;
     private boarSalivaPops?: BoarSalivaPops;
     private devourEssencePops?: DevourEssencePops;
@@ -824,23 +790,20 @@ export class CombatVisuals {
     private prewarmed = false;
     public constructor(context: ICombatVisualsContext) {
         this.context = context;
+        this.deepWoundsPops = new DeepWoundsPops((container, zIndex) => context.attachToWorldRoot(container, zIndex));
     }
     private getDamageStyle(fill: string, stroke: string): TextStyle {
         const key = `${fill}|${stroke}`;
         let style = this.damageStyleCache.get(key);
         if (!style) {
+            const { fontSize, strokeWidth, shadow } = FLOATING_RESULT.damage;
             style = new TextStyle({
                 fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
-                fontSize: 60,
+                fontSize,
                 fontWeight: "900",
                 fill,
-                stroke: { color: stroke, width: 5 },
-                dropShadow: {
-                    color: "#000000",
-                    blur: 4,
-                    angle: Math.PI / 6,
-                    distance: 2,
-                },
+                stroke: { color: stroke, width: strokeWidth },
+                dropShadow: shadow,
             });
             this.damageStyleCache.set(key, style);
         }
@@ -850,10 +813,10 @@ export class CombatVisuals {
         if (!this.countStyle) {
             this.countStyle = new TextStyle({
                 fontFamily: HOC_NUMERIC_ARIAL_FONT_FAMILY,
-                fontSize: 40,
+                fontSize: FLOATING_RESULT.kills.fontSize,
                 fontWeight: "bold",
                 fill: "#ffffff",
-                stroke: { color: "#000000", width: 4 },
+                stroke: { color: "#000000", width: FLOATING_RESULT.kills.strokeWidth },
             });
         }
         return this.countStyle;
@@ -948,7 +911,7 @@ export class CombatVisuals {
             pos,
             undefined,
             unit ? this.flagOverlayAnchor(unit, this.context.getGridSettings()) : undefined,
-            FT_DAMAGE_ONLY_BOTTOM,
+            FLOATING_RESULT.damage.bottom,
             5521,
             true,
         );
@@ -970,7 +933,7 @@ export class CombatVisuals {
         // The container is counter-flipped below to keep its contents upright in the Y-up world; local +Y
         // therefore points down on screen. Raising its origin by the authored bottom extent pins the whole
         // result above the banner without a per-hit text measurement.
-        const baseY = flagTopAnchor ? flagTopAnchor.y + screenBottomExtent + FT_FLAG_GAP : pos.y + 20;
+        const baseY = flagTopAnchor ? flagTopAnchor.y + screenBottomExtent + FLOATING_RESULT.flagGap : pos.y + 20;
         let stack = 0;
         let flagLane: number | undefined;
         const occupiedLanes = new Set<number>();
@@ -997,7 +960,7 @@ export class CombatVisuals {
         const grid = flagTopAnchor ? this.context.getGridSettings?.() : undefined;
         const minX = grid?.getMinX?.(),
             maxX = grid?.getMaxX?.();
-        const columns = [0, -1, 1, -2, 2, -3, 3, -4, 4, -5, 5, -6, 6].filter(
+        const columns = FLOATING_RESULT.columns.filter(
             (column) =>
                 column === 0 ||
                 minX === undefined ||
@@ -1009,7 +972,9 @@ export class CombatVisuals {
         const column = flagTopAnchor ? columns[lane % columns.length] : 0;
         const startX = baseX + column * FT_FLAG_COLUMN_WIDTH;
         // At a board edge choose inward columns first. Only an unusually full result row wraps.
-        const startY = baseY + (flagTopAnchor ? Math.floor(lane / columns.length) : stack) * FT_STACK_STEP;
+        const startY =
+            baseY +
+            (flagTopAnchor ? Math.floor(lane / columns.length) * FLOATING_RESULT.rowStep : stack * FT_STACK_STEP);
 
         // Flag-anchored results stay fixed for their entire lifetime. The
         // attack direction still applies to free-floating labels (MISS, RESISTED, etc.), while repeated
@@ -1336,17 +1301,18 @@ export class CombatVisuals {
         });
     }
     public spawnDeepWoundsPop(unit: RenderableUnit, level: DeepWoundsVisualLevel): void {
-        if (unit.isDead()) return;
         const gs = this.context.getGridSettings();
         const id = unit.getId();
-        this.deepWoundsPops ??= new DeepWoundsPops((container, zIndex) => {
-            this.effectCaptions.push(addEffectCaption(container, "Deep Wounds", gs.getCellSize()));
-            this.context.attachToWorldRoot(container, zIndex);
-        });
-        void this.deepWoundsPops.spawn(id, level, unit.getFlagCenterAnchor(gs), gs.getCellSize(), () => {
-            const current = this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined;
-            return current && !current.isDead() ? current.getFlagCenterAnchor(gs) : undefined;
-        });
+        const follow = () => {
+            // A captured figure can still be drawing its first hit when the engine has resolved a later lethal hit.
+            const current = (this.context.getUnitsHolder().getAllUnits().get(id) as RenderableUnit | undefined) ?? unit;
+            const depth = current.getVisualDepth();
+            return depth && current.getFigureDepth(depth.container) !== undefined
+                ? current.getProjectileImpactPoint(gs)
+                : undefined;
+        };
+        const anchor = follow();
+        if (anchor) void this.deepWoundsPops.spawn(id, level, anchor, gs.getCellSize(), follow);
     }
     public syncAiTurnBrain(unit?: RenderableUnit): void {
         if (!unit || unit.isDead()) {
@@ -1922,6 +1888,7 @@ export class CombatVisuals {
         }
     }
     public prewarm(): void {
+        this.deepWoundsPops.preload();
         if (this.prewarmed) {
             return;
         }
@@ -2000,7 +1967,7 @@ export class CombatVisuals {
         if (!keepDetachedOverlays) this.healCrossPops?.clear();
         if (!keepDetachedOverlays) for (const layer of this.commonFlagPops.values()) layer.clear();
         if (!keepDetachedOverlays) this.angelResurrectionPops?.clear();
-        if (!keepDetachedOverlays) this.deepWoundsPops?.clear();
+        if (!keepDetachedOverlays) this.deepWoundsPops.clear();
         if (!keepDetachedOverlays) this.paralysisPops?.clear();
         if (!keepDetachedOverlays) this.boarSalivaPops?.clear();
         if (!keepDetachedOverlays) this.devourEssencePops?.clear();
@@ -2108,10 +2075,6 @@ export class CombatVisuals {
             transfer.container.destroy({ children: true });
             this.abilitySteals.splice(i, 1);
         }
-        for (const claw of this.clawSlashes) {
-            claw.container.destroy({ children: true });
-        }
-        this.clawSlashes.length = 0;
         if (!keepDetachedOverlays) {
             for (const forge of this.craftForges) {
                 forge.container.destroy({ children: true });
@@ -2155,7 +2118,7 @@ export class CombatVisuals {
         this.wildRegenerationEngine?.update();
         this.healCrossPops?.update();
         this.angelResurrectionPops?.update(dt);
-        this.deepWoundsPops?.update(dt);
+        this.deepWoundsPops.update(dt);
         this.paralysisPops?.update();
         this.boarSalivaPops?.update(dt);
         this.devourEssencePops?.update(dt);
@@ -2188,7 +2151,6 @@ export class CombatVisuals {
             this.abilitySteals.length === 0 &&
             this.slashes.length === 0 &&
             this.bloodSprays.length === 0 &&
-            this.clawSlashes.length === 0 &&
             this.craftForges.length === 0 &&
             this.enchants.length === 0
         ) {
@@ -2291,7 +2253,6 @@ export class CombatVisuals {
         this.stepAbilitySteals(dt);
         this.stepSlashes(dt);
         this.stepBloodSprays(dt);
-        this.stepClawSlashes(dt);
         this.stepCraftForges(dt);
         this.stepEnchants(dt);
     }
@@ -4289,93 +4250,6 @@ export class CombatVisuals {
             }
         }
     }
-    public spawnClawSlash(center: HoCMath.XY, cellSize: number, intensity: number): void {
-        if (!this.context.legacyEffectsEnabled) return;
-        const level = intensity >= 18 ? 3 : intensity >= 10 ? 2 : 1;
-        const markCount = 2 + level; // 3, 4, or 5 claws
-        const spanScale = 0.85 + 0.12 * level; // a deeper wound rakes bigger
-
-        const container = new Container();
-        this.attachEffect(container, CLAW_Z);
-        const gfx = new Graphics();
-        container.addChild(gfx);
-
-        // Diagonal swipe (top-right → bottom-left), jittered so repeats don't look identical.
-        const ang = -Math.PI / 3 + (Math.random() - 0.5) * 0.5;
-        const ux = Math.cos(ang);
-        const uy = Math.sin(ang);
-        const px = -uy; // perpendicular: marks are offset along this, and each bows along it too
-        const py = ux;
-        const len = cellSize * 1.15 * spanScale;
-        const spread = cellSize * 0.14; // gap between adjacent marks
-        const maxHalfW = cellSize * 0.055; // each mark is thin
-        const N = 10;
-
-        const marks: IClawMark[] = [];
-        for (let m = 0; m < markCount; m++) {
-            const offset = (m - (markCount - 1) / 2) * spread;
-            const bow = (0.35 + Math.random() * 0.2) * cellSize; // all marks curve the same way → a rake
-            const top: HoCMath.XY[] = [];
-            const bot: HoCMath.XY[] = [];
-            const spine: HoCMath.XY[] = [];
-            for (let i = 0; i <= N; i++) {
-                const t = i / N;
-                const along = (t - 0.5) * len;
-                const taper = Math.sin(Math.PI * t); // pointed at both ends
-                const w = maxHalfW * taper;
-                const curve = bow * taper;
-                const cx = center.x + ux * along + px * (offset + curve);
-                const cy = center.y + uy * along + py * (offset + curve);
-                spine.push({ x: cx, y: cy });
-                top.push({ x: cx + px * w, y: cy + py * w });
-                bot.push({ x: cx - px * w, y: cy - py * w });
-            }
-            marks.push({ top, bot, spine, delay: m * CLAW_STAGGER });
-        }
-
-        this.clawSlashes.push({ container, gfx, marks, age: 0, life: CLAW_LIFE });
-    }
-    private stepClawSlashes(dt: number): void {
-        for (let i = this.clawSlashes.length - 1; i >= 0; i--) {
-            const claw = this.clawSlashes[i];
-            claw.age += dt;
-            if (claw.age >= claw.life) {
-                claw.container.destroy({ children: true });
-                this.clawSlashes.splice(i, 1);
-                continue;
-            }
-            const gfx = claw.gfx;
-            gfx.clear();
-            const lifeT = claw.age / claw.life;
-            const fade = lifeT < CLAW_FADE_FROM ? 1 : 1 - (lifeT - CLAW_FADE_FROM) / (1 - CLAW_FADE_FROM);
-            for (const mark of claw.marks) {
-                const local = claw.age - mark.delay;
-                if (local <= 0) {
-                    continue;
-                }
-                // Rake: each mark streaks from its leading end to full length.
-                const reveal = Math.min(1, local / CLAW_RAKE_DUR);
-                const n = mark.spine.length - 1;
-                const k = Math.max(1, Math.ceil(reveal * n));
-                gfx.moveTo(mark.top[0].x, mark.top[0].y);
-                for (let p = 1; p <= k; p++) {
-                    gfx.lineTo(mark.top[p].x, mark.top[p].y);
-                }
-                for (let p = k; p >= 0; p--) {
-                    gfx.lineTo(mark.bot[p].x, mark.bot[p].y);
-                }
-                gfx.closePath();
-                gfx.fill({ color: CLAW_GLOW, alpha: 0.5 * fade });
-                gfx.stroke({ width: 2, color: CLAW_MID, alpha: 0.85 * fade, cap: "round", join: "round" });
-                // Hot core down the revealed spine.
-                gfx.moveTo(mark.spine[0].x, mark.spine[0].y);
-                for (let p = 1; p <= k; p++) {
-                    gfx.lineTo(mark.spine[p].x, mark.spine[p].y);
-                }
-                gfx.stroke({ width: 1.5, color: CLAW_CORE, alpha: 0.95 * fade, cap: "round" });
-            }
-        }
-    }
     public showFloatingDamage(
         pos: HoCMath.XY,
         amount: number,
@@ -4419,16 +4293,16 @@ export class CombatVisuals {
             const skullTex = Texture.from(images.combat_kills_skull_icon_v1);
             const skullSprite = new Sprite(skullTex);
             skullSprite.anchor.set(0.5);
-            skullSprite.width = 40;
-            skullSprite.height = 40;
+            const { iconSize, halfSpacing, y } = FLOATING_RESULT.kills;
+            skullSprite.width = iconSize;
+            skullSprite.height = iconSize;
 
             const countStyle = this.getCountStyle();
             const countText = new PixiText({ text: `${unitsDied}`, style: countStyle });
             countText.anchor.set(0.5);
 
-            const lineY = 55;
-            skullSprite.position.set(-25, lineY);
-            countText.position.set(25, lineY);
+            skullSprite.position.set(-halfSpacing, y);
+            countText.position.set(halfSpacing, y);
 
             container.addChild(skullSprite, countText);
         }
@@ -4437,7 +4311,7 @@ export class CombatVisuals {
             pos,
             direction,
             flagTopAnchor && effectUnit ? { ...flagTopAnchor, unitId: effectUnit.getId() } : flagTopAnchor,
-            unitsDied && unitsDied > 0 ? FT_DAMAGE_WITH_KILLS_BOTTOM : FT_DAMAGE_ONLY_BOTTOM,
+            unitsDied && unitsDied > 0 ? FLOATING_RESULT.kills.bottom : FLOATING_RESULT.damage.bottom,
             zIndex,
         );
         if (effectUnit && bitterExperienceTriggered(effectUnit, { amount, unitsDied }))
@@ -4469,7 +4343,7 @@ export class CombatVisuals {
             pos,
             undefined,
             unit ? this.flagOverlayAnchor(unit, this.context.getGridSettings()) : undefined,
-            FT_DAMAGE_ONLY_BOTTOM,
+            FLOATING_RESULT.damage.bottom,
         );
     }
     private spawnHealBurst(pos: HoCMath.XY, ringColor = 0x66ff99, moteColor = 0xaaffcc): void {

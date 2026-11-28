@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-if [[ $# -gt 1 || ( -n "${1:-}" && "$1" != "--open" && "$1" != "--test" ) ]]; then
-    echo "Usage: bash game/macos/build.sh [--open|--test]" >&2
+if [[ $# -gt 1 || ( -n "${1:-}" && "$1" != "--open" && "$1" != "--test" && "$1" != "--release" ) ]]; then
+    echo "Usage: bash game/macos/build.sh [--open|--test|--release]" >&2
     exit 1
 fi
 
@@ -12,6 +12,19 @@ case "$(uname -s):$(uname -m)" in
     Darwin:x86_64) swift_arch=x86_64; zig_arch=x86_64 ;;
     *) echo "The native client builds on macOS." >&2; exit 1 ;;
 esac
+
+if [[ "${1:-}" == "--release" ]]; then
+    if [[ "${HOC_MACOS_SIGNING_IDENTITY:-}" != "Developer ID Application: "* || -z "${HOC_MACOS_NOTARY_PROFILE:-}" ]]; then
+        echo "Set HOC_MACOS_SIGNING_IDENTITY to your Developer ID Application certificate name and HOC_MACOS_NOTARY_PROFILE to your notarytool keychain profile." >&2
+        exit 1
+    fi
+    if ! security find-identity -v -p codesigning | /usr/bin/grep -F "\"$HOC_MACOS_SIGNING_IDENTITY\"" >/dev/null; then
+        echo "The requested Developer ID Application signing identity is unavailable in the keychain." >&2
+        exit 1
+    fi
+    xcrun --find notarytool >/dev/null
+    xcrun --find stapler >/dev/null
+fi
 
 fixture_test=false
 if [[ -z "${HOC_IMAGES_LOC:-}" || -z "${HOC_ANIMATIONS_LOC:-}" ]]; then
@@ -41,6 +54,7 @@ zig build "-Dtarget=$zig_arch-macos.14.0" -Doptimize=ReleaseSafe "-Dcommon-sha=$
     --cache-dir "$build/zig-cache" --prefix "$build/zig" --summary failures
 bun scripts/make-skirmish.ts "$contents/Resources"
 bun scripts/bundle-startup.ts "$contents/Resources"
+bun scripts/bundle-localization.ts "$contents/Resources"
 bun scripts/bundle-animation-timing.ts "$contents/Resources/animation-timing.json"
 bun scripts/bundle-wind-aura.ts "$contents/Resources"
 bun scripts/bundle-arachna-aura.ts "$contents/Resources"
@@ -69,7 +83,7 @@ if [[ "${1:-}" == "--test" ]]; then
         Sources/BattlefieldAuraRenderer.swift Sources/BattlefieldWindAura.swift Sources/BattlefieldGriffinAura.swift \
         Sources/BattlefieldWyvernAura.swift Sources/BattlefieldArachnaAura.swift Sources/ArachnaContactSimulation.swift \
         Sources/BattlefieldAbominationAura.swift Tests/AbominationAuraSmoke.swift \
-        Sources/BattleSmokeClouds.swift Tests/SmokeVolumeSmoke.swift \
+        Sources/BattleSmokeClouds.swift Tests/SmokeVolumeSmoke.swift Sources/BattlefieldOptics.swift Tests/OpticsSmoke.swift \
         Sources/BattleDamageSpell.swift Sources/BattleStatusEffects.swift Sources/BattleChakram.swift Sources/SandboxKeyboardShortcuts.swift \
         Sources/CreatureAnimation.swift Sources/BattleProjectile.swift Sources/FairyIdleAppearance.swift Sources/BattleMageIdleAppearance.swift \
         Sources/ElfIdleAppearance.swift \
@@ -81,7 +95,8 @@ if [[ "${1:-}" == "--test" ]]; then
     rm "$smoke"
     auth_smoke="$contents/MacOS/auth-smoke"
     xcrun swiftc "${swift_flags[@]}" Sources/NativeAuthAPI.swift Sources/DesktopBrowserSignIn.swift \
-        Sources/NativeAccountController.swift Sources/PremiumSite.swift Tests/AuthSmoke.swift -o "$auth_smoke"
+        Sources/NativeAccountController.swift Sources/NativeCoopAPI.swift Sources/NativePremiumAccess.swift Sources/PremiumSite.swift \
+        Sources/GameAudioSettings.swift Sources/OnlinePreferences.swift Tests/AuthSmoke.swift -o "$auth_smoke"
     "$auth_smoke"
     rm "$auth_smoke"
     stats_smoke="$contents/MacOS/statistics-smoke"
@@ -104,7 +119,31 @@ for size in 16 32 128 256 512; do
 done
 iconutil -c icns "$iconset" -o "$contents/Resources/AppIcon.icns"
 
-codesign --force --sign - "$stage/$app_name"
+if [[ "${1:-}" == "--release" ]]; then
+    app="$stage/$app_name"
+    submission_archive="$stage/notary-submission.zip"
+    release_archive="$stage/Heroes-of-Crypto-macOS-$swift_arch.zip"
+    codesign --force --timestamp --options runtime --sign "$HOC_MACOS_SIGNING_IDENTITY" "$app"
+    codesign --verify --strict "$app"
+    ditto -c -k --keepParent "$app" "$submission_archive"
+    xcrun notarytool submit "$submission_archive" --keychain-profile "$HOC_MACOS_NOTARY_PROFILE" \
+        --wait --timeout 30m --output-format json >"$stage/notary-result.json"
+    if ! bun -e 'const result = await Bun.file(process.argv[1]).json();
+        if (result.status !== "Accepted") {
+            console.error("Notarization was " + result.status + ". Submission " + result.id);
+            process.exit(1);
+        }' "$stage/notary-result.json"; then
+        exit 1
+    fi
+    xcrun stapler staple "$app"
+    xcrun stapler validate "$app"
+    spctl --assess --type execute "$app"
+    ditto -c -k --keepParent "$app" "$release_archive"
+    mv "$release_archive" "$build/"
+    echo "$build/${release_archive##*/}"
+else
+    codesign --force --sign - "$stage/$app_name"
+fi
 if [[ -e "$build/$app_name" ]]; then
     mv "$build/$app_name" "$stage/previous.app"
 fi

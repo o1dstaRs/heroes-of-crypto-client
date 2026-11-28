@@ -12,7 +12,7 @@
  *
  *   /preview/placement                -> green (lower) seat, normal map
  *   /preview/placement?team=upper     -> the red seat
- *   /preview/placement?map=cemetery   -> also: lava (anything else is the normal map)
+ *   /preview/placement?map=barrels    -> also: lava (normal is the default)
  */
 import { GridVals, TeamType, TeamVals } from "@heroesofcrypto/common";
 import React, { useMemo } from "react";

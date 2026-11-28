@@ -27,10 +27,9 @@ enum BattleWaterShield {
         }
     }
 
-    static func dissolve(_ burst: BattleWaterShieldBreak, age: Double, time: Double,
+    static func dissolve(_ burst: BattleWaterShieldBreak, age: Double, time: Double, facing: CGFloat,
                          projection: BattlefieldProjection, in context: GraphicsContext) {
         let stack = burst.stack
-        let facing: CGFloat = stack.team == .player ? 1 : -1
         let body = CreatureAnimation.boardPresentation(stack, position: burst.position, projection: projection, facing: facing)
         if stack.name != "Mermaid" {
             let pool = groundRing(stack, center: body.ground, projection: projection)
@@ -63,8 +62,8 @@ enum BattleWaterShield {
         spray(age: age, floor: floor, in: liquid)
     }
 
-    private static func geometry(_ stack: Stack, position: CGPoint, presentation: CreatureBoardPresentation,
-                                 facing: CGFloat, projection: BattlefieldProjection) -> CGRect {
+    static func geometry(_ stack: Stack, position: CGPoint, presentation: CreatureBoardPresentation,
+                         facing: CGFloat, projection: BattlefieldProjection) -> CGRect {
         let cell = projection.spriteCellSize
         let flagHeight = max(9, cell * 0.20)
         let flag = CreatureAnimation.flagPosition(for: stack.name, presentation: presentation,

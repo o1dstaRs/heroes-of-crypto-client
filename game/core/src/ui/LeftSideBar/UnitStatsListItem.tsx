@@ -81,6 +81,8 @@ import { getTeamFlagBackground } from "../TeamAmountFlag";
 import { PremiumUnitInspectionContext, PremiumUnitQuestionButton } from "../premium/PremiumUnitInspection";
 import { UnitSpells, unitSpellEntries } from "./UnitSpells";
 import { CreatureNameFlag } from "./CreatureNameFlag";
+import { t, tf } from "../../i18n/i18n";
+import { localizeAbilityDescription } from "../../i18n/abilityDescription";
 
 interface IAbilityStackProps {
     abilities: IVisibleImpact[];
@@ -504,13 +506,15 @@ const AbilityCell: React.FC<{
             title={
                 <>
                     {disabledStatus?.tooltip}
-                    {ability.name}:&nbsp;
-                    {ability.description.split("\n").map((line, idx) => (
-                        <React.Fragment key={idx}>
-                            {line}
-                            <br />
-                        </React.Fragment>
-                    ))}
+                    {t(ability.name)}:&nbsp;
+                    {localizeAbilityDescription(ability.name, ability.description)
+                        .split("\n")
+                        .map((line, idx) => (
+                            <React.Fragment key={idx}>
+                                {line}
+                                <br />
+                            </React.Fragment>
+                        ))}
                     {ability.amplifiedBy && (
                         // The percentage above ALREADY includes this artifact. Name it, with its own art,
                         // so a boosted number reads as "the charm is working" rather than as a mystery.
@@ -535,7 +539,7 @@ const AbilityCell: React.FC<{
         >
             <Box
                 tabIndex={0}
-                aria-label={ability.name}
+                aria-label={t(ability.name)}
                 sx={{
                     position: "relative",
                     // Sized in px from the measured bar width so the tiles neither overhang a 128px bar
@@ -1128,13 +1132,13 @@ const EffectTiles: React.FC<{
                 {effects.map((effect, index) => (
                     <Tooltip
                         key={`${title}-${effect.name}-${effect.smallTextureName}-${index}`}
-                        title={`${effect.name}: ${withoutFinalPeriod(effect.description)}${effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER && effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL ? ` (remaining ${HoCLib.getLapString(effect.laps)})` : ""}`}
+                        title={`${t(effect.name)}: ${withoutFinalPeriod(effect.description)}${effect.laps > 0 && effect.laps !== Number.MAX_SAFE_INTEGER && effect.laps !== HoCConstants.NUMBER_OF_LAPS_TOTAL ? ` (remaining ${HoCLib.getLapString(effect.laps)})` : ""}`}
                         describeChild
                         sx={commonTooltipSx}
                     >
                         <Box
                             tabIndex={0}
-                            aria-label={effect.name}
+                            aria-label={t(effect.name)}
                             sx={{
                                 position: "relative",
                                 display: "inline-flex",
@@ -1959,7 +1963,7 @@ const UnitStatsLayout: React.FC<{
                         <ScrollWell height={statWellHeight}>
                             <Box
                                 role="group"
-                                aria-label="Unit stats"
+                                aria-label={t("Unit stats")}
                                 sx={{
                                     display: "grid",
                                     gridTemplateColumns: `repeat(${metrics.statColumns}, minmax(0, 1fr))`,
@@ -1980,7 +1984,7 @@ const UnitStatsLayout: React.FC<{
 
             {/* Abilities keep one row; effect wells below use the spare card height for visible rows. */}
             <PanelSection
-                title="Abilities"
+                title={t("Abilities")}
                 metrics={metrics}
                 overlayTitle
                 titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}
@@ -1999,7 +2003,7 @@ const UnitStatsLayout: React.FC<{
 
             {/* Every spellcaster's scrolls, not only the Blacksmith's. */}
             {unitSpellEntries(unitProperties.name, unitProperties.spells).length > 0 && (
-                <PanelSection title="Magic" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
+                <PanelSection title={t("Magic")} metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
                     <UnitSpells
                         unitName={unitProperties.name}
                         spells={unitProperties.spells}
@@ -2011,7 +2015,7 @@ const UnitStatsLayout: React.FC<{
             {/* Keep effects in normal flow so the Buffs plaque cannot overlap the ability tiles. */}
             <Box
                 ref={effectsRef}
-                aria-label="Creature effects"
+                aria-label={t("Creature effects")}
                 sx={{
                     width: "100%",
                     display: "flex",
@@ -2023,7 +2027,7 @@ const UnitStatsLayout: React.FC<{
                     gap: `${Math.round(metrics.gapPx * 0.5)}px`,
                 }}
             >
-                <PanelSection title="Buffs" metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
+                <PanelSection title={t("Buffs")} metrics={metrics} titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}>
                     {buffCount > 0 && (
                         <IconScrollWell height={buffWellHeight} offsetY={2} vertical rowStepPx={buffRowStep}>
                             {/* Additional buffs wrap into rows inside this fixed-height vertically scrolling well. */}
@@ -2042,7 +2046,7 @@ const UnitStatsLayout: React.FC<{
                                 }}
                             >
                                 {orderedBuffs.length > 0 && (
-                                    <EffectTiles effects={orderedBuffs} title="Buffs" metrics={metrics} inline />
+                                    <EffectTiles effects={orderedBuffs} title={t("Buffs")} metrics={metrics} inline />
                                 )}
                                 {/* Whole-fight synergy badges follow the status icons so newly applied
                                 temporary buffs stay visible at the start of the well. */}
@@ -2062,7 +2066,7 @@ const UnitStatsLayout: React.FC<{
                 </PanelSection>
 
                 <PanelSection
-                    title="Debuffs"
+                    title={t("Debuffs")}
                     metrics={metrics}
                     titleHeightScale={UNIT_SECTION_PLAQUE_HEIGHT_SCALE}
                     titleOffsetY={Math.round(metrics.gapPx * 0.5)}
@@ -2101,7 +2105,7 @@ const UnitStatsLayout: React.FC<{
                                     pb: `${metrics.gapPx * 0.6}px`,
                                 }}
                             >
-                                <EffectTiles effects={orderedDebuffs} title="Debuffs" metrics={metrics} inline />
+                                <EffectTiles effects={orderedDebuffs} title={t("Debuffs")} metrics={metrics} inline />
                             </Box>
                         </IconScrollWell>
                     </Box>
@@ -2227,7 +2231,7 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                         textTransform: "uppercase",
                                     }}
                                 >
-                                    Synergies
+                                    {t("Synergies")}
                                 </Typography>
                                 <Box
                                     sx={{
@@ -2302,8 +2306,11 @@ const UnitStatsListItemInner: React.FC<UnitStatsListItemProps> = ({
                                                                         lineHeight: 1.1,
                                                                     }}
                                                                 >
-                                                                    {FACTION_SYNERGY_LEVEL_TO_UNITS[synergy.level]}{" "}
-                                                                    units
+                                                                    {tf("{count} units", {
+                                                                        count: FACTION_SYNERGY_LEVEL_TO_UNITS[
+                                                                            synergy.level
+                                                                        ],
+                                                                    })}
                                                                 </Typography>
                                                             </Box>
                                                         </Box>

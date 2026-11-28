@@ -17,7 +17,7 @@ struct SandboxPlacementSidebar: View {
                     VStack(spacing: 10) {
                         if let creature = model.pendingCreature {
                             if canPlaceRosterCreature {
-                                Text("Place \(creature.name) on an open tile.")
+                                Text("Place \(Text(LocalizedStringKey(creature.name))) on an open tile.")
                                     .font(BattleResources.display(12))
                                     .foregroundStyle(BattlePalette.gold)
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -45,7 +45,7 @@ struct SandboxPlacementSidebar: View {
                     teamLoadout(.opponent)
                 }
                 if let problem = model.problem {
-                    Text(problem).foregroundStyle(BattlePalette.opponent).font(.caption)
+                    Text(LocalizedStringKey(problem)).foregroundStyle(BattlePalette.opponent).font(.caption)
                 }
             }
             .padding(.vertical, 1)
@@ -72,7 +72,7 @@ struct SandboxPlacementSidebar: View {
                 HStack(spacing: 10) {
                     SidebarIcon(asset: icon, symbol: symbol)
                         .frame(width: 46, height: compact ? 39 : 46)
-                    Text(title.uppercased()).font(BattleResources.display(14)).tracking(1.4)
+                    Text(LocalizedStringKey(title.uppercased())).font(BattleResources.display(14)).tracking(1.4)
                         .foregroundStyle(isOpen ? accent : BattlePalette.sidebarTitle)
                     Spacer(minLength: 0)
                     SidebarIcon(asset: "tr_up", symbol: "chevron.up")
@@ -104,7 +104,7 @@ struct SandboxPlacementSidebar: View {
                     HStack(spacing: 8) {
                         SidebarRadio(selected: selected)
                             .frame(width: 22, height: 22)
-                        Text(map.title.uppercased()).font(BattleResources.display(13)).tracking(0.6)
+                        Text(LocalizedStringKey(map.title.uppercased())).font(BattleResources.display(13)).tracking(0.6)
                             .foregroundStyle(BattlePalette.color(0xff8f00).opacity(selected ? 1 : 0.60))
                         Spacer(minLength: 0)
                     }
@@ -127,7 +127,7 @@ struct SandboxPlacementSidebar: View {
     @ViewBuilder
     private func teamLoadout(_ team: Team) -> some View {
         if let options = model.loadoutOptions, let preview = model.teamPreview[team] {
-            SandboxTeamLoadout(model: model, options: options, preview: preview)
+            SandboxTeamLoadout(model: model, options: options, preview: preview, compact: compact)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -183,8 +183,8 @@ struct SandboxStartControls: View {
                 .contentShape(Circle())
         }
         .buttonStyle(BattleButtonStyle(magnifies: true))
-        .accessibilityLabel("\(team.title) AI")
+            .accessibilityLabel("\(Text(LocalizedStringKey(team.title))) AI")
         .accessibilityValue(active ? "On" : "Off")
-        .help("\(team.title) AI")
+            .help(Text("\(Text(LocalizedStringKey(team.title))) AI"))
     }
 }

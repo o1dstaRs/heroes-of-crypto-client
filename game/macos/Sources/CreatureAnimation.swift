@@ -42,6 +42,18 @@ struct CreatureBoardPresentation {
         let canvasHeight = height * heightScale
         return CGSize(width: canvasHeight * aspect * widthScale * widthRatio, height: canvasHeight)
     }
+
+    func deepWoundsBounds(frame: CreatureAnimation.Frame?, facing: CGFloat, cellWidth: CGFloat) -> CGRect {
+        let size = frame.map {
+            canvasSize(aspect: CGFloat($0.image.width) / CGFloat($0.image.height),
+                       heightScale: $0.heightScale, widthRatio: $0.widthRatio)
+        }
+        // The web projectile's impact point is in the upper half of the live sprite canvas.
+        let x = ground.x + facing * (0.5 - (frame?.anchorX ?? 0.5)) * (size?.width ?? 0)
+        let y = ground.y + (0.45 - (frame?.foot ?? 0.93)) * (size?.height ?? height)
+        let side = cellWidth * 1.45 * 0.9
+        return CGRect(x: x - side / 2, y: y - side / 2, width: side, height: side)
+    }
 }
 
 private struct CreatureClip: Decodable {

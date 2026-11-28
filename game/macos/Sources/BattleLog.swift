@@ -52,7 +52,7 @@ enum BattleLog {
             }
         }
         var reportedDestroyed = Set<Int>()
-        for moment in next.moments {
+        for moment in next.moments.flatMap(\.playbackMoments) {
             guard let actor = stacks[moment.actor] else { continue }
             let target = moment.target.flatMap { stacks[$0] }
             var changes = moment.healthChanges ?? []

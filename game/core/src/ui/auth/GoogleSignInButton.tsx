@@ -1,6 +1,7 @@
 import { Box, Typography } from "@mui/joy";
 import React, { useEffect, useId, useRef, useState } from "react";
 
+import { useTranslation } from "../../i18n/i18n";
 import { hocColors } from "../hocTheme";
 import { loadGoogleIdentityServices, renderGoogleIdentityButton } from "./googleIdentityServices";
 
@@ -13,6 +14,7 @@ type GoogleSignInButtonProps = {
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? "";
 
 export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({ action, disabled, onCredential }) => {
+    const { language, t } = useTranslation();
     const containerRef = useRef<HTMLDivElement | null>(null);
     const callbackRef = useRef(onCredential);
     const state = `hoc-google-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -37,6 +39,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({ action, 
                     clientId: GOOGLE_CLIENT_ID,
                     state,
                     action,
+                    locale: language,
                     width: parent.clientWidth || 320,
                     onCredential: (credential) => callbackRef.current(credential),
                 });
@@ -51,12 +54,12 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({ action, 
             cancelled = true;
             dispose?.();
         };
-    }, [action, state]);
+    }, [action, language, state]);
 
     if (error) {
         return (
             <Typography level="body-xs" textColor={hocColors.muted} textAlign="center">
-                {error}
+                {t(error)}
             </Typography>
         );
     }

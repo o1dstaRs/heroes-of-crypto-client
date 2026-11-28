@@ -89,3 +89,17 @@ test("unknown observed outcomes are not displayed as zero percent wins", () => {
     expect(html).not.toContain("observed score 0%");
     expect(html).not.toContain("95% interval");
 });
+
+test("broader evidence shows its actual context alongside the score and support", () => {
+    const html = renderEvidence({
+        evidenceId: "broader-setup",
+        label: "Broader simulation evidence · armies with Dryad vs. armies with Mermaid",
+        independentFamilies: 60,
+        scoreRate: 0.5,
+        interval95: [0.35, 0.65],
+        status: "supported",
+        caveat: "Observed association",
+    });
+    expect(html).toContain("Broader simulation evidence · armies with Dryad vs. armies with Mermaid");
+    expect(html).toContain("60 matched training families");
+});

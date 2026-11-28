@@ -15,16 +15,23 @@ const battle_log = @import("battle_log.zig");
 const compare = @import("common/compare.zig");
 const chakram = @import("common/chakram_trace.zig");
 const gaze = @import("common/petrification_trace.zig");
+const strikes = @import("common/strike_trace.zig");
+const HealthSnapshot = strikes.Snapshot;
 
 const alloc = std.heap.smp_allocator;
 const max_laps = 64;
+const max_moments = 8;
 
 const MomentKind = enum { place, move, melee, shot, obstacle, spell, wait, defend, end_turn };
 const Counterattack = struct { actor: u8, target: u8, spent: bool, splash: ?tactics.Splash = null };
 const HealthChange = struct { target: u8, delta: f64, casualties: f64 };
 const StatusApplication = struct { target: u8, kind: StatusKind, name: []const u8, borrowedFrom: ?u8 = null, laps: ?f64 = null };
 const max_status_applications = st.MAX_UNITS * (st.MAX_SPELLS + st.MAX_DEBUFFS + st.MAX_EFFECTS);
-const Presentation = struct { flights: chakram.Flights = .{}, gazes: []const gaze.Impact = &.{} };
+const Presentation = struct {
+    flights: chakram.Flights = .{},
+    gazes: []const gaze.Impact = &.{},
+    strikes: ?[]const strikes.Strike = null,
+};
 const Moment = struct {
     kind: MomentKind,
     actor: u8,
@@ -56,66 +63,14 @@ const Moment = struct {
     covenant_absorb_len: usize = 0,
     route: [64]st.Cell = undefined,
     route_len: usize = 0,
+    strikes: []const Moment = &.{},
+    misses: [st.MAX_UNITS]strikes.Miss = undefined,
+    miss_count: usize = 0,
+    ray_contacts: [st.MAX_UNITS]strikes.RayContact = undefined,
+    ray_contact_count: usize = 0,
+    piercing: ?bool = null,
+    obstacle_ranged: ?bool = null,
 };
-
-const Health = struct {
-    id: u8,
-    name_id: u16,
-    team: u8,
-    hp: f64,
-    amount: f64,
-    anchor: st.Cell,
-    responded: bool,
-    unlimited_reply: bool,
-    reflects_damage: bool,
-    borrowed_grace: bool,
-    absolving_arrow: bool,
-    abilities: st.AbilityMask,
-    buffs: st.SpellList,
-    debuffs: st.SpellListN(st.MAX_DEBUFFS),
-    effects: st.SpellListN(st.MAX_EFFECTS),
-};
-
-const HealthSnapshot = struct {
-    entries: [st.MAX_UNITS]Health = undefined,
-    count: usize = 0,
-
-    fn capture(state: *const st.State) HealthSnapshot {
-        var snapshot: HealthSnapshot = .{};
-        for (state.holderOrder()) |slot| {
-            const unit = &state.units[slot];
-            if (unit.isDead()) continue;
-            snapshot.entries[snapshot.count] = .{
-                .id = unit.uid,
-                .name_id = unit.name_id,
-                .team = unit.team,
-                .hp = engine.cumulativeHp(unit),
-                .amount = unit.amount_alive,
-                .anchor = engine.baseCell(unit),
-                .responded = hasResponded(state, slot),
-                .unlimited_reply = unit.has(.one_in_the_field),
-                .reflects_damage = unit.has(.fire_shield),
-                .borrowed_grace = unit.has(.borrowed_grace),
-                .absolving_arrow = unit.has(.absolving_arrow),
-                .abilities = unit.ability_mask,
-                .buffs = unit.buffs,
-                .debuffs = unit.debuffs,
-                .effects = unit.effects,
-            };
-            snapshot.count += 1;
-        }
-        return snapshot;
-    }
-
-    fn find(snapshot: *const HealthSnapshot, id: u8) ?*const Health {
-        for (snapshot.entries[0..snapshot.count]) |*unit| if (unit.id == id) return unit;
-        return null;
-    }
-};
-
-fn hasResponded(state: *const st.State, slot: u8) bool {
-    return state.units[slot].responded or state.fight.replied & engine.unitBit(slot) != 0;
-}
 
 const DamageTally = struct {
     name_id: u16,
@@ -133,7 +88,8 @@ const Battle = struct {
     sandbox: bool = false,
     automated_teams: u8 = 1 << st.Team.RIGHT,
     revision: u32 = 0,
-    moments: [8]Moment = undefined,
+    moments: [max_moments]Moment = undefined,
+    strike_storage: std.heap.ArenaAllocator = std.heap.ArenaAllocator.init(alloc),
     n_moments: usize = 0,
     journal: battle_log.Journal = .{},
     damage: [st.MAX_UIDS]?DamageTally = .{null} ** st.MAX_UIDS,
@@ -142,11 +98,12 @@ const Battle = struct {
     fn beginUpdate(self: *Battle) void {
         self.revision += 1;
         self.n_moments = 0;
+        _ = self.strike_storage.reset(.retain_capacity);
         self.journal.len = 0;
         self.journal.incomplete = false;
     }
 
-    fn recordAction(self: *Battle, action: rec.Action, before: *const HealthSnapshot, after: *const st.State, board: ?*const st.State, presentation: Presentation) void {
+    fn recordAction(self: *Battle, action: rec.Action, before: *const HealthSnapshot, after: *const HealthSnapshot, board: ?*const st.State, presentation: Presentation) void {
         if (self.n_moments == self.moments.len) return;
         var path: []const st.Cell = &.{};
         var moment: Moment = switch (action) {
@@ -226,15 +183,23 @@ const Battle = struct {
             const first = &flights.items[0];
             if (first.actor == moment.actor) moment.target = first.contacts[0].target;
         }
-        moment.counterattack = counterattack(&moment, before, after, board);
-        if (moment.kind == .shot) {
-            for (flights.items[0..flights.count]) |*flight| {
-                if (flight.actor == moment.actor) continue;
-                moment.counterattack = .{ .actor = flight.actor, .target = flight.contacts[0].target, .spent = true };
-                break;
+        if (presentation.strikes) |recorded| {
+            if (recorded.len == 1) {
+                applyStrike(&moment, &moment, recorded[0], board, true);
+            } else if (recorded.len > 1) {
+                for (recorded) |strike| {
+                    if (strike.reply) |reply| {
+                        moment.counterattack = recordedReply(moment.kind, moment.actor, reply, board);
+                        break;
+                    }
+                }
+            } else if (moment.kind == .melee or moment.kind == .obstacle) {
+                // A move through Fire Wall can finish this command before a swing was made.
+                moment.kind = .move;
             }
         }
-        self.recordDamage(&moment, before, after);
+        recordHealthChanges(&moment, before, after);
+        self.tallyDamage(&moment, before);
         if (board) |prior| {
             if (path.len != 0 and prior.fight.n_fire != 0 and std.mem.indexOfScalar(u16, moment.hurt[0..moment.hurt_len], moment.actor) != null) {
                 if (prior.slotOf(moment.actor)) |slot| {
@@ -260,65 +225,59 @@ const Battle = struct {
             @memcpy(moment.route[moment.route_len..][0..steps], path[0..steps]);
             moment.route_len += steps;
         }
+        if (presentation.strikes) |recorded| {
+            if (recorded.len > 1) {
+                moment.strikes = self.recordStrikes(&moment, before, after, board, recorded);
+            }
+        }
         self.moments[self.n_moments] = moment;
         self.n_moments += 1;
     }
 
-    fn counterattack(moment: *const Moment, before: *const HealthSnapshot, after: *const st.State, board: ?*const st.State) ?Counterattack {
-        if (moment.kind != .melee and moment.kind != .shot) return null;
-        const target = moment.target orelse return null;
-        const actor = before.find(moment.actor) orelse return null;
-        for (before.entries[0..before.count]) |*unit| {
-            if (unit.team == actor.team or unit.responded or (moment.kind == .melee and unit.id != target)) continue;
-            const slot = after.slotOf(unit.id) orelse continue;
-            if (hasResponded(after, slot)) {
-                if (moment.kind == .shot) {
-                    if (board) |prior| {
-                        if (tactics.rangedReply(prior, unit.id, actor.id)) |reply| {
-                            return .{ .actor = unit.id, .target = reply.target, .spent = true, .splash = reply.splash };
-                        }
-                    }
-                }
-                return .{ .actor = unit.id, .target = actor.id, .spent = true };
+    fn recordStrikes(self: *Battle, moment: *const Moment, before: *const HealthSnapshot, after: *const HealthSnapshot, board: ?*const st.State, recorded: []const strikes.Strike) []const Moment {
+        const phases = self.strike_storage.allocator().alloc(Moment, recorded.len) catch return &.{};
+        var prior = before;
+        for (recorded, phases, 0..) |strike, *phase, index| {
+            const end = strike.end orelse after;
+            phase.* = .{ .kind = moment.kind, .actor = moment.actor };
+            applyStrike(phase, moment, strike, board, recorded[0].kind == .shot);
+            if (index == 0) {
+                phase.route_len = moment.route_len;
+                @memcpy(phase.route[0..phase.route_len], moment.route[0..moment.route_len]);
+                phase.crossed_fire = moment.crossed_fire;
             }
-            if (unit.id == target and unit.unlimited_reply and !unit.reflects_damage) {
-                // One in the Field answers without spending the lap's response. A wound still confirms contact.
-                const remaining = if (after.slotOf(actor.id)) |a| engine.cumulativeHp(&after.units[a]) else 0;
-                if (remaining < actor.hp) return .{ .actor = unit.id, .target = actor.id, .spent = false };
-            }
+            const next = if (index + 1 < recorded.len) recorded[index + 1] else null;
+            const flights = moment.chakram_flights.items[strike.flight_start..if (next) |later| later.flight_start else moment.chakram_flights.count];
+            phase.chakram_flights.count = flights.len;
+            @memcpy(phase.chakram_flights.items[0..flights.len], flights);
+            const gazes = moment.gaze_impacts[strike.gaze_start..if (next) |later| later.gaze_start else moment.gaze_len];
+            phase.gaze_len = gazes.len;
+            @memcpy(phase.gaze_impacts[0..gazes.len], gazes);
+            recordHealthChanges(phase, prior, end);
+            recordStatusApplications(phase, prior, end);
+            prior = end;
         }
-        return null;
+        return phases;
     }
 
-    fn recordDamage(self: *Battle, moment: *Moment, before: *const HealthSnapshot, after: *const st.State) void {
+    fn tallyDamage(self: *Battle, moment: *const Moment, before: *const HealthSnapshot) void {
+        switch (moment.kind) {
+            .melee, .shot, .spell, .obstacle => {},
+            else => return,
+        }
         const actor = before.find(moment.actor) orelse return;
-        for (before.entries[0..before.count]) |*unit| {
-            const survivor = if (after.slotOf(unit.id)) |slot| &after.units[slot] else null;
-            const hp = if (survivor) |stack| engine.cumulativeHp(stack) else 0;
-            const amount = if (survivor) |stack| @max(0, stack.amount_alive) else 0;
-            const loss = unit.hp - hp;
-            const casualties = unit.amount - amount;
-            if (@abs(loss) > 0.001 or casualties != 0) {
-                moment.health_changes[moment.health_len] = .{ .target = unit.id, .delta = -loss, .casualties = casualties };
-                moment.health_len += 1;
-            }
-            if (loss <= 0) continue;
-            moment.hurt[moment.hurt_len] = unit.id;
-            moment.hurt_len += 1;
-            switch (moment.kind) {
-                .melee, .shot, .spell, .obstacle => {},
-                else => continue,
-            }
-            // Capture net health removed during the action, before activation or narrowing can deal environmental damage.
-            // A melee or ranged response hurts the attacking stack and belongs to the declared defender.
-            const source = if (unit.team != actor.team)
+        for (moment.health_changes[0..moment.health_len]) |change| {
+            if (change.delta >= 0) continue;
+            const victim = before.find(change.target) orelse continue;
+            // The response belongs to the defending stack.
+            const source = if (victim.team != actor.team)
                 actor
-            else if (unit.id == actor.id and (moment.kind == .melee or moment.kind == .shot))
-                before.find(moment.target orelse continue) orelse continue
+            else if (victim.id == actor.id and (moment.kind == .melee or moment.kind == .shot))
+                before.find(if (moment.counterattack) |reply| reply.actor else moment.target orelse continue) orelse continue
             else
                 continue;
             if (self.damage[source.id] == null) self.damage[source.id] = .{ .name_id = source.name_id, .team = source.team };
-            self.damage[source.id].?.amount += loss;
+            self.damage[source.id].?.amount -= change.delta;
         }
     }
 
@@ -369,6 +328,11 @@ const Battle = struct {
         const named = engine.actionToUids(&next, action);
         var capture = chakram.Capture{ .state = &next };
         var gaze_capture = gaze.Capture{ .state = &next };
+        var strike_capture = strikes.Capture.init(&next, alloc);
+        defer strike_capture.boundaries.deinit();
+        const previous_strikes = strikes.current;
+        strikes.current = &strike_capture;
+        defer strikes.current = previous_strikes;
         const previous = chakram.current;
         const previous_gaze = gaze.current;
         chakram.current = &capture;
@@ -378,9 +342,11 @@ const Battle = struct {
         if (!engine.apply(&next, action, &events)) return false;
         self.beginUpdate();
         self.journal.push(named, self.handle.state.rng.state, &next, events.slice());
-        self.recordAction(named, &before, &next, &self.handle.state, .{
+        const after = HealthSnapshot.capture(&next);
+        self.recordAction(named, &before, &after, &self.handle.state, .{
             .flights = capture.drain(),
             .gazes = gaze_capture.drain(),
+            .strikes = strike_capture.slice(),
         });
         self.prepared_spell = null;
         self.recordEvents(events.slice());
@@ -388,13 +354,13 @@ const Battle = struct {
         // scripted approach-and-strike sequence is driven separately by continueMatchWith.
         if (action == .move_unit and next.active == @as(i8, @intCast(action.move_unit.unit))) {
             const end: rec.Action = .{ .end_turn = .{ .unit = action.move_unit.unit, .reason = .manual } };
-            const move_result = HealthSnapshot.capture(&next);
             const named_end = engine.actionToUids(&next, end);
             const seed = next.rng.state;
             var end_events: engine.Events = .{};
             if (engine.apply(&next, end, &end_events)) {
                 self.journal.push(named_end, seed, &next, end_events.slice());
-                self.recordAction(named_end, &move_result, &next, null, .{});
+                const completed = HealthSnapshot.capture(&next);
+                self.recordAction(named_end, &after, &completed, null, .{});
                 self.recordEvents(end_events.slice());
             }
         }
@@ -405,26 +371,76 @@ const Battle = struct {
     }
 };
 
-fn recordStatusApplications(moment: *Moment, before: *const HealthSnapshot, after: *const st.State) void {
+fn applyStrike(phase: *Moment, moment: *const Moment, strike: strikes.Strike, board: ?*const st.State, original_ray: bool) void {
+    const kind: MomentKind = switch (strike.kind) {
+        .shot => .shot,
+        .melee => .melee,
+        .obstacle_shot, .obstacle_melee => .obstacle,
+    };
+    const same_aim = original_ray and kind == .shot and strike.target == moment.target and
+        !strike.aim.piercing and strike.aim.splash == null;
+    const end = if (strike.aim.end) |point| projectile.Point.fromWorld(point) else null;
+    phase.projectile_end = if (same_aim and moment.aim_side != null) moment.projectile_end else end;
+    phase.aim = strike.aim.cell orelse moment.aim;
+    phase.aim_side = if (same_aim) moment.aim_side else null;
+    phase.kind = kind;
+    phase.target = strike.target;
+    phase.splash = if (strike.aim.splash) |splash| .{ .center = splash.center, .single = splash.single } else null;
+    phase.piercing = strike.aim.piercing;
+    phase.obstacle_ranged = if (kind == .obstacle) strike.kind == .obstacle_shot else null;
+    phase.counterattack = if (strike.reply) |reply| recordedReply(kind, moment.actor, reply, board) else null;
+    phase.miss_count = strike.miss_count;
+    @memcpy(phase.misses[0..phase.miss_count], strike.misses[0..phase.miss_count]);
+    phase.ray_contact_count = strike.ray_contact_count;
+    @memcpy(phase.ray_contacts[0..phase.ray_contact_count], strike.ray_contacts[0..phase.ray_contact_count]);
+}
+
+fn recordedReply(kind: MomentKind, actor: u8, reply: strikes.Reply, board: ?*const st.State) Counterattack {
+    var result: Counterattack = .{ .actor = reply.actor, .target = reply.target, .spent = reply.spent };
+    if (kind == .shot) {
+        if (board) |prior| {
+            if (tactics.rangedReply(prior, reply.actor, actor)) |forecast| {
+                if (forecast.target == reply.target) result.splash = forecast.splash;
+            }
+        }
+    }
+    return result;
+}
+
+fn recordHealthChanges(moment: *Moment, before: *const HealthSnapshot, after: *const HealthSnapshot) void {
+    for (before.entries[0..before.count]) |*unit| {
+        const survivor = after.find(unit.id);
+        const delta = (if (survivor) |stack| stack.hp else 0) - unit.hp;
+        const casualties = unit.amount - if (survivor) |stack| stack.amount else 0;
+        if (@abs(delta) > 0.001 or casualties != 0) {
+            moment.health_changes[moment.health_len] = .{ .target = unit.id, .delta = delta, .casualties = casualties };
+            moment.health_len += 1;
+        }
+        if (delta < 0) {
+            moment.hurt[moment.hurt_len] = unit.id;
+            moment.hurt_len += 1;
+        }
+    }
+}
+
+fn recordStatusApplications(moment: *Moment, before: *const HealthSnapshot, after: *const HealthSnapshot) void {
     const actor = before.find(moment.actor);
     const shot_target = if (moment.kind == .shot) before.find(moment.target orelse st.NO_UID) else null;
     const replying = if (moment.counterattack) |reply| before.find(reply.actor) else null;
-    for (after.holderOrder()) |slot| {
-        const unit = &after.units[slot];
-        if (unit.isDead()) continue;
-        const previous = before.find(unit.uid) orelse continue;
+    for (after.entries[0..after.count]) |*unit| {
+        const previous = before.find(unit.id) orelse continue;
         if (previous.buffs.get(.water_shield) != null and unit.buffs.get(.water_shield) == null) {
-            moment.shield_breaks[moment.shield_break_len] = unit.uid;
+            moment.shield_breaks[moment.shield_break_len] = unit.id;
             moment.shield_break_len += 1;
         }
         if (previous.buffs.get(.ember_covenant_blessing) != null and unit.buffs.get(.ember_covenant_blessing) == null) {
-            moment.covenant_breaks[moment.covenant_break_len] = unit.uid;
+            moment.covenant_breaks[moment.covenant_break_len] = unit.id;
             moment.covenant_break_len += 1;
         }
         const first_buff = moment.status_len;
-        recordStatusList(moment, unit.uid, .buff, &previous.buffs, &unit.buffs);
+        recordStatusList(moment, unit.id, .buff, &previous.buffs, &unit.buffs);
         if (moment.kind == .shot and previous.borrowed_grace) {
-            const source = if (unit.uid == moment.actor) shot_target else if (replying != null and unit.uid == replying.?.id) actor else null;
+            const source = if (unit.id == moment.actor) shot_target else if (replying != null and unit.id == replying.?.id) actor else null;
             if (source) |victim| {
                 for (moment.status_applications[first_buff..moment.status_len]) |*application| {
                     const id = st.SpellId.fromName(application.name) orelse continue;
@@ -435,22 +451,22 @@ fn recordStatusApplications(moment: *Moment, before: *const HealthSnapshot, afte
                 }
             }
         }
-        recordStatusList(moment, unit.uid, .debuff, &previous.debuffs, &unit.debuffs);
-        recordStatusList(moment, unit.uid, .effect, &previous.effects, &unit.effects);
+        recordStatusList(moment, unit.id, .debuff, &previous.debuffs, &unit.debuffs);
+        recordStatusList(moment, unit.id, .effect, &previous.effects, &unit.effects);
         if (moment.kind == .spell and std.mem.eql(u8, moment.spell orelse "", "Craft")) {
             for ([_]st.AbilityId{ .crafted_double_punch, .crafted_double_shot, .crafted_frozen_sword, .crafted_frozen_bow }) |id| {
-                if (unit.ability_mask & id.bit() != 0 and previous.abilities & id.bit() == 0) {
-                    addStatusApplication(moment, .{ .target = unit.uid, .kind = .buff, .name = id.name() });
+                if (unit.abilities & id.bit() != 0 and previous.abilities & id.bit() == 0) {
+                    addStatusApplication(moment, .{ .target = unit.id, .kind = .buff, .name = id.name() });
                 }
             }
         }
         if (moment.kind == .shot) {
             const shooter = if (actor != null and actor.?.team == unit.team) actor else replying;
             if (shooter) |source| {
-                if (source.absolving_arrow and source.team == unit.team and source.id != unit.uid and
+                if (source.absolving_arrow and source.team == unit.team and source.id != unit.id and
                     (lostStatus(&previous.effects, &unit.effects) or lostStatus(&previous.debuffs, &unit.debuffs)))
                 {
-                    addStatusApplication(moment, .{ .target = unit.uid, .kind = .buff, .name = "Absolving Arrow" });
+                    addStatusApplication(moment, .{ .target = unit.id, .kind = .buff, .name = "Absolving Arrow" });
                 }
             }
         }
@@ -526,6 +542,7 @@ export fn hoc_macos_create(json: ?[*]const u8, length: usize, err: ?[*]u8, capac
 export fn hoc_macos_destroy(battle: ?*Battle) void {
     const holder = battle orelse return;
     ffi.hoc_state_free(null, holder.handle);
+    holder.strike_storage.deinit();
     alloc.destroy(holder);
 }
 
@@ -658,6 +675,42 @@ const MomentView = struct {
     waterShieldBreaks: []const u16,
     covenantBreaks: []const u16,
     covenantAbsorbs: []const u16,
+    strikes: []const MomentView,
+    misses: []const strikes.Miss,
+    rayContacts: []const strikes.RayContact,
+    piercing: ?bool,
+    obstacleRanged: ?bool,
+
+    fn from(moment: *const Moment, staged: []const MomentView) MomentView {
+        return .{
+            .kind = moment.kind,
+            .actor = moment.actor,
+            .target = moment.target,
+            .aim = moment.aim,
+            .aimSide = moment.aim_side,
+            .projectileEnd = moment.projectile_end,
+            .spell = moment.spell,
+            .spellArea = if (moment.spell_area) |*area| area.slice() else null,
+            .crossedFire = moment.crossed_fire.slice(),
+            .mirrorSources = moment.mirror_sources[0..moment.mirror_count],
+            .splash = moment.splash,
+            .counterattack = moment.counterattack,
+            .chakramFlights = if (moment.chakram_flights.count > 0) &moment.chakram_flights else null,
+            .gazeImpacts = moment.gaze_impacts[0..moment.gaze_len],
+            .route = moment.route[0..moment.route_len],
+            .hurt = moment.hurt[0..moment.hurt_len],
+            .healthChanges = moment.health_changes[0..moment.health_len],
+            .statusApplications = moment.status_applications[0..moment.status_len],
+            .waterShieldBreaks = moment.shield_breaks[0..moment.shield_break_len],
+            .covenantBreaks = moment.covenant_breaks[0..moment.covenant_break_len],
+            .covenantAbsorbs = moment.covenant_absorbs[0..moment.covenant_absorb_len],
+            .strikes = staged,
+            .misses = moment.misses[0..moment.miss_count],
+            .rayContacts = moment.ray_contacts[0..moment.ray_contact_count],
+            .piercing = moment.piercing,
+            .obstacleRanged = moment.obstacle_ranged,
+        };
+    }
 };
 const StatusKind = enum { buff, debuff, effect };
 const Status = struct {
@@ -874,7 +927,7 @@ export fn hoc_macos_view(battle: *Battle, output: ?[*]u8, capacity: usize) usize
             .damage_min = unit.attack_damage_min,
             .damage_max = unit.attack_damage_max,
             .flies = engine.canFly(unit),
-            .responded = hasResponded(&state, slot),
+            .responded = strikes.hasResponded(&state, slot),
             .immobilized = !unit.canMove(),
             .waiting = unit.on_hourglass and !unit.isSkipping() and !unit.whirlpooled(),
             .skipping = unit.isSkipping(),
@@ -921,31 +974,12 @@ export fn hoc_macos_view(battle: *Battle, output: ?[*]u8, capacity: usize) usize
             }
         }
     }
-    var moments: [8]MomentView = undefined;
+    var moments: [max_moments]MomentView = undefined;
+    var staged: [max_moments][strikes.max_strikes]MomentView = undefined;
     for (battle.moments[0..battle.n_moments], 0..) |*moment, index| {
-        moments[index] = .{
-            .kind = moment.kind,
-            .actor = moment.actor,
-            .target = moment.target,
-            .aim = moment.aim,
-            .aimSide = moment.aim_side,
-            .projectileEnd = moment.projectile_end,
-            .spell = moment.spell,
-            .spellArea = if (moment.spell_area) |*area| area.slice() else null,
-            .crossedFire = moment.crossed_fire.slice(),
-            .mirrorSources = moment.mirror_sources[0..moment.mirror_count],
-            .splash = moment.splash,
-            .counterattack = moment.counterattack,
-            .chakramFlights = if (moment.chakram_flights.count > 0) &moment.chakram_flights else null,
-            .gazeImpacts = moment.gaze_impacts[0..moment.gaze_len],
-            .route = moment.route[0..moment.route_len],
-            .hurt = moment.hurt[0..moment.hurt_len],
-            .healthChanges = moment.health_changes[0..moment.health_len],
-            .statusApplications = moment.status_applications[0..moment.status_len],
-            .waterShieldBreaks = moment.shield_breaks[0..moment.shield_break_len],
-            .covenantBreaks = moment.covenant_breaks[0..moment.covenant_break_len],
-            .covenantAbsorbs = moment.covenant_absorbs[0..moment.covenant_absorb_len],
-        };
+        const phases = staged[index][0..moment.strikes.len];
+        for (moment.strikes, phases) |*strike, *phase| phase.* = MomentView.from(strike, &.{});
+        moments[index] = MomentView.from(moment, phases);
     }
     var queue: [st.MAX_UNITS]u16 = undefined;
     const next = state.fight.up_next;
@@ -1214,13 +1248,20 @@ const OpponentTurn = struct {
     last_board: *st.State,
     chakram_capture: chakram.Capture,
     gaze_capture: gaze.Capture,
+    strike_capture: strikes.Capture,
 
     fn observe(context: *anyopaque, kind: ai.StepKind, action: rec.Action, seed: u32, state: *const st.State, accepted: bool, events: []const rec.Event) bool {
         const turn: *OpponentTurn = @ptrCast(@alignCast(context));
-        const presentation: Presentation = .{ .flights = turn.chakram_capture.drain(), .gazes = turn.gaze_capture.drain() };
+        const presentation: Presentation = .{
+            .flights = turn.chakram_capture.drain(),
+            .gazes = turn.gaze_capture.drain(),
+            .strikes = turn.strike_capture.slice(),
+        };
+        const after = HealthSnapshot.capture(state);
         if (accepted and kind != .decide) turn.battle.journal.push(action, seed, state, events);
-        if (accepted and kind == .apply) turn.battle.recordAction(action, &turn.last_health, state, turn.last_board, presentation);
-        turn.last_health = HealthSnapshot.capture(state);
+        if (accepted and kind == .apply) turn.battle.recordAction(action, &turn.last_health, &after, turn.last_board, presentation);
+        turn.strike_capture.clear();
+        turn.last_health = after;
         turn.last_board.* = state.*;
         turn.battle.recordEvents(events);
         return !state.overflow and !state.fight.finished and state.active == turn.slot;
@@ -1238,6 +1279,113 @@ fn decideOpponent(state: *st.State, slot: u8, decision: *ai.Decision) void {
     ai.decideTurn(state, slot, decision);
 }
 
+const Suggestion = struct {
+    kind: enum { move, melee, shot, spell, obstacle, wait, defend, end_turn },
+    actor: u8,
+    target: ?u8 = null,
+    landing: ?st.Cell = null,
+    path: []const st.Cell = &.{},
+    aim: ?projectile.Point = null,
+    mode: ?u8 = null,
+    spell: ?u8 = null,
+    rotation: u8 = 0,
+};
+
+const SuggestedMove = @FieldType(rec.Action, "move_unit");
+
+export fn hoc_macos_suggestion_board(battle: *const Battle) ?*st.State {
+    _ = battle.player() orelse return null;
+    if (battle.prepared_spell != null) return null;
+    const copy = alloc.create(st.State) catch return null;
+    copy.* = battle.handle.state;
+    return copy;
+}
+
+export fn hoc_macos_release_suggestion_board(board: *st.State) void {
+    alloc.destroy(board);
+}
+
+export fn hoc_macos_suggest(initial: *const st.State, buffer: ?[*]u8, capacity: usize) usize {
+    const slot: u8 = @intCast(initial.active);
+    var search = initial.*;
+    var decision: ai.Decision = .{};
+    decideOpponent(&search, slot, &decision);
+
+    // A player can click move-and-attack in one action. A separate move ends their turn.
+    var turn: ?rec.Action = null;
+    var move: ?SuggestedMove = null;
+    var mode: ?u8 = null;
+    for (decision.slice()) |action| {
+        if (action == .end_turn and (move != null or turn != null)) continue;
+        if (turn != null) return 0;
+        switch (action) {
+            .select_attack_type => |selection| {
+                if (move != null or selection.unit != slot) return 0;
+                mode = selection.attack_type;
+            },
+            .move_unit => |step| {
+                if (move != null or step.unit != slot) return 0;
+                move = step;
+            },
+            .melee_attack => |attack| {
+                if (move) |step| {
+                    var combined = attack;
+                    combined.path = step.path;
+                    combined.has_lava = step.has_lava;
+                    turn = .{ .melee_attack = combined };
+                } else turn = action;
+            },
+            else => {
+                if (move != null) return 0;
+                turn = action;
+            },
+        }
+    }
+    const action = turn orelse if (move) |step| rec.Action{ .move_unit = step } else return 0;
+    search = initial.*;
+    var events: engine.Events = .{};
+    if (mode) |attack_type| {
+        if (attack_type != search.units[slot].attack_type_selected and
+            !engine.apply(&search, .{ .select_attack_type = .{ .unit = slot, .attack_type = attack_type } }, &events)) return 0;
+    }
+    if (!engine.apply(&search, action, &events) or search.overflow) return 0;
+    var advice = describeSuggestion(initial, slot, action) orelse return 0;
+    if (mode != null and mode.? != initial.units[slot].attack_type_selected) advice.mode = mode;
+    const json = std.json.Stringify.valueAlloc(alloc, advice, .{ .emit_null_optional_fields = false }) catch return 0;
+    defer alloc.free(json);
+    if (buffer) |out| {
+        if (json.len <= capacity) @memcpy(out[0..json.len], json);
+    }
+    return json.len;
+}
+
+fn describeSuggestion(state: *const st.State, slot: u8, action: rec.Action) ?Suggestion {
+    const actor = state.units[slot].uid;
+    return switch (action) {
+        .move_unit => |move| if (move.path.len > 0)
+            .{ .kind = .move, .actor = actor, .landing = move.path[move.path.len - 1], .path = move.path }
+        else
+            null,
+        .melee_attack => |attack| .{ .kind = .melee, .actor = actor, .target = state.units[attack.target].uid, .landing = attack.attack_from, .path = attack.path },
+        .range_attack => |shot| .{
+            .kind = .shot,
+            .actor = actor,
+            .target = if (shot.free) null else state.units[shot.target].uid,
+            .aim = if (shot.free) projectile.Point.fromWorld(.{ shot.tx, shot.ty }) else if (shot.aim_cell) |cell|
+                projectile.Point.fromWorld(combat.sideCenter(cell, shot.aim_side, state.units[slot].pos_x, state.units[slot].pos_y))
+            else
+                null,
+        },
+        .area_throw_attack => |shot| .{ .kind = .shot, .actor = actor, .landing = shot.target_cell },
+        .obstacle_attack => |hit| .{ .kind = .obstacle, .actor = actor, .path = hit.path, .aim = projectile.Point.fromWorld(.{ hit.target_x, hit.target_y }) },
+        .cast_spell => |cast| .{ .kind = .spell, .actor = actor, .spell = cast.spell, .rotation = cast.orientation, .target = if (cast.has_target) state.units[cast.target].uid else null, .landing = if (cast.has_cell) cast.cell else null },
+        .wait_turn => .{ .kind = .wait, .actor = actor },
+        .defend_turn => .{ .kind = .defend, .actor = actor },
+        .end_turn => .{ .kind = .end_turn, .actor = actor },
+        else => null,
+    };
+}
+
 export fn hoc_macos_opponent_turn(battle: *Battle, force_after_timeout: bool) bool {
     const state = &battle.handle.state;
     if (battle.stalled or state.fight.finished or state.active < 0 or (!force_after_timeout and !battle.automates(@intCast(state.active)))) return false;
@@ -1252,7 +1400,12 @@ export fn hoc_macos_opponent_turn(battle: *Battle, force_after_timeout: bool) bo
         .last_board = last_board,
         .chakram_capture = .{ .state = state },
         .gaze_capture = .{ .state = state },
+        .strike_capture = strikes.Capture.init(state, alloc),
     };
+    defer turn.strike_capture.boundaries.deinit();
+    const previous_strikes = strikes.current;
+    strikes.current = &turn.strike_capture;
+    defer strikes.current = previous_strikes;
     const previous_capture = chakram.current;
     const previous_gaze = gaze.current;
     chakram.current = &turn.chakram_capture;

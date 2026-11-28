@@ -3,6 +3,7 @@ import React from "react";
 
 import { hocSidebarImageButtonSx } from "./hocTheme";
 import { openFriendsPanel } from "./social/openFriendsEvent";
+import { t } from "../i18n/i18n";
 
 /**
  * "Invite a friend" link shown in the offline sandbox footer for a signed-in player, under "Play Ranked".
@@ -14,7 +15,7 @@ export const InviteFriendBadge: React.FC = () => (
         variant="plain"
         type="button"
         onClick={openFriendsPanel}
-        aria-label="Invite a friend into a co-op sandbox"
+        aria-label={t("Invite a friend into a co-op sandbox")}
         sx={{
             ...hocSidebarImageButtonSx("neutral"),
             justifySelf: "center",
@@ -29,6 +30,6 @@ export const InviteFriendBadge: React.FC = () => (
             cursor: "var(--hoc-cursor-interactive), pointer",
         }}
     >
-        Invite a friend
+        {t("Invite a friend")}
     </Button>
 );

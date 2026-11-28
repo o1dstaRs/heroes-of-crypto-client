@@ -29,9 +29,7 @@ struct BattleDamageForecast: View {
                                                       projection: projection, facing: facing, height: flagHeight)
             let tagRaise = target.responded ? (max(17, projection.spriteCellSize * 0.42) - flagHeight) / 2 : 0
             let anchor = CGPoint(x: flag.x, y: flag.y - flagHeight / 2 - tagRaise)
-            let arrow = divisor.map {
-                $0 == 1 ? "combat_range_full_arrow_icon_v1" : "combat_range_half_broken_arrow_icon_v1"
-            }
+            let arrow = divisor.map(Self.rangeArrow)
             var rows = [Row(text: damage, color: 0xff3333, icon: arrow, iconScale: 1.45, spacing: 4)]
             if let kills { rows.append(Row(text: kills, color: 0xffffff, icon: "combat_kills_skull_icon_v1", iconScale: 1.3)) }
             if let gaze { rows.append(Row(text: gaze, color: 0xbce3ca, fontSize: 20, icon: "petrifying_gaze_256")) }
@@ -43,14 +41,31 @@ struct BattleDamageForecast: View {
             let blockBottom = anchor.y - 6 * worldYScale
             for (index, row) in rows.enumerated() {
                 let y = blockBottom - (CGFloat(rows.count - index) - 0.5) * rowHeight
-                draw(row, centeredAt: CGPoint(x: anchor.x, y: y), scale: scale, in: context)
+                Self.draw(row, centeredAt: CGPoint(x: anchor.x, y: y), scale: scale, in: context)
             }
         }
         .allowsHitTesting(false)
         .accessibilityLabel(([damage, kills.map { "\($0) kills" }, gaze].compactMap { $0 }).joined(separator: ", "))
     }
 
-    private func draw(_ row: Row, centeredAt center: CGPoint, scale: CGFloat, in context: GraphicsContext) {
+    static func areaRange(_ divisor: Int, at point: CGPoint, projection: BattlefieldProjection) -> some View {
+        let range = "1/\(divisor)"
+        return Canvas { context, _ in
+            let scale = 1.3 * projection.worldPointScale
+            let worldYScale = projection.worldPointScale * projection.screenCellHeight / max(0.001, projection.screenCellWidth)
+            let center = CGPoint(x: point.x, y: point.y - 14 * scale - 6 * worldYScale)
+            draw(Row(text: range, color: 0xff3333, icon: rangeArrow(divisor), iconScale: 1.45, spacing: 4),
+                 centeredAt: center, scale: scale, in: context)
+        }
+        .allowsHitTesting(false)
+        .accessibilityLabel("Range modifier \(range)")
+    }
+
+    private static func rangeArrow(_ divisor: Int) -> String {
+        divisor == 1 ? "combat_range_full_arrow_icon_v1" : "combat_range_half_broken_arrow_icon_v1"
+    }
+
+    private static func draw(_ row: Row, centeredAt center: CGPoint, scale: CGFloat, in context: GraphicsContext) {
         let font = BattleResources.forecastFont(row.fontSize * scale)
         let attributed = NSAttributedString(string: row.text, attributes: [
             NSAttributedString.Key(kCTFontAttributeName as String): font,

@@ -3,7 +3,7 @@ import SwiftUI
 @main
 struct HeroesOfCrypto: App {
     private enum Screen: Equatable {
-        case home, skirmish, statistics, online(RankedDestination), premium
+        case home, skirmish, sandboxInvite, statistics, online(RankedDestination), premium
 
         var destination: RankedDestination? {
             if case let .online(destination) = self { return destination }
@@ -12,10 +12,12 @@ struct HeroesOfCrypto: App {
     }
 
     @NSApplicationDelegateAdaptor(GameAppDelegate.self) private var appDelegate
-    @State private var model = SkirmishModel()
+    @State private var model: SkirmishModel
     @State private var account = NativeAccountController()
-    @State private var startupMusic = StartupMusic()
-    @State private var ranked = RankedWebSession()
+    @State private var startupMusic: StartupMusic
+    @State private var audio: GameAudioSettings
+    @State private var onlinePreferences: OnlinePreferences
+    @State private var ranked: RankedWebSession
     @State private var premium = PremiumWebSession()
     @State private var screen = Screen.home
     @State private var beforeOnline = Screen.home
@@ -24,14 +26,32 @@ struct HeroesOfCrypto: App {
     @State private var premiumSignIn = false
     @State private var sandboxArtwork: SandboxLoadingScreen.Artwork?
     private let statisticsAPI = RankedStatisticsAPI()
+    private let coopAPI = NativeCoopAPI()
+
+    init() {
+        let audio = GameAudioSettings()
+        let online = OnlinePreferences()
+        _audio = State(initialValue: audio)
+        _onlinePreferences = State(initialValue: online)
+        _model = State(initialValue: SkirmishModel(audio: audio))
+        _startupMusic = State(initialValue: StartupMusic(audio: audio))
+        _ranked = State(initialValue: RankedWebSession(preferences: online, audio: audio))
+    }
 
     var body: some Scene {
         Window(GameWindow.title, id: "home") {
             content
+                .environment(\.locale, Locale(identifier: onlinePreferences.get(.language)))
                 .navigationTitle(screen == .skirmish ? GameWindow.sandboxTitle : GameWindow.title)
                 .frame(minWidth: 570, minHeight: 560)
                 .preferredColorScheme(.dark)
                 .task { sandboxArtwork = await SandboxLoadingScreen.preloadArtwork() }
+                .onChange(of: audio.channels) {
+                    startupMusic.refresh()
+                    model.refreshAudioMix()
+                    ranked.syncPreferences()
+                }
+                .onChange(of: onlinePreferences.values) { ranked.syncPreferences() }
                 .onChange(of: account.account) { _, profile in
                     if profile?.verified != true { ranked.reset() }
                 }
@@ -53,7 +73,7 @@ struct HeroesOfCrypto: App {
                         Button(action: goBack) {
                             Label("Back", systemImage: "chevron.left")
                         }
-                        .help(screen.destination != nil && beforeOnline == .skirmish ? "Back to Sandbox" : "Back to Home")
+                        .help(Text(LocalizedStringKey(backTitle)))
                         .opacity(screen == .home ? 0 : 1)
                         .disabled(screen == .home)
                         .accessibilityHidden(screen == .home)
@@ -95,23 +115,36 @@ struct HeroesOfCrypto: App {
         }
 
         Settings {
-            GameSettings(notifications: appDelegate.notifications, music: startupMusic, account: account)
+            GameSettings(notifications: appDelegate.notifications, audio: audio, online: onlinePreferences, account: account)
+                .environment(\.locale, Locale(identifier: onlinePreferences.get(.language)))
         }
     }
 
     @ViewBuilder
     private var content: some View {
         if screen == .skirmish {
-            SkirmishWindow(model: model, loadingArtwork: sandboxArtwork, openRanked: showRanked, closeSandbox: showHome)
+            SkirmishWindow(model: model, loadingArtwork: sandboxArtwork,
+                           staggerDuplicateIdle: onlinePreferences.get(.staggerIdle) == "1",
+                           account: account, suggestedMoves: onlinePreferences.get(.premiumEnabled) == "true" &&
+                               onlinePreferences.get(.suggestedMoves) == "true", openRanked: showRanked,
+                           inviteFriend: showSandboxInvite, closeSandbox: showHome)
+        } else if screen == .sandboxInvite, account.verifiedSession != nil, let battle = model.battle, !battle.started {
+            SandboxCoopFriends(battle: battle, account: account, api: coopAPI) { handoff in
+                guard screen == .sandboxInvite else { return }
+                showOnline(.cooperative(handoff))
+            }
+            .onExitCommand(perform: goBack)
         } else if screen == .statistics {
-            RankedStatisticsView(api: statisticsAPI)
+            RankedStatisticsView(api: statisticsAPI, openMatchHistory: { showOnline(.history) })
                 .onExitCommand(perform: goBack)
         } else if let destination = screen.destination, account.verifiedSession != nil {
             InAppRanked(session: ranked, account: account, notifications: appDelegate.notifications, destination: destination)
         } else if screen == .premium && !premiumSignIn {
             InAppPremium(session: premium, account: account, handle: handlePremium)
         } else {
-            let signInTitle = screen == .premium ? "Premium" : screen.destination?.title
+            let signInTitle = if screen == .premium { "Premium" }
+                else if screen == .sandboxInvite { "Co-op Sandbox" }
+                else { screen.destination?.title }
             GameHome(account: account, music: startupMusic, signInTitle: signInTitle,
                      openArena: showRanked, openLobby: showLobby, openSkirmish: { screen = .skirmish },
                      openStatistics: showStatistics, openPremium: showPremium, closeSignIn: goBack)
@@ -126,6 +159,12 @@ struct HeroesOfCrypto: App {
         showOnline(.lobby)
     }
 
+    private func showSandboxInvite() {
+        guard screen == .skirmish, model.battle?.started == false else { return }
+        screen = .sandboxInvite
+        Task { await account.restore() }
+    }
+
     private func showStatistics() {
         guard screen != .statistics else { return }
         beforeStatistics = screen
@@ -135,7 +174,7 @@ struct HeroesOfCrypto: App {
     private func showOnline(_ destination: RankedDestination) {
         guard screen.destination != destination else { return }
         if screen == .premium && beforePremium.destination != nil { beforePremium = beforeOnline }
-        if screen.destination == nil { beforeOnline = screen }
+        if screen.destination == nil { beforeOnline = screen == .sandboxInvite ? .skirmish : screen }
         screen = .online(destination)
         Task { await account.restore() }
     }
@@ -153,6 +192,7 @@ struct HeroesOfCrypto: App {
         case .arena: showRanked()
         case .lobby: showLobby()
         case .sandbox: screen = .skirmish
+        case let .language(language): onlinePreferences.set(language, for: .language)
         case .signOut: Task { await account.signOut() }
         case .signIn:
             if account.verifiedSession == nil {
@@ -167,13 +207,21 @@ struct HeroesOfCrypto: App {
         if screen == .premium {
             if premiumSignIn { premiumSignIn = false }
             else if !premium.goBack() { screen = beforePremium }
+        } else if screen == .sandboxInvite {
+            screen = .skirmish
         } else if screen == .statistics {
             screen = beforeStatistics
-        } else if screen.destination != nil && (beforeOnline == .skirmish || beforeOnline == .premium) {
+        } else if screen.destination != nil && [.skirmish, .premium, .statistics].contains(beforeOnline) {
             screen = beforeOnline
         } else {
             showHome()
         }
+    }
+
+    private var backTitle: String {
+        if screen == .sandboxInvite || screen.destination != nil && beforeOnline == .skirmish { return "Back to Sandbox" }
+        if screen.destination != nil && beforeOnline == .statistics { return "Back to Statistics" }
+        return "Back"
     }
 
     private func showHome() {
@@ -187,21 +235,35 @@ struct HeroesOfCrypto: App {
 private struct SkirmishWindow: View {
     let model: SkirmishModel
     let loadingArtwork: SandboxLoadingScreen.Artwork?
+    let staggerDuplicateIdle: Bool
+    let account: NativeAccountController
+    let suggestedMoves: Bool
     let openRanked: () -> Void
+    let inviteFriend: () -> Void
     let closeSandbox: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.locale) private var locale
     @State private var cursor = SandboxCursorController()
     @State private var showsLoading: Bool
     @State private var loadingStartedAt = Date()
     @State private var battlefieldReadyAt: Date?
     @State private var optionHeld = false
     @GestureState private var rosterDrag: RosterCreatureDrag?
+    @State private var premiumSession: String?
+    @State private var suggestion: BattleSuggestion?
+    @State private var suggestionTurn: Int?
+    private let access = NativePremiumAccess()
 
-    init(model: SkirmishModel, loadingArtwork: SandboxLoadingScreen.Artwork?,
-         openRanked: @escaping () -> Void, closeSandbox: @escaping () -> Void) {
+    init(model: SkirmishModel, loadingArtwork: SandboxLoadingScreen.Artwork?, staggerDuplicateIdle: Bool,
+         account: NativeAccountController, suggestedMoves: Bool,
+         openRanked: @escaping () -> Void, inviteFriend: @escaping () -> Void, closeSandbox: @escaping () -> Void) {
         self.model = model
         self.loadingArtwork = loadingArtwork
+        self.staggerDuplicateIdle = staggerDuplicateIdle
+        self.account = account
+        self.suggestedMoves = suggestedMoves
         self.openRanked = openRanked
+        self.inviteFriend = inviteFriend
         self.closeSandbox = closeSandbox
         _showsLoading = State(initialValue: model.battle == nil && model.problem == nil)
     }
@@ -237,6 +299,17 @@ private struct SkirmishWindow: View {
         .background { SandboxOptionMonitor(isHeld: $optionHeld).accessibilityHidden(true) }
         .environment(\.sandboxCursor, cursor)
         .task { await prepareBattlefield() }
+        .task(id: suggestedMoves) { if suggestedMoves { await account.restore() } }
+        .task(id: suggestionAccount?.token) { await loadSuggestionAccess() }
+        .task(id: eligibleSuggestionTurn) {
+            suggestion = nil
+            suggestionTurn = nil
+            guard let revision = eligibleSuggestionTurn,
+                  let advice = await model.suggestedTurn(revision: revision),
+                  eligibleSuggestionTurn == revision else { return }
+            suggestion = advice
+            suggestionTurn = revision
+        }
         .onExitCommand {
             if showsLoading { closeSandbox() }
             else if model.isReplaying { model.finishReplay() }
@@ -244,6 +317,25 @@ private struct SkirmishWindow: View {
             else if model.spellbookOpen { model.closeSpellbook() }
             else { model.cancelSelection() }
         }
+    }
+
+    private var suggestionAccount: NativeAccountSession? {
+        suggestedMoves ? account.verifiedSession : nil
+    }
+
+    private var eligibleSuggestionTurn: Int? {
+        guard let token = suggestionAccount?.token, token == premiumSession, let battle = model.battle,
+              battle.started, battle.playerTurn, battle.winner == nil, battle.preparedSpell == nil,
+              !showsLoading, !model.isReplaying, !model.isAnimating, !model.spellbookOpen else { return nil }
+        return battle.revision
+    }
+
+    private func loadSuggestionAccess() async {
+        premiumSession = nil
+        guard let session = suggestionAccount,
+              await access.canSuggest(for: session, deviceID: account.deviceID),
+              !Task.isCancelled, suggestionAccount?.token == session.token else { return }
+        premiumSession = session.token
     }
 
     private func prepareBattlefield() async {
@@ -276,7 +368,7 @@ private struct SkirmishWindow: View {
                 let creature = rosterDrag?.creature ?? model.pendingCreature
                 let placementOptions = creature.flatMap { model.rosterPlacements(for: $0) }
                 let placements = placementOptions?.anchors ?? [:]
-                let placementHint = creature.flatMap { placementOptions?.hint(for: $0) }
+                let placementHint = creature.flatMap { placementOptions?.hint(for: $0, locale: locale) }
                 let showsTurnOrder = optionHeld && battle.started && battle.winner == nil && !showsLoading &&
                     !model.showsFightResults && !model.spellbookOpen
                 HStack(spacing: 0) {
@@ -285,7 +377,8 @@ private struct SkirmishWindow: View {
                         .background { SidebarStone(side: "left") }
                     Battlefield(battle: battle, playback: model.playback, animating: model.isAnimating,
                                 inspectionEnabled: !showsLoading && !model.spellbookOpen && !model.isReplaying,
-                                showStackFootprints: showsTurnOrder,
+                                showStackFootprints: showsTurnOrder, staggerDuplicateIdle: staggerDuplicateIdle,
+                                suggestion: eligibleSuggestionTurn == suggestionTurn ? suggestion : nil,
                                 projection: projection, placement: creature, placements: placements,
                                 placementHint: placementHint,
                                 rosterDragLocation: rosterDrag?.location,
@@ -322,7 +415,7 @@ private struct SkirmishWindow: View {
                                        canPlaceRosterCreature: !placements.isEmpty,
                                        shortcutsEnabled: !showsLoading && !model.showsFightResults && !model.isReplaying
                                            && !model.spellbookOpen && rosterDrag == nil,
-                                       openRanked: openRanked, closeSandbox: closeSandbox)
+                                       openRanked: openRanked, inviteFriend: inviteFriend, closeSandbox: closeSandbox)
                         .frame(width: layout.width)
                         .background { SidebarStone(side: "right") }
                 }
@@ -338,7 +431,7 @@ private struct SkirmishWindow: View {
             } else if let problem = model.problem {
                 ContentUnavailableView(
                     "Sandbox unavailable", systemImage: "exclamationmark.triangle",
-                    description: Text(problem)
+                    description: Text(LocalizedStringKey(problem))
                 )
             }
         }

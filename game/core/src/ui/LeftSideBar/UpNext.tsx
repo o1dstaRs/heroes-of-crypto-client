@@ -21,6 +21,8 @@ import { useSidebarMetrics } from "./sidebarMetrics";
 import { nextStableQueue, NO_UNITS, selectUpNextVisibleState, type UpNextVisibleState } from "./upNextVisibleState";
 
 import { commonTooltipSx } from "./tooltipStyles";
+import { t } from "../../i18n/i18n";
+
 const stopImg = new URL("../../../images/stop.webp", import.meta.url).toString();
 const hourglassImg = images.hourglass;
 
@@ -183,7 +185,7 @@ const QueueCard = React.memo(function QueueCard({
             {isSkipping ? (
                 <img
                     src={stopImg}
-                    alt="Skipping"
+                    alt={t("Skipping")}
                     style={{
                         position: "absolute",
                         top: 0,
@@ -197,7 +199,7 @@ const QueueCard = React.memo(function QueueCard({
             ) : isOnHourglass ? (
                 <img
                     src={hourglassImg}
-                    alt="On Hourglass"
+                    alt={t("On Hourglass")}
                     style={{
                         position: "absolute",
                         top: 0,

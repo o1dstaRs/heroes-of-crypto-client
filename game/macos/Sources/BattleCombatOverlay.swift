@@ -1,3 +1,4 @@
+import CoreText
 import SwiftUI
 
 @MainActor
@@ -6,42 +7,37 @@ struct BattleCombatOverlay {
     let projection: BattlefieldProjection
     let battle: BattleView
     let reduceMotion: Bool
+    let locale: Locale
+
+    private static let resultStyle = BattleFloatingResult.style
+    private static let damageFont = ResultFont(size: resultStyle.damage.fontSize, shadowDistance: resultStyle.damage.shadow.distance)
+    private static let killFont = ResultFont(size: resultStyle.kills.fontSize)
+
+    private var resultScale: CGSize {
+        let x = projection.worldPointScale
+        return CGSize(width: x, height: x * projection.screenCellHeight / max(0.001, projection.screenCellWidth))
+    }
 
     func draw(at now: Date, size: CGSize, in canvas: GraphicsContext) {
-        var healthLanes = [Int: Int]()
         var statusRows = [Int: [BattleCombatCue]]()
         let cell = projection.spriteCellSize
         for cue in playback.combatCues where now >= cue.started && now < cue.endsAt {
-            if case .status = cue.kind {
+            switch cue.kind {
+            case let .health(delta, casualties):
+                var context = canvas
+                let origin = resultOrigin(for: cue, casualties: casualties, boardWidth: size.width)
+                let scale = resultScale
+                context.translateBy(x: origin.x, y: origin.y)
+                context.scaleBy(x: scale.width, y: scale.height)
+                if !reduceMotion { context.opacity *= Self.resultStyle.opacity(at: now.timeIntervalSince(cue.started)) }
+                drawHealth(delta, casualties: casualties, tone: cue.damageTone, in: context)
+            case .status:
+                if cue.isDeepWoundsImpact { continue }
                 if let clip = cue.statusClip, clip.style == .petrifying {
                     drawPetrification(cue, clip: clip, at: now, in: canvas)
                 } else {
                     statusRows[cue.stack.id, default: []].append(cue)
                 }
-                continue
-            }
-            let age = now.timeIntervalSince(cue.started)
-            let progress = age / cue.duration
-            let facing: CGFloat = cue.stack.team == .player ? 1 : -1
-            let figure = CreatureAnimation.boardPresentation(cue.stack, position: cue.position,
-                                                              projection: projection, facing: facing)
-            let height = max(9, cell * 0.20)
-            let flag = CreatureAnimation.flagPosition(for: cue.stack.name, presentation: figure,
-                                                       projection: projection, facing: facing, height: height)
-            let edge = flag.y - height / 2
-            var context = canvas
-            switch cue.kind {
-            case let .health(delta, casualties):
-                let lane = healthLanes[cue.stack.id, default: 0]
-                healthLanes[cue.stack.id, default: 0] += 1
-                let fontSize = max(15, cell * 0.43)
-                let rows: CGFloat = casualties > 0 ? 1.62 : 0.79
-                let center = CGPoint(x: min(max(39, flag.x), size.width - 39),
-                                     y: max(fontSize, edge - fontSize * (rows + CGFloat(lane) * 1.45)))
-                // Flag-anchored numbers fade in place at full size on the web.
-                animate(&context, at: center, progress: progress, pop: 0.20, startScale: 1, fadeIn: 0.125, fadeOut: 0.62)
-                drawHealth(delta, casualties: casualties, tone: cue.damageTone, fontSize: fontSize, in: context)
-            case .status: break
             }
         }
         let elapsed = max(0, now.timeIntervalSince(playback.started))
@@ -59,6 +55,20 @@ struct BattleCombatOverlay {
                                                        projection: projection, facing: facing, height: height)
             drawStatusRow(row, flag: flag, edge: flag.y - height / 2, cell: cell, viewport: size, now: now, in: canvas)
         }
+    }
+
+    private func resultOrigin(for cue: BattleCombatCue, casualties: Int, boardWidth: CGFloat) -> CGPoint {
+        let homeFacing: CGFloat = cue.stack.team == .player ? 1 : -1
+        let facing = reduceMotion ? homeFacing : cue.resultFacing ?? homeFacing
+        let figure = CreatureAnimation.boardPresentation(cue.stack, position: cue.position, projection: projection, facing: facing)
+        let cell = projection.spriteCellSize
+        let height = BattleStackFlag.height(for: cell)
+        let flag = CreatureAnimation.flagPosition(for: cue.stack.name, presentation: figure,
+                                                  projection: projection, facing: facing, height: height)
+        let tagRaise = cue.resultResponded ? (max(17, cell * 0.42) - height) / 2 : 0
+        let offset = Self.resultStyle.offset(for: cue.resultLane ?? 0, casualties: casualties,
+                                             flagX: flag.x, boardWidth: boardWidth, scale: resultScale)
+        return CGPoint(x: flag.x + offset.x, y: flag.y - height / 2 - tagRaise + offset.y)
     }
 
     private func drawPetrification(_ cue: BattleCombatCue, clip: BattleStatusEffects.Clip,
@@ -81,39 +91,90 @@ struct BattleCombatOverlay {
         context.draw(Image(decorative: image, scale: 1).interpolation(.high), in: rect)
     }
 
-    private func animate(_ context: inout GraphicsContext, at position: CGPoint, progress: Double,
-                         pop: Double, startScale: Double, fadeIn: Double, fadeOut: Double) {
-        let growth = min(1, progress / pop)
-        let scale = reduceMotion ? 1 : startScale + (1 - startScale) * (1 - (1 - growth) * (1 - growth))
-        if !reduceMotion {
-            context.opacity *= min(1, progress / fadeIn, (1 - progress) / (1 - fadeOut))
-        }
-        context.translateBy(x: position.x, y: position.y)
-        context.scaleBy(x: scale, y: scale)
-    }
-
-    private func drawHealth(_ delta: Double, casualties: Int, tone: BattleCombatCue.DamageTone?, fontSize: CGFloat, in context: GraphicsContext) {
+    private func drawHealth(_ delta: Double, casualties: Int, tone: BattleCombatCue.DamageTone?, in context: GraphicsContext) {
         let healing = delta > 0
         let colors: (UInt32, UInt32) = if healing { (0x66ff99, 0x0b3d1e) }
             else if tone == .fireWall { (0xffb347, 0x5a1500) }
             else if tone == .reflection { (0xbfefff, 0x12384d) }
             else if tone == .petrifyingGaze { (0xd8d8d8, 0x5a5a5a) }
             else { (0xff3333, 0x4a0000) }
-        let fill = BattlePalette.color(colors.0)
-        let outline = BattlePalette.color(colors.1)
-        let font = Font.system(size: fontSize, weight: .black).monospacedDigit()
-        outlined((healing ? "+" : "−") + hudNumber(abs(delta)), at: .zero, font: font,
-                 fill: fill, outline: outline, in: context)
+        let style = Self.resultStyle
+        let shadow = style.damage.shadow
+        let amount = abs(delta).formatted(.number.locale(Locale(identifier: "en_US_POSIX"))
+            .grouping(.never).rounded(rule: .toNearestOrAwayFromZero).precision(.fractionLength(0...2)))
+        var damage = context
+        damage.addFilter(.shadow(color: .black, radius: shadow.blur / 2,
+                                 x: cos(shadow.angle) * shadow.distance, y: sin(shadow.angle) * shadow.distance))
+        Self.damageFont.draw((healing ? "+" : "-") + amount, strokeWidth: style.damage.strokeWidth,
+                             fill: BattlePalette.color(colors.0), outline: BattlePalette.color(colors.1), in: damage)
         guard casualties > 0 else { return }
-        let icon = CGRect(x: -fontSize * 0.99, y: fontSize * 0.56, width: fontSize * 0.83, height: fontSize * 0.83)
+        let kills = style.kills
+        let icon = CGRect(x: -kills.halfSpacing - kills.iconSize / 2, y: kills.y - kills.iconSize / 2,
+                          width: kills.iconSize, height: kills.iconSize)
         if let art = BattleResources.cgImage("combat_kills_skull_icon_v1") {
             context.draw(Image(decorative: art, scale: 1), in: icon)
         } else {
             context.draw(Image(systemName: "skull"), in: icon)
         }
-        outlined(casualties.formatted(), at: CGPoint(x: fontSize * 0.41, y: fontSize * 0.99),
-                 font: .system(size: fontSize * 0.73, weight: .black), fill: BattlePalette.parchment,
-                 outline: .black, in: context)
+        var count = context
+        count.translateBy(x: kills.halfSpacing, y: kills.y)
+        Self.killFont.draw(String(casualties), strokeWidth: kills.strokeWidth, fill: .white, outline: .black, in: count)
+    }
+
+    @MainActor
+    private struct ResultFont {
+        let font: CTFont
+        let baseline: CGFloat
+        let shadowDistance: CGFloat
+        let boldWidth: CGFloat
+        private let paths = NSCache<NSString, CGPath>()
+
+        init(size: CGFloat, shadowDistance: CGFloat = 0) {
+            font = BattleResources.forecastFont(size)
+            self.shadowDistance = shadowDistance
+            // Pixi centres its text texture using this reference line's ink ascent and descent.
+            let sample = CTLineGetBoundsWithOptions(Self.line("|ÉqÅM", font: font), .useGlyphPathBounds)
+            baseline = (sample.maxY + sample.minY - shadowDistance) / 2
+            // The bundled face has one weight. Canvas synthesizes bold by expanding its outline by 1/64 em.
+            boldWidth = size / 32
+            paths.countLimit = 256
+        }
+
+        func draw(_ text: String, strokeWidth: CGFloat, fill: Color, outline: Color, in context: GraphicsContext) {
+            let key = text as NSString
+            let path: Path
+            if let cached = paths.object(forKey: key) {
+                path = Path(cached)
+            } else {
+                let outline = CGMutablePath()
+                let line = Self.line(text, font: font)
+                let width = CTLineGetTypographicBounds(line, nil, nil, nil) + shadowDistance
+                for run in CTLineGetGlyphRuns(line) as? [CTRun] ?? [] {
+                    for index in 0..<CTRunGetGlyphCount(run) {
+                        var glyph: CGGlyph = 0
+                        var position = CGPoint.zero
+                        CTRunGetGlyphs(run, CFRange(location: index, length: 1), &glyph)
+                        CTRunGetPositions(run, CFRange(location: index, length: 1), &position)
+                        let transform = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: position.x - width / 2,
+                                                          ty: baseline - position.y)
+                        if let shape = CTFontCreatePathForGlyph(font, glyph, nil) { outline.addPath(shape, transform: transform) }
+                    }
+                }
+                paths.setObject(outline, forKey: key)
+                path = Path(outline)
+            }
+            context.drawLayer { layer in
+                layer.stroke(path, with: .color(outline), lineWidth: strokeWidth + boldWidth)
+                layer.fill(path, with: .color(fill))
+                layer.stroke(path, with: .color(fill), lineWidth: boldWidth)
+            }
+        }
+
+        private static func line(_ text: String, font: CTFont) -> CTLine {
+            CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: [
+                NSAttributedString.Key(kCTFontAttributeName as String): font,
+            ]))
+        }
     }
 
     private struct StatusTile {
@@ -167,22 +228,22 @@ struct BattleCombatOverlay {
         let rowWidth = min(totalWidth, viewport.width - 8)
         guard rowWidth > 0 else { return }
         // Keep colocated damage legible for the full cue, including after its numbers fade.
-        let health = playback.combatCues.first { entry in
-            guard entry.stack.id == row.first?.stack.id, case .health = entry.kind else { return false }
-            return row.contains { $0.started < entry.endsAt && $0.endsAt > entry.started }
+        let resultWidth = Self.resultStyle.columnWidth * resultScale.width
+        let results: [CGFloat] = playback.combatCues.compactMap { cue in
+            guard cue.stack.id == row.first?.stack.id, case let .health(_, casualties) = cue.kind,
+                  row.contains(where: { $0.started < cue.endsAt && $0.endsAt > cue.started }) else { return nil }
+            return resultOrigin(for: cue, casualties: casualties, boardWidth: viewport.width).x
         }
-        let numberWidth = max(cell * 0.83, 24)
-        let damageX = (health.map { projection.point(x: $0.position.x, y: $0.position.y).x }) ?? flag.x
-        let rightStart = max(flag.x - rowWidth / 2, damageX + numberWidth / 2 + gap)
-        let leftEnd = min(flag.x + rowWidth / 2, damageX - numberWidth / 2 - gap)
-        let overlapsDamage = health != nil && (rightStart + rowWidth <= viewport.width - 4 || leftEnd - rowWidth >= 4)
+        let rightStart = max(flag.x - rowWidth / 2, (results.max() ?? flag.x) + resultWidth / 2 + gap)
+        let leftEnd = min(flag.x + rowWidth / 2, (results.min() ?? flag.x) - resultWidth / 2 - gap)
+        let overlapsDamage = !results.isEmpty && (rightStart + rowWidth <= viewport.width - 4 || leftEnd - rowWidth >= 4)
         let proposedStart = if !overlapsDamage { flag.x - rowWidth / 2 }
             else if rightStart + rowWidth <= viewport.width - 4 { rightStart }
             else { leftEnd - rowWidth }
         let rowStart = min(max(4, proposedStart), viewport.width - rowWidth - 4)
         let scale = min(1, rowWidth / totalWidth)
         let rowHeight = tiles.map { $0.size.height + $0.captionHeight }.max() ?? cell
-        let rowBottom = max(4 + rowHeight * scale, edge - gap - (health != nil && !overlapsDamage ? cell * 0.92 : 0))
+        let rowBottom = max(4 + rowHeight * scale, edge - gap - (!results.isEmpty && !overlapsDamage ? cell * 0.92 : 0))
         var rowContext = canvas
         rowContext.translateBy(x: rowStart, y: rowBottom)
         rowContext.scaleBy(x: scale, y: scale)
@@ -231,7 +292,8 @@ struct BattleCombatOverlay {
         guard tile.hasCaption else { return }
         let fill = BattlePalette.color(BattleStatusEffects.captionColor(tile.name, source: tile.cue.statusSource))
         let font = Font.custom("Arial", size: tile.captionSize).weight(.bold)
-        let lines = wrap(tile.name, font: font, width: tile.captionWidth, in: context)
+        let caption = GameLocalization.text(tile.name, locale: locale)
+        let lines = wrap(caption, font: font, width: tile.captionWidth, in: context)
         let artBottom = bottom - tile.captionHeight
         for (index, line) in lines.enumerated() {
             let point = CGPoint(x: center, y: artBottom + tile.cell * 0.055 + tile.captionSize * (0.6 + CGFloat(index) * 1.2))

@@ -15,6 +15,7 @@ import {
     hocSidebarImageButtonSx,
     hocSplitterSliderSx,
 } from "../hocTheme";
+import { t } from "../../i18n/i18n";
 
 interface IUnitSplitterProps {
     totalUnits: number;
@@ -132,22 +133,22 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
                         track={hasSelectedUnit ? "normal" : false}
                         disabled={!hasSelectedUnit}
                         step={1}
-                        aria-label="Unit Split Slider"
+                        aria-label={t("Unit Split Slider")}
                     />
                 )}
             </Stack>
             <Stack direction="row" spacing={2} sx={{ width: "93%", mx: "auto", marginTop: 2, marginBottom: 2 }}>
-                <Tooltip title="Split (S)" placement="top" sx={shortcutTooltipSx}>
+                <Tooltip title={t("Split (S)")} placement="top" sx={shortcutTooltipSx}>
                     <Button
                         variant="plain"
                         size="sm"
                         onClick={handleAcceptSplit}
                         sx={{ ...hocSidebarCloneSplitButtonSx, flex: 1, minWidth: 0 }}
                     >
-                        Split
+                        {t("Split")}
                     </Button>
                 </Tooltip>
-                <Tooltip title="Delete (D)" placement="top" sx={shortcutTooltipSx}>
+                <Tooltip title={t("Delete (D)")} placement="top" sx={shortcutTooltipSx}>
                     <Button
                         variant="plain"
                         size="sm"
@@ -156,7 +157,7 @@ const UnitSplitter = ({ totalUnits, onSplit }: IUnitSplitterProps) => {
                         }}
                         sx={{ ...hocSidebarImageButtonSx("danger"), flex: 1, minWidth: 0 }}
                     >
-                        Delete
+                        {t("Delete")}
                     </Button>
                 </Tooltip>
             </Stack>

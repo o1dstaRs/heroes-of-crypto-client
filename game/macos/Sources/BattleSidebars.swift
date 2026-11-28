@@ -86,7 +86,7 @@ struct LeftBattleSidebar: View {
                              inspectionArt: bitmap, sidebarPlayback: animated)
                 .frame(width: width, height: layout.portraitHeight)
             VStack(spacing: 0) {
-                Text(stack.name.uppercased())
+                Text(LocalizedStringKey(stack.name.uppercased()))
                     .font(BattleResources.display(13.5)).tracking(0.9)
                     .lineLimit(1).minimumScaleFactor(0.65)
                     .foregroundStyle(BattlePalette.color(0xecd198))
@@ -140,7 +140,7 @@ struct LeftBattleSidebar: View {
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(stat.label)
+                        .accessibilityLabel(Text(LocalizedStringKey(stat.label)))
                         .accessibilityValue(stat.value)
                         .unitInspectionHover(stat.detail)
                     }
@@ -169,6 +169,7 @@ struct RightBattleSidebar: View {
     let canPlaceRosterCreature: Bool
     let shortcutsEnabled: Bool
     let openRanked: () -> Void
+    let inviteFriend: () -> Void
     let closeSandbox: () -> Void
     @State private var splitCount = 1
 
@@ -202,8 +203,11 @@ struct RightBattleSidebar: View {
                                         canPlaceRosterCreature: canPlaceRosterCreature, splitAmount: splitAmount)
                     .padding(.horizontal, layout.sideInset)
                     .padding(.top, 24)
-                    .padding(.bottom, 116)
-                BattlePlate("PLAY RANKED", height: 36, tint: nil, action: openRanked)
+                    .padding(.bottom, 146)
+                VStack(spacing: 6) {
+                    BattlePlate("PLAY RANKED", height: 36, tint: nil, action: openRanked)
+                    BattlePlate("INVITE A FRIEND", icon: "person.badge.plus", height: 27, tint: nil, action: inviteFriend)
+                }
                     .frame(maxWidth: 209)
                     .frame(maxWidth: .infinity)
                     .padding(.horizontal, layout.sideInset + 9)
@@ -347,7 +351,7 @@ struct RightBattleSidebar: View {
                         let tint = BattlePalette.team(row.team)
                         VStack(spacing: 6) {
                             HStack(spacing: 4) {
-                                Text(row.name.uppercased()).lineLimit(1).minimumScaleFactor(0.75)
+                                Text(LocalizedStringKey(row.name.uppercased())).lineLimit(1).minimumScaleFactor(0.75)
                                 Spacer(minLength: 0)
                                 Text(hudNumber(row.amount))
                             }
@@ -384,7 +388,7 @@ struct RightBattleSidebar: View {
                 spellTargeting(spell)
             }
             if let problem = model.problem {
-                Text(problem).font(.caption).foregroundStyle(BattlePalette.opponent)
+                Text(LocalizedStringKey(problem)).font(.caption).foregroundStyle(BattlePalette.opponent)
             }
             BattleLogPane(lines: model.log)
                 .frame(minHeight: 168, maxHeight: .infinity)
@@ -396,13 +400,13 @@ struct RightBattleSidebar: View {
 
     private func spellTargeting(_ spell: BattleSpell) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(spell.name).font(BattleResources.display(14)).foregroundStyle(BattlePalette.spell)
+            Text(LocalizedStringKey(spell.name)).font(BattleResources.display(14)).foregroundStyle(BattlePalette.spell)
             if battle.fireWallAims != nil {
-                Text(battle.spellCells.isEmpty ? "No legal targets." : "Aim at a tile. Press Shift to rotate.").font(.caption)
+                Text(LocalizedStringKey(battle.spellCells.isEmpty ? "No legal targets." : "Aim at a tile. Press Shift to rotate.")).font(.caption)
                 Button("Rotate", action: model.rotateFireWall)
                     .accessibilityLabel("Rotate Fire Wall")
             } else {
-                Text(battle.spellCells.isEmpty ? "No legal targets." : "Choose a highlighted target.").font(.caption)
+                Text(LocalizedStringKey(battle.spellCells.isEmpty ? "No legal targets." : "Choose a highlighted target.")).font(.caption)
             }
             Button("Cancel", action: model.cancelSpell)
         }
@@ -520,7 +524,7 @@ struct BattlePlate: View {
             HStack(spacing: 6) {
                 if let icon { Image(systemName: icon) }
                 if !title.isEmpty {
-                    Text(title).tracking(1.1).font(BattleResources.display(height < 34 ? 11 : 14))
+                    Text(LocalizedStringKey(title)).tracking(1.1).font(BattleResources.display(height < 34 ? 11 : 14))
                         .lineLimit(1).minimumScaleFactor(0.7)
                 }
             }

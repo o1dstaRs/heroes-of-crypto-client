@@ -35,7 +35,7 @@ struct Spellbook: View {
                         .position(x: width / 2 + x * scale, y: height / 2 + y * scale)
                 }
                 if !spells.isEmpty, spells.allSatisfy({ !$0.available }), let reason = spells.first?.unavailableReason {
-                    Text(reason)
+                    Text(LocalizedStringKey(reason))
                         .font(BattleResources.display(19 * scale))
                         .foregroundStyle(BattlePalette.color(0x4a3410))
                         .position(x: width / 2, y: height / 2 + 374 * scale)
@@ -113,7 +113,7 @@ private struct SpellCard: View {
                     powerRail(caster: caster)
                         .offset(x: -68 * scale, y: -13 * scale)
                 }
-                Text(spell.name)
+                Text(LocalizedStringKey(spell.name))
                     .font(.custom("Georgia-Bold", size: 26 * scale))
                     .foregroundStyle(BattlePalette.color(spell.available ? 0x4a3410 : 0x635139))
                     .lineLimit(1).minimumScaleFactor(0.63)
@@ -137,9 +137,9 @@ private struct SpellCard: View {
         .buttonStyle(SpellCardStyle())
         .scaleEffect(hovered && spell.available ? 1.02 : 1)
         .disabled(!spell.available)
-        .accessibilityLabel(spell.name)
+        .accessibilityLabel(Text(LocalizedStringKey(spell.name)))
         .accessibilityValue("\(spell.charges) scrolls")
-        .help(spell.unavailableReason ?? spell.name)
+        .help(Text(LocalizedStringKey(spell.unavailableReason ?? spell.name)))
         .onHover { hovered = $0 }
         .modifier(SandboxCursorTarget(hovering: hovered && spell.available))
     }

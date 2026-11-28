@@ -22,6 +22,7 @@ import { PremiumSetupComparison } from "./PremiumSetupComparison";
 import { usePremiumAdviceView } from "./usePremiumAdviceView";
 import { PremiumPreviewContext } from "./PremiumPreviewContext";
 import { premiumDraftChoices } from "./premiumDraftChoices";
+import { t } from "../../i18n/i18n";
 
 /**
  * The draft planner projects formations with common's A19 placement model, whose weights are 4.3 MB of
@@ -308,7 +309,7 @@ export const PremiumShield: React.FC<{ testOnly?: boolean; size?: number }> = ({
             }
         >
             <Box
-                aria-label="Premium account"
+                aria-label={t("Premium account")}
                 sx={{
                     position: "absolute",
                     bottom: -size / 8,
@@ -341,7 +342,7 @@ export const PremiumDraftBanner: React.FC<{
     return (
         <PremiumDraftPlanner advice={shown} draft={draft} impression={impression}>
             {recommendations.length > 0 && (
-                <Box component="ol" aria-label="Recommended draft choices" sx={{ m: 0, p: 0, listStyle: "none" }}>
+                <Box component="ol" aria-label={t("Recommended draft choices")} sx={{ m: 0, p: 0, listStyle: "none" }}>
                     {recommendations.map((choice, index) => (
                         <Box
                             component="li"
@@ -424,7 +425,7 @@ export const PremiumSetupPanel: React.FC<{
                         startDecorator={<PremiumIcon />}
                         sx={{ color: "var(--hoc-premium-accent)" }}
                     >
-                        Premium guidance
+                        {t("Premium guidance")}
                     </Typography>
                     {advice.stage === "setup" || setupView ? (
                         <>
@@ -457,7 +458,7 @@ export const PremiumSetupPanel: React.FC<{
                                     void apply("setup");
                                 }}
                             >
-                                Use recommended build
+                                {t("Use recommended build")}
                             </PremiumButton>
                         </>
                     ) : (
@@ -469,7 +470,7 @@ export const PremiumSetupPanel: React.FC<{
                                     void apply("formation");
                                 }}
                             >
-                                Arrange army
+                                {t("Arrange army")}
                             </PremiumButton>
                             <PremiumButton
                                 size="sm"
@@ -479,12 +480,14 @@ export const PremiumSetupPanel: React.FC<{
                                     void apply("undo");
                                 }}
                             >
-                                Undo
+                                {t("Undo")}
                             </PremiumButton>
                         </Box>
                     )}
                     <Box component="details" sx={{ mt: 0.8, color: "#d0b59c", fontSize: 12 }}>
-                        <summary style={{ cursor: "pointer", color: "#f0b47b" }}>Why this recommendation?</summary>
+                        <summary style={{ cursor: "pointer", color: "#f0b47b" }}>
+                            {t("Why this recommendation?")}
+                        </summary>
                         {advice.reasons?.map((reason) => (
                             <p key={reason}>{reason}</p>
                         ))}
@@ -502,15 +505,16 @@ export const PremiumSetupPanel: React.FC<{
                                 }
                                 sx={{ mt: 0.75, px: 0.5 }}
                             >
-                                Explain this {advice.stage === "setup" ? "build" : "formation"}
+                                {t(advice.stage === "setup" ? "Explain this build" : "Explain this formation")}
                             </PremiumButton>
                         )}
                     </Box>
                     <PremiumSetupComparison comparison={advice.setupComparison} />
                     {advice.stage === "board" && !setupView && (
                         <Typography level="body-xs" sx={{ mt: 0.5 }}>
-                            Review or edit the formation, then press Ready. Undo is available until you edit your build
-                            or board.
+                            {t(
+                                "Review or edit the formation, then press Ready. Undo is available until you edit your build or board.",
+                            )}
                         </Typography>
                     )}
                     {error && (

@@ -34,7 +34,8 @@ import React, { useEffect, useState } from "react";
 
 import { abilityImage } from "../abilityImage";
 import { images as rawImages } from "../../generated/image_imports";
-import { t, useTranslation } from "../../i18n/i18n";
+import { t, tf, useTranslation } from "../../i18n/i18n";
+import { localizeAbilityDescription } from "../../i18n/abilityDescription";
 import { getPreGameDoctrine } from "../../utils/preGameDoctrine";
 import { runDraftSubmission, type DraftCommit } from "./draftSubmission";
 import { usePickBanEvents } from "../context/PickBanContext";
@@ -132,7 +133,7 @@ const abilityDescription = (abilityName: string): string => {
         if (abilityName === AllAbilities.CHAKRAM_ABILITY_NAME) {
             return AllAbilities.chakramDescription(template, HoCConstants.MAX_UNIT_STACK_POWER, cfg.power).trim();
         }
-        return template.replace(/\{\}/g, String(cfg.power ?? "")).trim();
+        return localizeAbilityDescription(abilityName, template.replace(/\{\}/g, String(cfg.power ?? "")).trim());
     } catch {
         return "";
     }
@@ -282,7 +283,7 @@ export const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creature
         >
             {img && (
                 <Box
-                    aria-label={`${c.name}: ${amount}`}
+                    aria-label={`${t(c.name)}: ${amount}`}
                     sx={{
                         width: "92px",
                         height: "124px",
@@ -295,7 +296,7 @@ export const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creature
                 >
                     <CreaturePortraitImage
                         creatureId={creatureId}
-                        alt={c.name}
+                        alt={t(c.name)}
                         sx={{
                             width: "100%",
                             height: "100%",
@@ -332,10 +333,10 @@ export const CreatureDetailPanel: React.FC<{ creatureId: number }> = ({ creature
             )}
             <Box sx={{ flex: "0 0 168px", width: 168, minWidth: 0 }}>
                 <Typography sx={{ fontSize: 30, fontWeight: 700, color: "#efe4cc", lineHeight: 1.1 }}>
-                    {c.name}
+                    {t(c.name)}
                 </Typography>
                 <Typography sx={{ fontSize: 17, color: "#7c8290" }}>
-                    Level {c.level} · {entry.faction}
+                    {tf("Level {level}", { level: c.level })} · {t(entry.faction)}
                 </Typography>
             </Box>
             <Box
@@ -436,7 +437,7 @@ export const ArtifactDetailPanel: React.FC<{ artifact: Artifact.ArtifactProperti
                 <Box
                     component="img"
                     src={img}
-                    alt={artifact.name}
+                    alt={t(artifact.name)}
                     sx={{
                         width: "124px",
                         height: "124px",
@@ -450,10 +451,10 @@ export const ArtifactDetailPanel: React.FC<{ artifact: Artifact.ArtifactProperti
             )}
             <Box sx={{ flex: "0 0 280px", width: 280, minWidth: 0 }}>
                 <Typography sx={{ fontSize: 30, fontWeight: 700, color: "#dcb158", lineHeight: 1.1 }}>
-                    {artifact.name}
+                    {t(artifact.name)}
                 </Typography>
                 <Typography sx={{ mt: 0.75, fontSize: 17, color: "#7c8290", textTransform: "uppercase" }}>
-                    Tier-{artifact.tier} artifact
+                    {tf("Tier-{tier} artifact", { tier: artifact.tier })}
                 </Typography>
             </Box>
             <Divider orientation="vertical" />
@@ -468,7 +469,7 @@ export const ArtifactDetailPanel: React.FC<{ artifact: Artifact.ArtifactProperti
                         textTransform: "uppercase",
                     }}
                 >
-                    Effect
+                    {t("Effect")}
                 </Typography>
                 <Typography sx={{ fontSize: 20, lineHeight: 1.38, color: "#efe4cc" }}>
                     {Artifact.formatArtifactDescription(artifact)}
@@ -1639,7 +1640,7 @@ const DoctrinePanel: React.FC<{ disabled: boolean; selected: number; onSelect: (
                                 <Typography level="title-md">{p.name}</Typography>
                             </Box>
                             <Chip size="sm" color="warning" variant="soft">
-                                {p.upgradePoints} upgrade points
+                                {tf("{count} upgrade points", { count: p.upgradePoints })}
                             </Chip>
                             <Typography level="body-sm" sx={{ minHeight: 60 }}>
                                 {p.description}
@@ -1651,7 +1652,7 @@ const DoctrinePanel: React.FC<{ disabled: boolean; selected: number; onSelect: (
                                 sx={{ mt: 0.5 }}
                                 fullWidth
                             >
-                                {isSelected ? "✓ Chosen" : t("Choose")}
+                                {t(isSelected ? "✓ Chosen" : "Choose")}
                             </Button>
                         </CardContent>
                     </Card>
@@ -1818,7 +1819,7 @@ const BundlePanel: React.FC<{
                                 {artifactImg && (
                                     <img
                                         src={artifactImg}
-                                        alt={artifact.name}
+                                        alt={t(artifact.name)}
                                         style={{
                                             width: "120px",
                                             height: "120px",
@@ -1836,7 +1837,7 @@ const BundlePanel: React.FC<{
                                             textTransform: "uppercase",
                                         }}
                                     >
-                                        {artifact.name}
+                                        {t(artifact.name)}
                                     </Typography>
                                     <Typography
                                         sx={{
@@ -1846,7 +1847,7 @@ const BundlePanel: React.FC<{
                                             color: "#7c8290",
                                         }}
                                     >
-                                        Tier-1 artifact
+                                        {t("Tier-1 artifact")}
                                     </Typography>
                                 </Box>
                             </Box>
@@ -2157,7 +2158,7 @@ export const ArtifactPanel: React.FC<{
                                         textAlign: "center",
                                     }}
                                 >
-                                    Tier-2 artifact
+                                    {t("Tier-2 artifact")}
                                 </Typography>
                             </CardContent>
                             <PremiumMark kind="artifact" value={id} />
@@ -2771,7 +2772,7 @@ export const OpponentDraftBar: React.FC<{
                                         <Box
                                             component="img"
                                             src={watchedEyeImage}
-                                            alt="Watched slot"
+                                            alt={t("Watched slot")}
                                             sx={{
                                                 width: 30,
                                                 height: 20,
@@ -3394,9 +3395,9 @@ const StainedGlassWindow: React.FC<StainedGlassProps> = ({
                             {isYourTurn ? t("Your turn") : `${opponentLabel}'s turn`}
                         </Chip>
                         {upgradePoints > 0 && (
-                            <Tooltip title="Points you can spend on upgrades before placement" variant="soft">
+                            <Tooltip title={t("Points you can spend on upgrades before placement")} variant="soft">
                                 <Chip color="primary" variant="soft">
-                                    {upgradePoints} upgrade pts
+                                    {tf("{count} upgrade pts", { count: upgradePoints })}
                                 </Chip>
                             </Tooltip>
                         )}

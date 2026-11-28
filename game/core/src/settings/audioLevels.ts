@@ -9,6 +9,8 @@
  * -----------------------------------------------------------------------------
  */
 
+import { onMacPreferenceChange } from "./macPreferences";
+
 /**
  * A shared sound level and mute, with separate music/effects balances underneath. The corner sound bar
  * changes both channels; disabling music leaves effects audible and survives muting/unmuting all sound.
@@ -134,6 +136,17 @@ const persist = (next: IAudioLevels): void => {
     }
 };
 
+const readLevels = (search: string): IAudioLevels =>
+    resolveAudioLevels({
+        masterVolume: readStored(MASTER_VOLUME_KEY),
+        masterMuted: readStored(MASTER_MUTED_KEY),
+        musicVolume: readStored(MUSIC_VOLUME_KEY),
+        musicMuted: readStored(MUSIC_MUTED_KEY),
+        effectsVolume: readStored(EFFECTS_VOLUME_KEY),
+        effectsMuted: readStored(EFFECTS_MUTED_KEY),
+        search,
+    });
+
 /**
  * Read once, lazily — there is no storage to read during a server render, and the first read happens well
  * after boot, so `?vol` is on the location by then. The resolved levels are written straight back: that is
@@ -141,15 +154,7 @@ const persist = (next: IAudioLevels): void => {
  */
 const current = (): IAudioLevels => {
     if (!levels) {
-        levels = resolveAudioLevels({
-            masterVolume: readStored(MASTER_VOLUME_KEY),
-            masterMuted: readStored(MASTER_MUTED_KEY),
-            musicVolume: readStored(MUSIC_VOLUME_KEY),
-            musicMuted: readStored(MUSIC_MUTED_KEY),
-            effectsVolume: readStored(EFFECTS_VOLUME_KEY),
-            effectsMuted: readStored(EFFECTS_MUTED_KEY),
-            search: globalThis.location?.search ?? "",
-        });
+        levels = readLevels(globalThis.location?.search ?? "");
         persist(levels);
     }
     return levels;
@@ -168,10 +173,10 @@ export const subscribeAudioLevels = (listener: () => void): (() => void) => {
     };
 };
 
-const update = (change: Partial<IAudioLevels>): void => {
-    const previous = current();
-    const next = { ...previous, ...change };
+const apply = (next: IAudioLevels, save: boolean): void => {
+    const previous = levels;
     if (
+        previous &&
         next.masterVolume === previous.masterVolume &&
         next.masterMuted === previous.masterMuted &&
         next.musicVolume === previous.musicVolume &&
@@ -182,11 +187,13 @@ const update = (change: Partial<IAudioLevels>): void => {
         return;
     }
     levels = next;
-    persist(next);
+    if (save) persist(next);
     for (const listener of listeners) {
         listener();
     }
 };
+
+const update = (change: Partial<IAudioLevels>): void => apply({ ...current(), ...change }, true);
 
 export const setMasterVolume = (volume: number): void => update({ masterVolume: clamp01(volume) });
 export const setMasterMuted = (muted: boolean): void => update({ masterMuted: muted });
@@ -194,6 +201,11 @@ export const setMusicVolume = (volume: number): void => update({ musicVolume: cl
 export const setMusicMuted = (muted: boolean): void => update({ musicMuted: muted });
 export const setEffectsVolume = (volume: number): void => update({ effectsVolume: clamp01(volume) });
 export const setEffectsMuted = (muted: boolean): void => update({ effectsMuted: muted });
+
+onMacPreferenceChange(
+    [MASTER_VOLUME_KEY, MASTER_MUTED_KEY, MUSIC_VOLUME_KEY, MUSIC_MUTED_KEY, EFFECTS_VOLUME_KEY, EFFECTS_MUTED_KEY],
+    () => apply(readLevels(""), false),
+);
 
 /** What the music should be playing at, ignoring where the player happens to be standing. */
 export const musicGain = (now: IAudioLevels = current()): number => {

@@ -5,6 +5,7 @@ import { useAuthContext } from "./auth/context/auth_context";
 import type { GoogleAuthStatus } from "./auth/context/types";
 import { GoogleSignInButton } from "./auth/GoogleSignInButton";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx } from "./hocTheme";
+import { t } from "../i18n/i18n";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const passwordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,50}$/;
@@ -178,7 +179,7 @@ export const AccountSignInMethods: React.FC<AccountSignInMethodsProps> = ({ comp
                 <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1 }}>
                     <Box sx={{ minWidth: 0 }}>
                         <Typography level="title-sm" textColor={hocColors.parchment}>
-                            Account
+                            {t("Account")}
                         </Typography>
                         <Typography level="body-xs" textColor={hocColors.muted} noWrap>
                             {accountEmail || "Email account"}
@@ -193,7 +194,7 @@ export const AccountSignInMethods: React.FC<AccountSignInMethodsProps> = ({ comp
                                 {accountEmail ? "Add password login" : "Add email login"}
                             </Typography>
                             <FormControl size="sm">
-                                <FormLabel sx={{ color: hocColors.mutedStrong }}>Email</FormLabel>
+                                <FormLabel sx={{ color: hocColors.mutedStrong }}>{t("Email")}</FormLabel>
                                 <Input
                                     type="email"
                                     value={email}
@@ -204,23 +205,23 @@ export const AccountSignInMethods: React.FC<AccountSignInMethodsProps> = ({ comp
                                 />
                             </FormControl>
                             <FormControl size="sm">
-                                <FormLabel sx={{ color: hocColors.mutedStrong }}>Password</FormLabel>
+                                <FormLabel sx={{ color: hocColors.mutedStrong }}>{t("Password")}</FormLabel>
                                 <Input
                                     type="password"
                                     value={password}
                                     onChange={(event) => setPassword(event.target.value)}
-                                    placeholder="8+ characters"
+                                    placeholder={t("8+ characters")}
                                     disabled={busy}
                                     sx={hocInputSx}
                                 />
                             </FormControl>
                             {emailCodeSent && (
                                 <FormControl size="sm">
-                                    <FormLabel sx={{ color: hocColors.mutedStrong }}>Code</FormLabel>
+                                    <FormLabel sx={{ color: hocColors.mutedStrong }}>{t("Code")}</FormLabel>
                                     <Input
                                         value={code}
                                         onChange={(event) => setCode(event.target.value)}
-                                        placeholder="verification code"
+                                        placeholder={t("verification code")}
                                         disabled={busy}
                                         sx={hocInputSx}
                                     />
@@ -241,7 +242,7 @@ export const AccountSignInMethods: React.FC<AccountSignInMethodsProps> = ({ comp
                                     }}
                                     sx={{ color: hocColors.mutedStrong }}
                                 >
-                                    Change Email
+                                    {t("Change Email")}
                                 </Button>
                             )}
                         </Stack>
@@ -253,11 +254,11 @@ export const AccountSignInMethods: React.FC<AccountSignInMethodsProps> = ({ comp
                 {!compact && (
                     <Stack spacing={0.75}>
                         <Typography level="body-xs" textColor={hocColors.muted}>
-                            Google sign-in
+                            {t("Google sign-in")}
                         </Typography>
                         {loadingMethods ? (
                             <Typography level="body-xs" textColor="rgba(239, 228, 204, 0.52)">
-                                Loading sign-in methods...
+                                {t("Loading sign-in methods...")}
                             </Typography>
                         ) : googleStatus.linked ? (
                             <Box
@@ -274,7 +275,7 @@ export const AccountSignInMethods: React.FC<AccountSignInMethodsProps> = ({ comp
                                     disabled={busy || !canUnlinkGoogle}
                                     sx={{ color: hocColors.mutedStrong }}
                                 >
-                                    Unlink
+                                    {t("Unlink")}
                                 </Button>
                             </Box>
                         ) : (

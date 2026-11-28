@@ -13,6 +13,7 @@ import { BOAR_SALIVA_EFFECT } from "../../core/src/scenes/sandbox/BoarSalivaPops
 import { beholderDebuffFramePose } from "../../core/src/scenes/sandbox/beholderDebuffRegistration";
 import { borrowedGraceFlagKind } from "../../core/src/scenes/sandbox/borrowedGraceTransfers";
 import { statusFlagName, shouldShowStatusFlagPop } from "../../core/src/scenes/sandbox/combatStatusPopups";
+import { FLOATING_RESULT } from "../../core/src/scenes/sandbox/floatingCombatResult";
 import {
     commonFlagFades,
     commonFlagPopArt,
@@ -104,7 +105,8 @@ const woundAtlases = [
 ];
 for (const [index, url] of woundAtlases.entries()) {
     const level = index + 1;
-    addClip(`Deep Wounds ${level}`, url, animationAtlases["Vfx Deep Wounds Level"][String(level)], "cut");
+    const clip = addClip(`Deep Wounds ${level}`, url, animationAtlases["Vfx Deep Wounds Level"][String(level)], "cut");
+    clip.restarts = true;
 }
 for (const name of BEHOLDER_DEBUFFS) {
     const key = beholderDebuffTextureName(name)! as keyof typeof images;
@@ -177,5 +179,6 @@ writeFileSync(
         borrowedClips: [...statusNames].filter((name) => borrowedGraceFlagKind(name)),
         duration: OVERHEAD_EFFECT_DURATION_MS / 1000,
         appearanceSpeed: STATUS_EFFECT_APPEARANCE_SPEED,
+        floatingResult: FLOATING_RESULT,
     }),
 );

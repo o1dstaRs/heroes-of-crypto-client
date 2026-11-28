@@ -44,9 +44,9 @@ describe("every in-game screen wears the collapsed medallion", () => {
     test("the dock still carries all four controls, gated only on being logged in", () => {
         const dock = read("social/SocialDockRuntime.tsx");
         for (const control of [
-            'aria-label="Bets and predictions"',
-            'aria-label="Friends"',
-            'aria-label="Notifications"',
+            'aria-label={t("Bets and predictions")}',
+            'aria-label={t("Friends")}',
+            'aria-label={t("Notifications")}',
         ]) {
             expect(dock).toContain(control);
         }

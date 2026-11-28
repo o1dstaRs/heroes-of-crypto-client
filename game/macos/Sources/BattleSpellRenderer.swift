@@ -14,6 +14,7 @@ final class BattleSpellRenderer {
     struct Frame {
         let layers: [Layer]
         let lights: [Float]
+        let heat: [BattlefieldOptics.Field]
         let mirrors: [Mirror]
     }
 
@@ -153,6 +154,7 @@ final class BattleSpellRenderer {
             return commands.isEmpty ? nil : Layer(depth: z, commands: commands, wall: layer.forProperty("wall")?.toBool() == true)
         }
         let lights: [Float] = value.forProperty("lights").map { copyBuffer($0) } ?? []
+        let heat: [Float] = value.forProperty("heat").map { copyBuffer($0) } ?? []
         let mirrors = scheduled.flatMap { event -> [Mirror] in
             guard case let .cast(cast) = event.effect, !cast.mirrors.isEmpty else { return [] }
             let age = now.timeIntervalSince(event.playbackStart) - cast.impact
@@ -164,7 +166,7 @@ final class BattleSpellRenderer {
             }
             return cast.mirrors.map { Mirror(from: body($0), to: body(cast.actor), age: age) }
         }
-        return Frame(layers: display, lights: lights, mirrors: mirrors)
+        return Frame(layers: display, lights: lights, heat: BattlefieldOptics.heatSources(heat), mirrors: mirrors)
     }
 
     private func prepare() {

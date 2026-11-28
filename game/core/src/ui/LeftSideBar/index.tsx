@@ -99,6 +99,7 @@ import type { IUnitInspection, IVisibleImpact } from "../../scenes/VisibleState"
 import { useFitScale } from "./useFitScale";
 import { IWindowSize, IVisibleOverallImpact } from "../../scenes/VisibleState";
 import { personalArmyPaintKey } from "../../scenes/personalArmyTint";
+import { t } from "../../i18n/i18n";
 
 const UpNext = React.lazy(() => import("./UpNext").then(({ UpNext }) => ({ default: UpNext })));
 
@@ -437,7 +438,7 @@ export default function LeftSideBar({ gameStarted, windowSize }: LeftSideBarProp
                                             <ListItemButton selected>
                                                 <DashboardRoundedIcon />
                                                 <Box sx={{ marginLeft: 2 }}>
-                                                    <Typography level="title-sm">Fight</Typography>
+                                                    <Typography level="title-sm">{t("Fight")}</Typography>
                                                 </Box>
                                             </ListItemButton>
                                         </ListItem>

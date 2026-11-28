@@ -33,6 +33,7 @@ import { IWindowSize } from "../../scenes/VisibleState";
 import { sidebarPlainFrameSideInsetPx, sidebarPlainFrameVerticalInsetPx } from "../LeftSideBar/sidebarMetrics";
 import { GameCornerExitButton, GameCornerSlot, GameCornerStartOverButton } from "../GameCornerExit";
 import { GAME_SYSTEM_CONTROLS_STACK_HEIGHT_PX, GameSystemControls } from "../GameSystemControls";
+import { t } from "../../i18n/i18n";
 
 const TouchArmyRoster = React.lazy(() => import("../mobile/TouchArmyRoster"));
 const DraggableToolbar = React.lazy(() => import("../DraggableToolbar"));
@@ -340,7 +341,7 @@ export default function RightSideBar({
             {onClose && (
                 <GameCornerSlot>
                     {onStartOver && <GameCornerStartOverButton onClick={handleStartOver} />}
-                    <GameCornerExitButton onClick={onClose} label="Back" />
+                    <GameCornerExitButton onClick={onClose} label={t("Back")} />
                 </GameCornerSlot>
             )}
             <Box
@@ -455,7 +456,7 @@ export default function RightSideBar({
                                             color: hocColors.gold,
                                         }}
                                     >
-                                        DAMAGE
+                                        {t("DAMAGE")}
                                     </Typography>
                                 </Box>
                                 <Box ref={damageListSpaceRef} sx={{ flex: 1, minHeight: 0, overflow: "hidden" }}>

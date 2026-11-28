@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Updates battlefield art with one display-paced draw. Hit testing stays in the SwiftUI controls.
-struct BattlefieldSprites: View {
+struct BattlefieldSprites<Ground: View>: View {
     let battle: BattleView
     let playback: BattlePlayback
     let projection: BattlefieldProjection
@@ -11,14 +11,28 @@ struct BattlefieldSprites: View {
     let ghost: BattlefieldGhost?
     let targetTints: [Int: UInt32]
     let auras: [BattlefieldAura]
+    let staggerDuplicateIdle: Bool
+    let viewport: CGSize
+    @ViewBuilder let underlay: () -> Ground
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.appearsActive) private var appearsActive
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.locale) private var locale
     @State private var idleStarted = Date()
     @State private var lastFrames = FrameHistory()
     @State private var spellRenderer = BattleSpellRenderer()
     @State private var smokeClouds = BattleSmokeClouds()
+
+    @MainActor
+    private final class ShieldBodies {
+        let ids: Set<Int>
+        var masks: [Int: BattlefieldOptics.BodyMask] = [:]
+
+        init(_ fields: [BattlefieldOptics.Field]) {
+            self.ids = Set(fields.compactMap(\.bodyID))
+        }
+    }
 
     @MainActor
     private final class FrameHistory {
@@ -76,14 +90,14 @@ struct BattlefieldSprites: View {
             return dissolves
         }
 
-        func idleTiming(for stack: Stack, at time: Date, resumed: Date?) -> (time: TimeInterval, age: TimeInterval) {
+        func idleTiming(for stack: Stack, at time: Date, resumed: Date?, staggered: Bool) -> (time: TimeInterval, age: TimeInterval) {
             if idleStarts[stack.id]?.creature != stack.name {
                 let ordinal = idleStarts.values.filter { $0.creature == stack.name }.count
                 idleStarts[stack.id] = (stack.name, time, Double(ordinal) * CreatureAnimation.duplicateIdleSpacing)
             }
             guard let idle = idleStarts[stack.id] else { return (0, 0) }
             let age = max(0, time.timeIntervalSince(resumed ?? idle.started))
-            return (age + idle.phase, age)
+            return (age + (staggered ? idle.phase : 0), age)
         }
     }
 
@@ -101,10 +115,28 @@ struct BattlefieldSprites: View {
             let _ = paused || reduceMotion || ghost != nil ? BattlefieldAtlas.availability.revision : 0
             let elapsed = max(0, timeline.date.timeIntervalSince(playback.started))
             let idle = reduceMotion ? 0 : max(0, timeline.date.timeIntervalSince(idleStarted))
-            Canvas { context, size in
-                draw(context, at: timeline.date, elapsed: elapsed, idle: idle)
-                BattleCombatOverlay(playback: playback, projection: projection, battle: battle, reduceMotion: reduceMotion)
-                    .draw(at: timeline.date, size: size, in: context)
+            let breaks = reduceMotion ? [:] : lastFrames.shieldBreaks(for: playback, at: timeline.date)
+            let effects = reduceMotion ? nil : spellRenderer.frame(playback: playback, battle: battle, projection: projection,
+                                                                  now: timeline.date)
+            let water = reduceMotion ? [] : waterFields(breaks, at: timeline.date, elapsed: elapsed, idle: idle)
+            let bodies = water.isEmpty ? nil : ShieldBodies(water)
+            let fields = water + (effects?.heat ?? [])
+            let scene = ZStack(alignment: .topLeading) {
+                underlay()
+                Canvas { context, _ in
+                    draw(context, at: timeline.date, elapsed: elapsed, idle: idle, effects: effects, shieldBreaks: breaks,
+                         shieldBodies: bodies)
+                }
+            }
+            ZStack(alignment: .topLeading) {
+                BattlefieldOptics.compose(scene, size: viewport, scale: displayScale, fields: fields) { bodies?.masks ?? [:] }
+                if !playback.combatCues.isEmpty {
+                    Canvas { context, size in
+                        BattleCombatOverlay(playback: playback, projection: projection, battle: battle,
+                                            reduceMotion: reduceMotion, locale: locale)
+                            .draw(at: timeline.date, size: size, in: context)
+                    }
+                }
             }
         }
         .task(id: cueExpiry) {
@@ -132,7 +164,33 @@ struct BattlefieldSprites: View {
 
     private typealias TargetHighlight = (GraphicsContext) -> Void
 
-    private func draw(_ context: GraphicsContext, at now: Date, elapsed: TimeInterval, idle: TimeInterval) {
+    private func waterFields(_ breaks: [Int: BattleWaterShieldBreak], at now: Date, elapsed: TimeInterval,
+                             idle: TimeInterval) -> [BattlefieldOptics.Field] {
+        func field(_ stack: Stack, position: CGPoint, burst: TimeInterval) -> BattlefieldOptics.Field {
+            let facing = playback.facing(for: stack, elapsed: elapsed, reducedMotion: false)
+            let figure = CreatureAnimation.boardPresentation(stack, position: position, projection: projection, facing: facing)
+            let shell = BattleWaterShield.geometry(stack, position: position, presentation: figure, facing: facing, projection: projection)
+            return .init(medium: .water, center: CGPoint(x: shell.midX, y: shell.midY),
+                         radii: CGSize(width: shell.width / 2, height: shell.height / 2),
+                         strength: playback.spawnOpacity(for: stack, elapsed: elapsed), time: idle, burst: burst, bodyID: stack.id)
+        }
+        // A follow-up hit can remove the stack from the result before its shield has broken on screen.
+        let pendingFallen = playback.fallen.filter { (breaks[$0.id]?.started ?? .distantPast) > now }
+        var fields = (battle.stacks + pendingFallen).compactMap { stack -> BattlefieldOptics.Field? in
+            guard stack.name == "Mermaid", stack.hasWaterShield || (breaks[stack.id]?.started ?? .distantPast) > now
+            else { return nil }
+            let position = if dragged == stack.id, let dragPoint { dragPoint } else { playback.logicalPosition(stack, at: elapsed) }
+            return field(stack, position: position, burst: -1)
+        }
+        for burst in breaks.values where burst.stack.name == "Mermaid" {
+            let age = now.timeIntervalSince(burst.started)
+            if age >= 0 && age < 0.4 { fields.append(field(burst.stack, position: burst.position, burst: age)) }
+        }
+        return fields.sorted { $0.center.y + $0.radii.height < $1.center.y + $1.radii.height }
+    }
+
+    private func draw(_ context: GraphicsContext, at now: Date, elapsed: TimeInterval, idle: TimeInterval,
+                      effects: BattleSpellRenderer.Frame?, shieldBreaks: [Int: BattleWaterShieldBreak], shieldBodies: ShieldBodies?) {
         let pendingSmoke = reduceMotion ? [] : playback.smokeDepartures.filter { now < $0.at }.map(\.tile)
         if let smoke = smokeClouds.frame(tiles: (battle.smokeTiles ?? []) + pendingSmoke, projection: projection,
                                          now: now, scale: displayScale,
@@ -142,8 +200,10 @@ struct BattlefieldSprites: View {
         }
         let foregroundAuras = drawAuras(in: context, at: now, elapsed: elapsed, time: idle)
         if animating && !reduceMotion { drawActionGuides(elapsed: elapsed, in: context) }
-        let shieldBreaks = reduceMotion ? [:] : lastFrames.shieldBreaks(for: playback, at: now)
         let washes = reduceMotion ? [:] : playback.statusTints(at: now)
+        let wounds = playback.combatCues.reduce(into: [Int: BattleCombatCue]()) { visible, cue in
+            if cue.isDeepWoundsImpact && now >= cue.started && now < cue.endsAt { visible[cue.stack.id] = cue }
+        }
         var stunFlags: [Int: CGPoint] = [:]
         var highlights: [TargetHighlight] = []
         let figures = (battle.stacks + (reduceMotion ? [] : playback.fallen)).compactMap { stack -> Item? in
@@ -154,16 +214,23 @@ struct BattlefieldSprites: View {
             let center = BattlefieldProjection.logicalCenter(stack.cells)
             let origin = dragged == stack.id ? dragPoint ?? center :
                 reduceMotion ? center : playback.logicalPosition(stack, at: elapsed)
-            let timing = reduceMotion ? (0, 0) : lastFrames.idleTiming(for: stack, at: now, resumed: playback.idleResumes[stack.id])
+            let timing = reduceMotion ? (0, 0) : lastFrames.idleTiming(for: stack, at: now, resumed: playback.idleResumes[stack.id],
+                                                                       staggered: staggerDuplicateIdle)
             let shielded = (!fallen && stack.hasWaterShield) || (shieldBreaks[stack.id]?.started ?? .distantPast) > now
             let status = playback.flagStatus(for: stack, elapsed: elapsed, now: now, reducedMotion: reduceMotion)
             let presented = playback.statusStack(for: stack, elapsed: elapsed, reducedMotion: reduceMotion)
             let frozen = presented.statuses.contains { $0.kind != .buff && $0.name == "Freeze" }
             let wash: UInt32? = frozen ? 0x8ec6ff : washes[stack.id]
+            let capture: ((BattlefieldOptics.BodyMask) -> Void)?
+            if let shieldBodies, shieldBodies.ids.contains(stack.id) {
+                capture = { mask in shieldBodies.masks[stack.id] = mask }
+            } else {
+                capture = nil
+            }
             return Item(depth: projection.point(x: origin.x, y: origin.y).y) { context in
                 if let flag = draw(stack, at: origin, in: context, elapsed: elapsed, idleTiming: timing, flagTime: idle,
                                    fallen: fallen, shielded: shielded, status: status, statusTint: wash,
-                                   now: now, highlights: &highlights),
+                                   wound: wounds[stack.id], now: now, captureBody: capture, highlights: &highlights),
                    !fallen, status.stunned { stunFlags[stack.id] = flag }
             }
         }
@@ -181,11 +248,11 @@ struct BattlefieldSprites: View {
             let age = now.timeIntervalSince(burst.started)
             guard age >= 0 else { return nil }
             let depth = projection.point(x: burst.position.x, y: burst.position.y).y
+            let facing = playback.facing(for: burst.stack, elapsed: elapsed, reducedMotion: false)
             return Item(depth: depth + 0.1) { context in
-                BattleWaterShield.dissolve(burst, age: age, time: idle, projection: projection, in: context)
+                BattleWaterShield.dissolve(burst, age: age, time: idle, facing: facing, projection: projection, in: context)
             }
         }
-        let effects = reduceMotion ? nil : spellRenderer.frame(playback: playback, battle: battle, projection: projection, now: now)
         let flames: [Item]
         if let effects {
             for layer in effects.layers where !layer.wall && layer.depth < 4000 { spellRenderer.draw(layer, in: context) }
@@ -318,8 +385,8 @@ struct BattlefieldSprites: View {
 
     private func draw(_ stack: Stack, at position: CGPoint, in canvas: GraphicsContext, elapsed: TimeInterval,
                       idleTiming: (time: TimeInterval, age: TimeInterval), flagTime: TimeInterval, fallen: Bool,
-                      shielded: Bool, status: BattleFlagStatus, statusTint: UInt32?, now: Date,
-                      highlights: inout [TargetHighlight]) -> CGPoint? {
+                      shielded: Bool, status: BattleFlagStatus, statusTint: UInt32?, wound: BattleCombatCue?, now: Date,
+                      captureBody: ((BattlefieldOptics.BodyMask) -> Void)?, highlights: inout [TargetHighlight]) -> CGPoint? {
         let aimTint = targetTints[stack.id]
         let facing = playback.facing(for: stack, elapsed: elapsed, reducedMotion: reduceMotion)
         let presentation = CreatureAnimation.boardPresentation(stack, position: position, projection: projection,
@@ -371,11 +438,12 @@ struct BattlefieldSprites: View {
             } else {
                 sprite.image
             }
-            highlight = drawSprite(sprite, art: art, presentation: presentation, facing: facing, tint: aimTint, statusTint: statusTint, in: body)
+            highlight = drawSprite(sprite, art: art, presentation: presentation, facing: facing, tint: aimTint,
+                                   statusTint: statusTint, captureBody: captureBody, in: body)
         } else if let portrait = BattleResources.cgImage(BattleResources.creature(stack.name)) {
             let width = size * CGFloat(portrait.width) / CGFloat(portrait.height) * presentation.widthScale
             highlight = drawImage(portrait, at: ground, width: width, height: size, anchorX: 0.5, foot: 0.93,
-                                  facing: facing, tint: aimTint, statusTint: statusTint, in: body)
+                                  facing: facing, tint: aimTint, statusTint: statusTint, captureBody: captureBody, in: body)
         } else {
             highlight = nil
             context.draw(Text(String(stack.name.prefix(1))).font(BattleResources.display(size * 0.34))
@@ -385,6 +453,10 @@ struct BattlefieldSprites: View {
         if shielded {
             BattleWaterShield.draw(stack, at: position, presentation: presentation, facing: facing,
                                   projection: projection, time: flagTime, front: true, in: figure)
+        }
+        if let wound {
+            let rect = presentation.deepWoundsBounds(frame: sprite, facing: facing, cellWidth: projection.screenCellWidth)
+            drawDeepWounds(wound, in: rect, at: now, context: body)
         }
         let impactTime = playback.impactTime(for: stack)
         if aimTint == nil && (!fallen || elapsed < impactTime) {
@@ -412,14 +484,28 @@ struct BattlefieldSprites: View {
         return nil
     }
 
+    private func drawDeepWounds(_ cue: BattleCombatCue, in rect: CGRect, at now: Date, context: GraphicsContext) {
+        let progress = now.timeIntervalSince(cue.started) / cue.duration
+        guard let clip = cue.statusClip,
+              let pose = clip.sample(at: progress, appearanceSpeed: BattleStatusEffects.bundled?.appearanceSpeed ?? 1.25,
+                                     reducedMotion: reduceMotion),
+              let art = BattlefieldAtlas.frame(clip.resource, columns: clip.cols, rows: clip.rows, index: pose.frame,
+                                               maxDimension: clip.pixelLimit, combat: true) else { return }
+        var layer = context
+        layer.opacity *= pose.opacity
+        layer.draw(Image(decorative: art, scale: 1).interpolation(.high), in: rect)
+    }
+
     @discardableResult
     private func drawSprite(_ sprite: CreatureAnimation.Frame, art: CGImage, presentation: CreatureBoardPresentation,
                             facing: CGFloat, tint: UInt32? = nil, statusTint: UInt32? = nil,
+                            captureBody: ((BattlefieldOptics.BodyMask) -> Void)? = nil,
                             in context: GraphicsContext) -> TargetHighlight? {
         let size = presentation.canvasSize(aspect: CGFloat(sprite.image.width) / CGFloat(sprite.image.height),
                                            heightScale: sprite.heightScale, widthRatio: sprite.widthRatio)
         return drawImage(art, at: presentation.ground, width: size.width, height: size.height, anchorX: sprite.anchorX,
-                         foot: sprite.foot, facing: facing, trim: sprite.trim, tint: tint, statusTint: statusTint, in: context)
+                         foot: sprite.foot, facing: facing, trim: sprite.trim, tint: tint, statusTint: statusTint,
+                         captureBody: captureBody, in: context)
     }
 
     private func drawActionEffects(elapsed: TimeInterval, in context: GraphicsContext) {
@@ -600,19 +686,21 @@ struct BattlefieldSprites: View {
     @discardableResult
     private func drawImage(_ image: CGImage, at ground: CGPoint, width: CGFloat, height: CGFloat, anchorX: CGFloat,
                            foot: CGFloat, facing: CGFloat, trim: CGRect? = nil, tint: UInt32? = nil,
-                           statusTint: UInt32? = nil, in canvas: GraphicsContext) -> TargetHighlight? {
+                           statusTint: UInt32? = nil, captureBody: ((BattlefieldOptics.BodyMask) -> Void)? = nil,
+                           in canvas: GraphicsContext) -> TargetHighlight? {
         var context = canvas
         context.translateBy(x: ground.x, y: ground.y)
         context.scaleBy(x: facing, y: 1)
         let crop = trim ?? CGRect(x: 0, y: 0, width: 1, height: 1)
         let rect = CGRect(x: width * (crop.minX - anchorX), y: height * (crop.minY - foot),
                           width: width * crop.width, height: height * crop.height)
+        let transform = context.transform
+        captureBody?(.init(image: image, bounds: rect.applying(transform), mirrored: transform.a < 0))
         let art = Image(decorative: image, scale: 1).interpolation(.high)
         var body = context
         if let statusTint { body.addFilter(.colorMultiply(BattlePalette.color(statusTint))) }
         body.draw(art, in: rect)
         guard let tint else { return nil }
-        let transform = context.transform
         return { canvas in
             var overlay = canvas
             overlay.transform = transform

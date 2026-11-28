@@ -4,12 +4,26 @@ import SwiftUI
 import WebKit
 
 enum RankedDestination: Equatable {
-    case arena, lobby
+    case arena, lobby, history, cooperative(SandboxCoopHandoff)
 
-    var title: String { self == .arena ? "Ranked Arena" : "Lobby" }
+    var title: String {
+        switch self {
+        case .arena: "Ranked Arena"
+        case .lobby: "Lobby"
+        case .history: "Match History"
+        case .cooperative: "Co-op Sandbox"
+        }
+    }
 
     func entryURL(relativeTo arena: URL) -> URL {
-        self == .arena ? arena : URL(string: "/lobbies", relativeTo: arena)!.absoluteURL
+        let path: String
+        switch self {
+        case .arena: return arena
+        case .lobby: path = "/lobbies"
+        case .history: path = "/portal#profile-match-history"
+        case let .cooperative(handoff): path = "/sandbox/\(handoff.gameID)"
+        }
+        return URL(string: path, relativeTo: arena)!.absoluteURL
     }
 }
 
@@ -19,6 +33,8 @@ final class RankedWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
     static let entryURL = URL(string: "https://app.heroesofcrypto.io/play")!
     private let entry: URL
     private let origin: String
+    private let preferences: OnlinePreferences
+    private let audio: GameAudioSettings
     private(set) var view: WKWebView?
     private(set) var loading = false
     private(set) var problem: String?
@@ -28,9 +44,12 @@ final class RankedWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
     @ObservationIgnored private weak var notifications: RankedNotifications?
     @ObservationIgnored private var authorizationCheck: Task<Void, Never>?
     @ObservationIgnored private var tokenRefresh: Task<Void, Never>?
+    @ObservationIgnored private var handedOffCoopGames: Set<String> = []
 
-    init(entry: URL = RankedWebSession.entryURL) {
+    init(entry: URL = RankedWebSession.entryURL, preferences: OnlinePreferences, audio: GameAudioSettings) {
         self.entry = entry
+        self.preferences = preferences
+        self.audio = audio
         var url = URLComponents()
         url.scheme = entry.scheme
         url.host = entry.host
@@ -50,6 +69,12 @@ final class RankedWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
             if sessionToken == session.token || sameLogin {
                 self.sessionToken = session.token
                 if destination != requested {
+                    if case .cooperative = requested {
+                        // The army handoff has to run before the hosted board opens on the new document.
+                        open(entryURL, destination: requested, session: session, account: account, fullscreen: fullscreen,
+                             notifications: notifications, dataStore: view.configuration.websiteDataStore)
+                        return
+                    }
                     authorizationCheck?.cancel()
                     authorizationCheck = nil
                     destination = requested
@@ -57,6 +82,7 @@ final class RankedWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
                     loading = true
                     view.load(URLRequest(url: entryURL))
                 }
+                syncPreferences()
                 return
             }
         }
@@ -84,6 +110,9 @@ final class RankedWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
         configuration.userContentController.add(
             RankedAccountHandler(origin: origin, session: self), name: RankedAccountHandler.name
         )
+        let browserState = RankedBrowserStateHandler(origin: origin, session: self)
+        configuration.userContentController.add(browserState, name: OnlinePreferences.messageName)
+        configuration.userContentController.add(browserState, name: NativeCoopAPI.armyTakenMessage)
         let script = """
             (() => {
                 if (window.location.origin !== \(Self.javascriptString(origin))) return;
@@ -92,7 +121,9 @@ final class RankedWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
                     localStorage.setItem("accessToken", \(Self.javascriptString(session.token)));
                     sessionStorage.setItem("hoc:native-session", "1");
                 }
+                \(coopTransferScript(destination))
                 \(RankedAccountHandler.script)
+                \(OnlinePreferences.bridgeScript(preferenceValues))
                 let fullscreen = \(fullscreen);
                 window.hocMacSyncFullscreen = (active) => {
                     if (active !== fullscreen) {
@@ -135,6 +166,8 @@ final class RankedWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
             controller.removeAllUserScripts()
             controller.removeScriptMessageHandler(forName: RankedNotificationHandler.name)
             controller.removeScriptMessageHandler(forName: RankedAccountHandler.name)
+            controller.removeScriptMessageHandler(forName: OnlinePreferences.messageName)
+            controller.removeScriptMessageHandler(forName: NativeCoopAPI.armyTakenMessage)
             controller.removeScriptMessageHandler(forName: "hocMacFullscreen")
         }
         notifications?.clear()
@@ -209,6 +242,25 @@ final class RankedWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
         view?.evaluateJavaScript("window.hocMacSyncRankedNotifications?.(\(permitted))")
     }
 
+    private var preferenceValues: [String: String] {
+        preferences.values.merging(audio.webValues) { _, audio in audio }
+    }
+
+    func syncPreferences() {
+        view?.evaluateJavaScript("window.hocMacApplyPreferences?.(\(OnlinePreferences.encode(preferenceValues)))")
+    }
+
+    fileprivate func receivePreferences(_ values: [String: String], in webView: WKWebView) {
+        guard webView === view else { return }
+        preferences.receive(values)
+        audio.receiveWebValues(values)
+    }
+
+    fileprivate func coopArmyTaken(_ gameID: String, in webView: WKWebView) {
+        guard webView === view, case let .cooperative(handoff) = destination, handoff.gameID == gameID else { return }
+        handedOffCoopGames.insert(gameID)
+    }
+
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
                  decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void) {
         guard let url = action.request.url, accepts(url) else {
@@ -248,7 +300,26 @@ final class RankedWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
         guard webView === view else { return }
         loading = false
         syncFullscreen()
+        syncPreferences()
         if let notifications { syncNotificationPermission(notifications.permitted) }
+        if destination == .history, webView.url?.path == "/portal",
+           webView.url?.fragment == "profile-match-history" {
+            webView.evaluateJavaScript("""
+                (() => {
+                    const reveal = () => {
+                        const heading = document.getElementById("profile-match-history");
+                        if (!heading || location.pathname !== "/portal" ||
+                            location.hash !== "#profile-match-history") return false;
+                        heading.scrollIntoView({block:"start"});
+                        return true;
+                    };
+                    if (reveal()) return;
+                    const observer = new MutationObserver(() => { if (reveal()) observer.disconnect(); });
+                    observer.observe(document.body, {subtree:true,childList:true});
+                    setTimeout(() => observer.disconnect(), 10000);
+                })();
+                """)
+        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
@@ -279,8 +350,34 @@ final class RankedWebSession: NSObject, WKNavigationDelegate, WKUIDelegate {
             url.user == nil && url.password == nil
     }
 
+    private func coopTransferScript(_ destination: RankedDestination) -> String {
+        guard case let .cooperative(handoff) = destination, !handoff.army.isEmpty, !handedOffCoopGames.contains(handoff.gameID),
+              let bytes = try? JSONEncoder().encode(handoff.army) else { return "" }
+        return NativeCoopAPI.carryArmyScript(gameID: handoff.gameID, army: bytes)
+    }
+
     private static func javascriptString(_ value: String) -> String {
         String(decoding: try! JSONEncoder().encode(value), as: UTF8.self)
+    }
+}
+
+@MainActor
+private final class RankedBrowserStateHandler: NSObject, WKScriptMessageHandler {
+    private let origin: String
+    private weak var session: RankedWebSession?
+
+    init(origin: String, session: RankedWebSession) {
+        self.origin = origin
+        self.session = session
+    }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard rankedMessageOrigin(message) == origin, let webView = message.webView else { return }
+        if message.name == OnlinePreferences.messageName, let values = message.body as? [String: String] {
+            session?.receivePreferences(values, in: webView)
+        } else if message.name == NativeCoopAPI.armyTakenMessage, let gameID = message.body as? String {
+            session?.coopArmyTaken(gameID, in: webView)
+        }
     }
 }
 
@@ -367,15 +464,15 @@ struct InAppRanked: View {
             }
             if let problem = session.problem {
                 VStack(spacing: 16) {
-                    Text(problem)
-                    Button("Reload \(destination.title)", action: session.retry)
+                    Text(LocalizedStringKey(problem))
+                    Button("Reload \(Text(LocalizedStringKey(destination.title)))", action: session.retry)
                         .buttonStyle(GameMenuButtonStyle(prominent: true))
                 }
                 .padding(24)
                 .foregroundStyle(BattlePalette.parchment)
                 .background(BattlePalette.backdrop, in: RoundedRectangle(cornerRadius: 9))
             } else if session.loading {
-                ProgressView("Opening \(destination.title)…")
+                ProgressView("Opening \(Text(LocalizedStringKey(destination.title)))…")
                     .padding(21)
                     .foregroundStyle(BattlePalette.parchment)
                     .background(BattlePalette.backdrop, in: RoundedRectangle(cornerRadius: 9))

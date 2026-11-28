@@ -2929,10 +2929,11 @@ export const animationAtlases: Record<string, Record<string, IAtlasAnimationMeta
             frameHeight: 768,
             atlasWidth: 3072,
             atlasHeight: 1536,
-            frameCount: 8,
+            // The last cell in the 4 × 2 sheet is transparent padding.
+            frameCount: 7,
             fps: 10,
             frameDurationSec: 0.1,
-            totalDurationSec: 0.8,
+            totalDurationSec: 0.7,
             layout: {
                 cols: 4,
                 rows: 2,
@@ -2943,8 +2944,8 @@ export const animationAtlases: Record<string, Record<string, IAtlasAnimationMeta
             loop: true,
             headStabilization: "shared frame-01 head; integer translation only; fixed scale and angle",
             walkCycleDistanceCells: 1.5,
-            loopDurationMs: 720,
-            pauseMs: 288,
+            loopDurationMs: 630,
+            pauseMs: 252,
         },
     },
     "Ash Moth": {

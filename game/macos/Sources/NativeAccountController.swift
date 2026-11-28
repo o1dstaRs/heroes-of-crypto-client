@@ -115,7 +115,7 @@ final class NativeAccountController {
         }
     }
 
-    func signInWithGoogle(window: NSWindow?) async {
+    func signInWithGoogle(window: NSWindow?, language: String) async {
         await perform(.checkingGoogle) {
             try Task.checkCancellation()
             guard let window else { throw NativeAuthFailure.couldNotStartBrowser }
@@ -123,7 +123,7 @@ final class NativeAccountController {
             try Task.checkCancellation()
             guard window.isVisible else { return }
             activity = .google
-            let grant = try await browser.authorize(presenting: window)
+            let grant = try await browser.authorize(presenting: window, language: language)
             activity = .finishingGoogle
             let session = try await api.authenticate(code: grant.code, verifier: grant.verifier)
             try Task.checkCancellation()

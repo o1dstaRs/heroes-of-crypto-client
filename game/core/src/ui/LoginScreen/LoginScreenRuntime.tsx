@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useAuthContext } from "../auth/context/auth_context";
 import { GoogleSignInButton } from "../auth/GoogleSignInButton";
 import { hocColors, hocInputSx, hocPanelSx, hocPrimaryButtonSx, hocSoftButtonSx } from "../hocTheme";
+import { t, tf } from "../../i18n/i18n";
 
 type Mode = "login" | "register" | "verify";
 
@@ -132,23 +133,27 @@ export const LoginScreen: React.FC = () => {
                             Heroes of Crypto
                         </Typography>
                         <Typography level="body-sm" textColor={hocColors.muted}>
-                            {showVerify ? "Verify your email to continue" : "Sign in to continue"}
+                            {t(showVerify ? "Verify your email to continue" : "Sign in to continue")}
                         </Typography>
                     </Box>
 
                     {showVerify ? (
                         <Stack spacing={1.5}>
                             <Typography level="body-sm" textColor={hocColors.mutedStrong}>
-                                Enter the verification code we sent to {verifyEmail || "your email address"}.
+                                {tf("Enter the verification code we sent to {email}.", {
+                                    email: verifyEmail || t("your email address"),
+                                })}
                             </Typography>
                             <form onSubmit={handleVerify}>
                                 <Stack spacing={1.5}>
                                     <FormControl>
-                                        <FormLabel sx={{ color: hocColors.mutedStrong }}>Verification code</FormLabel>
+                                        <FormLabel sx={{ color: hocColors.mutedStrong }}>
+                                            {t("Verification code")}
+                                        </FormLabel>
                                         <Input
                                             value={code}
                                             onChange={(e) => setCode(e.target.value)}
-                                            placeholder="Enter code"
+                                            placeholder={t("Enter code")}
                                             required
                                             sx={hocInputSx}
                                         />
@@ -159,7 +164,7 @@ export const LoginScreen: React.FC = () => {
                                         disabled={busy || !code.trim()}
                                         sx={hocPrimaryButtonSx}
                                     >
-                                        {busy ? "Please wait…" : "Verify & Activate"}
+                                        {busy ? t("Please wait…") : t("Verify & Activate")}
                                     </Button>
                                 </Stack>
                             </form>
@@ -170,7 +175,7 @@ export const LoginScreen: React.FC = () => {
                                 onClick={handleResendCode}
                                 sx={hocSoftButtonSx}
                             >
-                                Resend code
+                                {t("Resend code")}
                             </Button>
                             <Button
                                 fullWidth
@@ -179,7 +184,7 @@ export const LoginScreen: React.FC = () => {
                                 onClick={handleBackToSignIn}
                                 sx={{ color: hocColors.muted }}
                             >
-                                Back to sign in
+                                {t("Back to sign in")}
                             </Button>
                         </Stack>
                     ) : (
@@ -191,7 +196,7 @@ export const LoginScreen: React.FC = () => {
                                     onClick={() => setMode("login")}
                                     sx={mode === "login" ? hocPrimaryButtonSx : hocSoftButtonSx}
                                 >
-                                    Sign In
+                                    {t("Sign In")}
                                 </Button>
                                 <Button
                                     fullWidth
@@ -199,7 +204,7 @@ export const LoginScreen: React.FC = () => {
                                     onClick={() => setMode("register")}
                                     sx={mode === "register" ? hocPrimaryButtonSx : hocSoftButtonSx}
                                 >
-                                    Create Account
+                                    {t("Create Account")}
                                 </Button>
                             </Stack>
 
@@ -210,25 +215,25 @@ export const LoginScreen: React.FC = () => {
                             />
 
                             <Divider sx={{ color: hocColors.muted, borderColor: hocColors.orangeBorder }}>
-                                or use email
+                                {t("or use email")}
                             </Divider>
 
                             <form onSubmit={handleSubmit}>
                                 <Stack spacing={1.5}>
                                     {mode === "register" && (
                                         <FormControl>
-                                            <FormLabel sx={{ color: hocColors.mutedStrong }}>Username</FormLabel>
+                                            <FormLabel sx={{ color: hocColors.mutedStrong }}>{t("Username")}</FormLabel>
                                             <Input
                                                 value={username}
                                                 onChange={(e) => setUsername(e.target.value)}
-                                                placeholder="username"
+                                                placeholder={t("username")}
                                                 required
                                                 sx={hocInputSx}
                                             />
                                         </FormControl>
                                     )}
                                     <FormControl>
-                                        <FormLabel sx={{ color: hocColors.mutedStrong }}>Email</FormLabel>
+                                        <FormLabel sx={{ color: hocColors.mutedStrong }}>{t("Email")}</FormLabel>
                                         <Input
                                             type="email"
                                             value={email}
@@ -239,7 +244,7 @@ export const LoginScreen: React.FC = () => {
                                         />
                                     </FormControl>
                                     <FormControl>
-                                        <FormLabel sx={{ color: hocColors.mutedStrong }}>Password</FormLabel>
+                                        <FormLabel sx={{ color: hocColors.mutedStrong }}>{t("Password")}</FormLabel>
                                         <Input
                                             type="password"
                                             value={password}
@@ -250,7 +255,7 @@ export const LoginScreen: React.FC = () => {
                                         />
                                     </FormControl>
                                     <Button type="submit" variant="solid" disabled={busy} sx={hocPrimaryButtonSx}>
-                                        {busy ? "Please wait…" : mode === "login" ? "Sign In" : "Create Account"}
+                                        {busy ? t("Please wait…") : t(mode === "login" ? "Sign In" : "Create Account")}
                                     </Button>
                                 </Stack>
                             </form>
@@ -265,7 +270,7 @@ export const LoginScreen: React.FC = () => {
 
                     {error && (
                         <Alert variant="soft" color="danger">
-                            {error}
+                            {t(error)}
                         </Alert>
                     )}
                 </Stack>

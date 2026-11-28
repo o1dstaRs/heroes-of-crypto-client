@@ -1,5 +1,18 @@
 import Foundation
 
+enum GameLocalization {
+    private static let russian = Bundle.main.url(forResource: "ru", withExtension: "lproj").flatMap(Bundle.init(url:))
+
+    static func text(_ key: String, locale: Locale) -> String {
+        guard locale.language.languageCode?.identifier == "ru", let russian else { return key }
+        return russian.localizedString(forKey: key, value: key, table: nil)
+    }
+
+    static func format(_ key: String, locale: Locale, _ arguments: CVarArg...) -> String {
+        String(format: text(key, locale: locale), locale: locale, arguments: arguments)
+    }
+}
+
 struct UnitInspectionDescription: Equatable {
     let title: String
     let description: String
@@ -14,11 +27,13 @@ enum UnitInspectionDescriptions {
     private struct Catalog: Decodable, Sendable {
         struct Ability: Decodable, Sendable {
             let description: String
+            let descriptionRu: String?
             let stackPowered: Bool
         }
 
         struct Spell: Decodable, Sendable {
             let description: String
+            let descriptionRu: String?
             let applied: String
             let stackPower: Int
         }
@@ -36,21 +51,25 @@ enum UnitInspectionDescriptions {
         return try? JSONDecoder().decode(Catalog.self, from: data)
     }()
 
-    static func ability(_ name: String) -> UnitInspectionDescription {
+    static func ability(_ name: String, locale: Locale = Locale(identifier: "en")) -> UnitInspectionDescription {
         let definition = catalog?.abilities[name]
-        return UnitInspectionDescription(title: name, description: definition?.description ?? "",
-                                         note: definition?.stackPowered == true ? "Scales with stack power." : nil)
+        let translated = locale.language.languageCode?.identifier == "ru" ? definition?.descriptionRu : nil
+        return UnitInspectionDescription(title: name, description: translated ?? definition?.description ?? "",
+                                         note: definition?.stackPowered == true
+                                            ? GameLocalization.text("Scales with stack power.", locale: locale) : nil)
     }
 
-    static func spell(_ spell: StackSpell) -> UnitInspectionDescription {
+    static func spell(_ spell: StackSpell, locale: Locale = Locale(identifier: "en")) -> UnitInspectionDescription {
         let definition = catalog?.spells[spell.name]
-        let scrolls = spell.charges == 1 ? "1 scroll left." : "\(spell.charges) scrolls left."
-        let requirement = definition.map { " Requires stack power \($0.stackPower)." } ?? ""
-        return UnitInspectionDescription(title: spell.name, description: definition?.description ?? "",
-                                         note: scrolls + requirement)
+        let translated = locale.language.languageCode?.identifier == "ru" ? definition?.descriptionRu : nil
+        let scrolls = GameLocalization.format(spell.charges == 1 ? "%lld scroll left." : "%lld scrolls left.",
+                                               locale: locale, spell.charges)
+        let requirement = definition.map { GameLocalization.format("Requires stack power %lld.", locale: locale, $0.stackPower) }
+        return UnitInspectionDescription(title: spell.name, description: translated ?? definition?.description ?? "",
+                                         note: [scrolls, requirement].compactMap { $0 }.joined(separator: " "))
     }
 
-    static func status(_ status: StackStatus) -> UnitInspectionDescription {
+    static func status(_ status: StackStatus, locale: Locale = Locale(identifier: "en")) -> UnitInspectionDescription {
         let auraName = status.name.hasSuffix(" Aura") ? String(status.name.dropLast(" Aura".count)) : status.name
         let aura = catalog?.auras[status.name] ?? catalog?.auras[auraName]
         let unlimited = status.laps >= Double(9_007_199_254_740_991)
@@ -72,31 +91,32 @@ enum UnitInspectionDescriptions {
         } else if status.name == "Crown of Command" {
             second = status.first.map(Double.init) ?? 0
         }
-        var description = template ?? ""
+        var description = GameLocalization.text(template ?? "", locale: locale)
         if status.name == "Armor Augment" || status.name == "Sniper Augment",
            let first = description.range(of: "{}") {
-            description.replaceSubrange(first, with: statusNumber(power))
+            description.replaceSubrange(first, with: statusNumber(power, locale: locale))
             if let remaining = description.range(of: "{}") {
-                description.replaceSubrange(remaining, with: statusNumber(second))
+                description.replaceSubrange(remaining, with: statusNumber(second, locale: locale))
             }
         }
-        description = description.replacingOccurrences(of: "{}", with: statusNumber(power))
-            .replacingOccurrences(of: "[]", with: statusNumber(second))
-            .replacingOccurrences(of: "<>", with: statusNumber(status.second.map(Double.init) ?? power))
+        description = description.replacingOccurrences(of: "{}", with: statusNumber(power, locale: locale))
+            .replacingOccurrences(of: "[]", with: statusNumber(second, locale: locale))
+            .replacingOccurrences(of: "<>", with: statusNumber(status.second.map(Double.init) ?? power, locale: locale))
         let note: String?
         if unlimited {
-            note = isAura ? "While in aura range." : nil
+            note = isAura ? GameLocalization.text("While in aura range.", locale: locale) : nil
         } else if status.laps == catalog?.wholeBattle {
-            note = "Lasts for the battle."
+            note = GameLocalization.text("Lasts for the battle.", locale: locale)
         } else if status.laps > 0 {
-            note = "\(statusNumber(status.laps)) \(status.laps == 1 ? "lap" : "laps") remaining."
+            note = GameLocalization.format(status.laps == 1 ? "%@ lap remaining." : "%@ laps remaining.",
+                                           locale: locale, statusNumber(status.laps, locale: locale))
         } else {
             note = nil
         }
         return UnitInspectionDescription(title: status.name, description: description, note: note)
     }
 
-    private static func statusNumber(_ value: Double) -> String {
-        value.formatted(.number.precision(.fractionLength(0...4)))
+    private static func statusNumber(_ value: Double, locale: Locale) -> String {
+        value.formatted(.number.locale(locale).precision(.fractionLength(0...4)))
     }
 }

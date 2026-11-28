@@ -1,6 +1,7 @@
 import React from "react";
 
 import { premiumSourceHref } from "./premiumSourceHref";
+import { t } from "../../i18n/i18n";
 
 /**
  * A wrapped knowledge link never matches the one-line inline rule, so the player sees the raw
@@ -106,7 +107,7 @@ const blocks = (lines: string[], depth = 0): React.ReactNode[] => {
                 <div
                     key={key}
                     role="region"
-                    aria-label="Comparison"
+                    aria-label={t("Comparison")}
                     // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- keyboard users must be able to focus and scroll this overflowing table.
                     tabIndex={0}
                     style={{ overflowX: "auto", margin: "8px 0" }}

@@ -68,8 +68,14 @@ struct SkirmishSmoke {
         try checkShotRange(setup, resources: resources)
         try checkInspectionDescriptions(opening.stacks)
         try checkCounterattacks(setup, resources: resources)
+        try checkRepeatedStrikes(setup, resources: resources)
         try checkGargantuanSplash(setup, resources: resources)
         try checkHydraForecast(setup, resources: resources)
+        try checkBattlefieldOptics()
+        try checkBreathForecast(setup, resources: resources)
+        try checkFleshShieldForecast(setup, resources: resources)
+        try checkFireforgedForecast(setup, resources: resources)
+        try checkLocalLanguage()
         try checkPetrifyingGaze(setup, resources: resources)
         try checkTurnClock()
         try checkSandboxShortcuts()
@@ -330,6 +336,13 @@ struct SkirmishSmoke {
         try require(view.actionHint(at: destination, target: nil, canAttackHere: false) == "Paralyzed — can't move" &&
                     view.actionHint(at: destination, target: enemies[0], canAttackHere: true) == nil,
                     "Paralysis did not explain movement or obscured an allowed attack")
+        let russian = Locale(identifier: "ru-RU")
+        let gazer = GameLocalization.text(enemies[1].name, locale: russian)
+        try require(view.actionHint(at: destination, target: enemies[1], canAttackHere: false, locale: russian) ==
+                    "Устрашающий взгляд — нельзя атаковать отряд «\(gazer)»" &&
+                    view.actionHint(at: destination, target: nil, canAttackHere: false, locale: russian) ==
+                    "Паралич — отряд не может двигаться",
+                    "hover prompts did not follow the game language")
         let hint = pointerHintPosition(anchor: CGPoint(x: 512, y: 395), size: CGSize(width: 210, height: 40),
                                        viewport: CGSize(width: 520, height: 400))
         try require(hint == CGPoint(x: 395, y: 363), "the hint clipped at the bottom or right edge")
@@ -352,6 +365,9 @@ struct SkirmishSmoke {
         let greenOnly = try options(squire, stacks: setup.sampleArmies.filter { $0.team == .opponent })
         try require(Set(greenOnly.anchors.values) == [.player] && greenOnly.hint(for: squire) == "Only Green has room for Squire.",
                     "the placement hint did not name the remaining team")
+        try require(greenOnly.hint(for: squire, locale: Locale(identifier: "ru-RU")) ==
+                    "Место для отряда «Оруженосец» есть только у команды «Зелёный».",
+                    "the translated placement hint lost the creature or the eligible side")
         let empty = try options(angel, stacks: [])
         try require(Set(empty.anchors.values) == [.player, .opponent] && empty.hint(for: angel) == nil,
                     "a freely placeable creature showed a placement warning")
@@ -608,6 +624,11 @@ struct SkirmishSmoke {
         let aimed = before.attackOptions.first(where: { $0.target == primary.id })?.angles
         try require(aimed?.contains(where: { $0.splash?.center == center }) == true,
                     "aiming at a stack did not predict the same blast")
+        try require((area.divisor ?? 0) > 0 && area.hits?.allSatisfy { $0.divisor == area.divisor } == true,
+                    "the shared area range badge disagreed with the individual forecasts")
+        let empty = before.areaAims.first { $0.aim == Cell(x: 6, y: 7) }
+        try require(empty?.hits?.isEmpty == true && (empty?.divisor ?? 0) > 0,
+                    "an empty blast needs its range badge too")
 
         try require(sandbox.choose(aim), "the preview offered a throw the engine rejected")
         let after = try sandbox.view()
@@ -621,9 +642,11 @@ struct SkirmishSmoke {
         let hurtIDs = Set(throwMoment.healthChanges?.filter { $0.delta < 0 }.map(\.target) ?? [])
         try require(nearbyIDs == hurtIDs, "the 3 × 3 blast missed a nearby stack or hit an outside stack")
         let playback = BattlePlayback(moments: after.moments, previous: before, next: after)
-        let shot = try playback.actions.first(where: { $0.moment == throwMoment }).unwrap("missing the rendered throw")
-        try require(shot.target == BattlefieldProjection.logicalCenter([center]) && shot.release.map { $0 < shot.impact } == true,
-                    "the stone did not fly to the actual blast center")
+        let volleys = playback.actions.filter { $0.moment.actor == attacker.id }
+        let shot = try volleys.first.unwrap("missing the rendered throw")
+        try require(volleys.count == 2 && volleys.allSatisfy { action in
+            action.target == BattlefieldProjection.logicalCenter([center]) && action.release.map { $0 < action.impact } == true
+        }, "Double Throw needed two flights to the actual blast center")
         if Bundle.main.url(forResource: "animations", withExtension: "json") != nil {
             let impact = try shot.projectile?.impact.unwrap("missing the stone-impact effect")
             let first = impact?.image(at: 0, inBackground: false).flatMap(framePixels)
@@ -712,8 +735,181 @@ struct SkirmishSmoke {
     }
 
     @MainActor
+    private static func checkRepeatedStrikes(_ setup: SandboxSetup, resources: URL) throws {
+        let configurator = try SandboxLoadoutEngine(resources: resources)
+        let quiver = try configurator.options.artifacts.first { $0.name == "Quiver of Echoes" }.unwrap("missing Quiver of Echoes")
+        let elf = try setup.creatures.first { $0.name == "Elf" }.unwrap("missing Elf")
+        let wolf = try setup.creatures.first { $0.name == "Wolf" }.unwrap("missing Wolf")
+        let squire = try setup.creatures.first { $0.name == "Squire" }.unwrap("missing Squire")
+        let placement = SandboxAugment.placement.rawValue
+        let extended = SandboxLoadout(augments: [placement: configurator.options.augmentLevels[placement, default: 0]])
+        let quiverLoadout = SandboxLoadout(tier2: quiver.id)
+
+        func turn(_ name: String, in battle: NativeBattle) throws -> BattleView {
+            var view = try battle.view()
+            for _ in view.stacks where view.activeStack?.name != name {
+                try require(battle.perform(.endTurn), "could not reach \(name)'s turn")
+                view = try battle.view()
+            }
+            try require(view.activeStack?.name == name, "missing \(name)'s turn")
+            return view
+        }
+
+        func attack(_ battle: NativeBattle, from before: BattleView) throws -> (BattleView, Stack) {
+            let target = try before.stacks.first { $0.team == .opponent }.unwrap("missing repeat-strike target")
+            let angle = try before.attackOptions.first { $0.target == target.id }?.angles.first
+                .unwrap("no repeat-strike angle")
+            try require(angle.map { battle.attack(target.id, from: $0) } == true,
+                        "\(before.activeStack?.name ?? "Unknown")'s repeat-strike attack was refused")
+            return (try battle.view(), target)
+        }
+
+        func checkWaves(_ count: Int, kind: MomentKind, before: BattleView, after: BattleView, target: Stack) throws -> BattlePlayback {
+            let moment = try after.moments.first.unwrap("missing the action's combat moment")
+            let timeline = BattlePlayback(moments: after.moments, previous: before, next: after)
+            let swings = timeline.actions.filter { $0.counterattack == nil && $0.moment.actor == moment.actor }
+            let hits = moment.playbackMoments.compactMap { $0.healthChanges?.first { $0.target == target.id } }
+            try require(swings.count == count && swings.allSatisfy { $0.moment.kind == kind } && hits.count == count,
+                        "\(count) real strikes need \(count) attack poses and distinct damage results")
+            let total = hits.reduce(0) { $0 + $1.delta }
+            try require(abs(total - (moment.healthChanges?.first { $0.target == target.id }?.delta ?? 0)) < 0.001,
+                        "per-strike damage must add up to the engine's total")
+            for (index, swing) in swings.enumerated() {
+                if kind == .shot {
+                    try require(swing.projectile != nil && swing.release.map { $0 < swing.impact } == true,
+                                "a committed shot had no flight")
+                }
+                if index > 0 {
+                    try require(swing.moveEnd == swing.start && swing.impact > swings[index - 1].impact,
+                                "a follow-up repeated the movement or landed with the preceding strike")
+                }
+                try require(timeline.combatCues.contains {
+                    guard case let .health(delta, casualties) = $0.kind else { return false }
+                    return $0.stack.id == target.id && delta == hits[index].delta && casualties == hits[index].casualties &&
+                        abs($0.started.timeIntervalSince(timeline.started) - swing.impact) < 0.001
+                }, "damage arrived away from its own impact")
+            }
+            return timeline
+        }
+
+        let wolves = [SandboxStack(creature: wolf.id, team: .player, amount: 75, x: 5, y: 8),
+                      SandboxStack(creature: squire.id, team: .opponent, amount: 130, x: 10, y: 8)]
+        let (brawl, _) = try configurator.prepare(map: .normal, stacks: wolves, catalogue: setup.creatures,
+                                                  loadouts: [.player: extended, .opponent: extended], automated: [])
+        try require(brawl.ready(), "could not start the Double Punch fixture")
+        var melee = try turn(wolf.name, in: brawl)
+        if melee.attacks.isEmpty {
+            let target = try melee.stacks.first { $0.team == .opponent }.unwrap("missing the Double Punch defender")
+            let approach = try melee.moves.min { distance(from: [$0], to: target.cells) < distance(from: [$1], to: target.cells) }
+                .unwrap("no approach for the Double Punch fixture")
+            try require(brawl.choose(approach), "the Wolf could not approach the repeat-strike target")
+            melee = try turn(wolf.name, in: brawl)
+        }
+        let (punched, defender) = try attack(brawl, from: melee)
+        let punches = try checkWaves(2, kind: .melee, before: melee, after: punched, target: defender)
+        let swings = punches.actions.filter { $0.counterattack == nil }
+        let response = try punches.actions.first { $0.counterattack?.actor == defender.id }.unwrap("missing opening response")
+        try require(response.start == swings[0].moveEnd && punches.actions.filter { $0.counterattack != nil }.count == 1,
+                    "the response should start alongside the first punch and spend only one reply")
+        let wounds = punches.combatCues.filter { $0.stack.id == defender.id && $0.isDeepWoundsImpact }
+        try require(wounds.count == 2 && zip(wounds, swings).allSatisfy {
+            abs($0.0.started.timeIntervalSince(punches.started) - $0.1.impact) < 0.001
+        }, "Deep Wounds should land at the contact of each successful punch")
+
+        let archers = [SandboxStack(creature: elf.id, team: .player, amount: 30, x: 3, y: 8),
+                       SandboxStack(creature: squire.id, team: .opponent, amount: 160, x: 12, y: 8)]
+        var triple = false
+        var withoutProc = false
+        for seed in UInt32(142)...154 {
+            let (battle, _) = try configurator.prepare(map: .normal, stacks: archers, catalogue: setup.creatures,
+                                                       loadouts: [.player: quiverLoadout], automated: [], boardSeed: seed)
+            try require(battle.ready(), "could not start the Quiver of Echoes fixture")
+            let before = try turn(elf.name, in: battle)
+            let (after, target) = try attack(battle, from: before)
+            let count = after.moments.first?.playbackMoments.count ?? 0
+            try require((2...3).contains(count), "Double Shot with Quiver of Echoes launched the wrong number of arrows")
+            _ = try checkWaves(count, kind: .shot, before: before, after: after, target: target)
+            triple = triple || count == 3
+            withoutProc = withoutProc || count == 2
+            if triple && withoutProc { break }
+        }
+        try require(triple && withoutProc, "the fixture must exercise an actual echo and a failed echo roll")
+
+        var fragile = archers
+        fragile[1].amount = 1
+        let (lethal, _) = try configurator.prepare(map: .normal, stacks: fragile, catalogue: setup.creatures,
+                                                   loadouts: [.player: quiverLoadout], automated: [])
+        try require(lethal.ready(), "could not start the lethal opening-shot fixture")
+        let before = try turn(elf.name, in: lethal)
+        let (after, target) = try attack(lethal, from: before)
+        try require(after.stacks.allSatisfy { $0.id != target.id }, "the first shot must be lethal in this fixture")
+        _ = try checkWaves(1, kind: .shot, before: before, after: after, target: target)
+
+        let smith = try setup.creatures.first { $0.name == "Blacksmith" }.unwrap("missing Blacksmith")
+        for name in ["Tsar Cannon", "Zena"] {
+            let shooter = try setup.creatures.first { $0.name == name }.unwrap("missing \(name)")
+            let first = SandboxStack(creature: shooter.id, team: .player, amount: 3, x: 3, y: 8)
+            let blacksmith = SandboxStack(creature: smith.id, team: .player, amount: smith.amount, x: 1, y: 8)
+            let rear = SandboxStack(creature: squire.id, team: .opponent, amount: 160,
+                                    x: name == "Tsar Cannon" ? 14 : 12, y: name == "Tsar Cannon" ? 8 : 6)
+            var repeated = false
+            for seed in UInt32(142)...160 {
+                let stacks = [first, blacksmith, archers[1], rear]
+                let (battle, _) = try configurator.prepare(map: .normal, stacks: stacks, catalogue: setup.creatures,
+                                                           loadouts: [.player: quiverLoadout], automated: [], boardSeed: seed)
+                try require(battle.ready(), "could not start the Crafted Double Shot fixture")
+                let crafting = try turn(smith.name, in: battle)
+                let craft = try crafting.spells.first { $0.name == "Craft" && $0.available }.unwrap("Craft was unavailable")
+                try require(battle.chooseSpell(craft.id) && battle.choose(first.anchor), "could not Craft on \(name)")
+                guard try battle.view().stacks.first(where: { $0.name == name })?.abilities.contains("Crafted Double Shot") == true
+                else { continue }
+                let before = try turn(name, in: battle)
+                let after: BattleView
+                if name == "Tsar Cannon" {
+                    let end = CGPoint(x: 15.5, y: 8.5)
+                    try require(battle.fireThrough(end), "could not fire the crafted piercing shot")
+                    after = try battle.view()
+                } else {
+                    (after, _) = try attack(battle, from: before)
+                }
+                let playback = BattlePlayback(moments: after.moments, previous: before, next: after)
+                let projectiles = playback.actions.filter { $0.counterattack == nil }
+                try require((2...3).contains(projectiles.count), "Crafted Double Shot lost a \(name) projectile")
+                if name == "Tsar Cannon" {
+                    try require(projectiles.allSatisfy { action in
+                        let contacts = action.moment.rayContacts ?? []
+                        return contacts.count == 2 && contacts[0].progress < contacts[1].progress
+                    }, "each piercing volley should preserve both contacts in ray order")
+                } else {
+                    try require(projectiles.allSatisfy { $0.chakram?.impacts.count == 2 },
+                                "each Crafted Double Shot disc should follow its own bounce path")
+                }
+                repeated = true
+                break
+            }
+            try require(repeated, "the fixture never granted Crafted Double Shot to \(name)")
+        }
+
+        let nearStone = Cell(x: 8, y: 8)
+        let farStone = Cell(x: 9, y: 8)
+        let (blocked, _) = try configurator.prepare(map: .barrels, stacks: archers, catalogue: setup.creatures,
+                                                    loadouts: [.player: quiverLoadout], automated: [], boardSeed: 147)
+        try require(blocked.ready(), "could not start the two-obstacle shot fixture")
+        let beforeObstacles = try turn(elf.name, in: blocked)
+        try require(beforeObstacles.obstacleTargets.contains(farStone) && blocked.choose(farStone),
+                    "could not shoot at the two obstacles")
+        let afterObstacles = try blocked.view()
+        let byStone = BattlePlayback(moments: afterObstacles.moments, previous: beforeObstacles, next: afterObstacles)
+        try require(byStone.actions.map(\.moment.aim) == [nearStone, farStone] &&
+                    byStone.actions.allSatisfy { $0.moment.kind == .obstacle && $0.release != nil } &&
+                    !afterObstacles.stones.contains(nearStone) && !afterObstacles.stones.contains(farStone),
+                    "the obstacle projectiles must each fly to the stone they actually hit")
+    }
+
+    @MainActor
     private static func checkCounterattacks(_ setup: SandboxSetup, resources: URL) throws {
         let configurator = try SandboxLoadoutEngine(resources: resources)
+        let artwork = try BattlefieldArtwork.load(resources.appendingPathComponent("battlefield.json"))
         let placement = SandboxAugment.placement.rawValue
         let loadout = SandboxLoadout(augments: [placement: configurator.options.augmentLevels[placement, default: 0]])
         for (creature, ranged) in [("Squire", false), ("Griffin", false), ("Arbalester", true)] {
@@ -778,9 +974,22 @@ struct SkirmishSmoke {
                             playback.amount(for: survivor, elapsed: strike.impact, reducedMotion: false) == survivor.amount,
                             "\(creature) stack numbers changed outside the damage cue")
                 if creature == "Griffin" {
-                    try require(playback.combatCues.contains {
-                        $0.stack.id == victim.id && $0.statusName == "Deep Wounds" && $0.started == contact
-                    }, "Griffin's debuff did not land with its strike")
+                    let damage = try results.first { $0.started == contact }.unwrap("missing the Griffin's damage cue")
+                    let wound = try playback.combatCues.first {
+                        $0.stack.id == victim.id && $0.isDeepWoundsImpact
+                    }.unwrap("missing the Griffin's cut")
+                    try require(wound.started == damage.started && wound.endsAt == damage.endsAt,
+                                "Griffin's cut did not share the damage clock")
+                    let projection = BattlefieldProjection(data: artwork, width: 800, height: 650, legacySize: 650)
+                    let facing = playback.facing(for: victim, elapsed: strike.impact, reducedMotion: false)
+                    let body = CreatureAnimation.boardPresentation(victim, position: wound.position, projection: projection, facing: facing)
+                    let pose = playback.pose(for: victim, elapsed: strike.impact, idleTime: 0, fallen: false)
+                    let frame = CreatureAnimation.frame(victim.name, pose: pose)
+                    let cut = body.deepWoundsBounds(frame: frame, facing: facing, cellWidth: projection.screenCellWidth)
+                    let flag = CreatureAnimation.flagPosition(for: victim.name, presentation: body, projection: projection,
+                                                              facing: facing, height: 12)
+                    try require(cut.midY > flag.y && cut.midY < body.ground.y && cut.width == cut.height,
+                                "Deep Wounds was positioned off the Griffin's body")
                     try require(!playback.statusStack(for: survivor, elapsed: strike.impact - 0.001, reducedMotion: false)
                         .statuses.contains { $0.name == "Deep Wounds" } &&
                         playback.statusStack(for: survivor, elapsed: strike.impact, reducedMotion: false)
@@ -1218,6 +1427,17 @@ struct SkirmishSmoke {
             try require(image.width == image.height && image.width >= minimumWidth && framePixels(image) != nil,
                         "Troglodyte used a cropped sheet for \(action.rawValue) \(direction ?? "")")
         }
+        var troglodyteWalkIndices = Set<Int>()
+        for step in 0..<120 {
+            let time = Double(step) / 60
+            let pose = CreaturePose(action: .walk, time: time, walkDistance: time * 3, walkLength: 6)
+            let frame = try CreatureAnimation.frame("Troglodyte", pose: pose)
+                .unwrap("missing Troglodyte walk frame")
+            if troglodyteWalkIndices.insert(frame.index).inserted {
+                try require(framePixels(frame.image) != nil, "Troglodyte walk sampled transparent padding")
+            }
+        }
+        try require(troglodyteWalkIndices == Set(0..<7), "Troglodyte did not play all seven walk frames")
         let catalogue = try SandboxSetup(resources: Bundle.main.resourceURL!)
         for creature in catalogue.creatures {
             for action in [CreatureAction.idle, .walk, .attack, .hit, .death] {
@@ -1822,6 +2042,9 @@ struct SkirmishSmoke {
                 if before.activeStack?.name == "Pikeman" {
                     if let option = before.attackOptions.first(where: { $0.target == target.id }),
                        let angle = option.angles.first(where: { $0.cell == from }) {
+                        let preview = (angle.hits ?? []).first { $0.target == rear.id }
+                        try require((preview.map { $0.min > 0 && $0.max >= $0.min } == true) == (rearRow == 8),
+                                    "the forecast marked the wrong rear stack for Skewer Strike")
                         try require(battle.attack(option.target, from: angle), "Pikeman's straight thrust failed")
                         break
                     }
@@ -1841,6 +2064,131 @@ struct SkirmishSmoke {
             try require(strike.skewerContact == (pierced ? CGPoint(x: 13.5, y: 8.5) : nil),
                         "Skewer light should reach the recorded rear contact only")
         }
+    }
+
+    private static func checkLocalLanguage() throws {
+        let folder = try Bundle.main.url(forResource: "ru", withExtension: "lproj").unwrap("Russian strings are missing")
+        let russian = try Bundle(url: folder).unwrap("could not load Russian strings")
+        try require(russian.localizedString(forKey: "Local Sandbox", value: nil, table: nil) == "Локальная песочница" &&
+                    russian.localizedString(forKey: "FIGHT RESULTS", value: nil, table: nil) == "ИТОГИ БОЯ" &&
+                    russian.localizedString(forKey: "Petrifying Gaze", value: nil, table: nil) != "Petrifying Gaze",
+                    "the Mac strings lost its menu, battle UI, or shared ability names")
+    }
+
+    @MainActor
+    private static func checkBreathForecast(_ setup: SandboxSetup, resources: URL) throws {
+        let dragon = try setup.creatures.first { $0.name == "Black Dragon" }.unwrap("missing Black Dragon")
+        let peasant = try setup.creatures.first { $0.name == "Peasant" }.unwrap("missing Peasant")
+        let front = Cell(x: 12, y: 8)
+        let rear = Cell(x: 13, y: 8)
+        let approach = Cell(x: 11, y: 8)
+        let battle = try setup.makeBattle(map: .normal, stacks: [
+            SandboxStack(creature: dragon.id, team: .player, amount: 8, x: 3, y: 8),
+            SandboxStack(creature: peasant.id, team: .opponent, amount: 100, x: front.x, y: front.y),
+            SandboxStack(creature: peasant.id, team: .opponent, amount: 100, x: rear.x, y: rear.y),
+        ], automated: [], resources: resources)
+        try require(battle.ready(), "could not start the Fire Breath fixture")
+        var view = try battle.view()
+        for _ in 0..<12 {
+            if view.activeStack?.name != dragon.name {
+                try require(battle.perform(.endTurn), "could not advance to the dragon")
+            } else if let target = view.stacks.first(where: { $0.anchor == front }),
+                      let option = view.attackOptions.first(where: { $0.target == target.id }),
+                      let angle = option.angles.first(where: { $0.cell == approach }) {
+                let second = try view.stacks.first { $0.anchor == rear }.unwrap("missing the rear Fire Breath target")
+                let preview = (angle.hits ?? []).first { $0.target == second.id }
+                let forecast = try preview.unwrap("missing secondary Fire Breath forecast")
+                try require(forecast.min > 0, "the rear stack's Fire Breath preview was empty")
+                try require(battle.attack(target.id, from: angle), "the dragon could not use the displayed approach")
+                let hit = try battle.view().moments.flatMap { $0.healthChanges ?? [] }.first { $0.target == second.id }
+                try require(hit?.delta ?? 0 < 0, "the predicted second stack never took Fire Breath damage")
+                return
+            } else {
+                let move = try view.moves.filter { $0.y == approach.y && $0.x < approach.x }
+                    .max { $0.x < $1.x }.unwrap("the dragon could not reach the Fire Breath lane")
+                try require(battle.choose(move), "the dragon could not move towards the test stack")
+            }
+            view = try battle.view()
+        }
+        throw EngineError(message: "the dragon never reached the Fire Breath fixture's landing")
+    }
+
+    @MainActor
+    private static func checkFleshShieldForecast(_ setup: SandboxSetup, resources: URL) throws {
+        let archer = try setup.creatures.first { $0.name == "Arbalester" }.unwrap("missing Arbalester")
+        let squire = try setup.creatures.first { $0.name == "Squire" }.unwrap("missing Squire")
+        let protector = try setup.creatures.first { $0.name == "Abomination" }.unwrap("missing Abomination")
+        let front = Cell(x: 12, y: 7)
+        let battle = try setup.makeBattle(map: .normal, stacks: [
+            SandboxStack(creature: archer.id, team: .player, amount: 42, x: 3, y: 7),
+            SandboxStack(creature: squire.id, team: .opponent, amount: 90, x: front.x, y: front.y),
+            SandboxStack(creature: protector.id, team: .opponent, amount: 30, x: 14, y: 9),
+        ], automated: [], resources: resources)
+        try require(battle.ready(), "could not start the Flesh Shield fixture")
+        var view = try battle.view()
+        for _ in 0..<5 where view.activeStack?.name != archer.name {
+            try require(battle.perform(.endTurn), "could not advance to the Flesh Shield shot")
+            view = try battle.view()
+        }
+        let guarded = try view.stacks.first { $0.anchor == front }.unwrap("missing the guarded stack")
+        let guardStack = try view.stacks.first { $0.name == protector.name }.unwrap("missing the guardian")
+        let option = try view.attackOptions.first { $0.target == guarded.id }.unwrap("no clear aim at the guarded stack")
+        let angle = try option.angles.first.unwrap("no range angle at the guarded stack")
+        let forecast = try (angle.range?.hit).unwrap("no forecast for the guarded stack")
+        let share = try forecast.redirect.unwrap("no projected Flesh Shield damage")
+        try require(share.target == guardStack.id && share.max > 0, "the aura chose the wrong protector")
+        try require(battle.attack(guarded.id, from: angle), "the guarded shot failed")
+        let result = try battle.view()
+        let losses = guardStack.cumulativeHealth - (result.stacks.first { $0.id == guardStack.id }?.cumulativeHealth ?? 0)
+        try require(losses >= share.min && losses <= share.max && losses > 0,
+                    "the guardian's actual loss fell outside the forecast")
+    }
+
+    @MainActor
+    private static func checkFireforgedForecast(_ setup: SandboxSetup, resources: URL) throws {
+        let mage = try setup.creatures.first { $0.name == "Wandering Mage" }.unwrap("missing Wandering Mage")
+        let archer = try setup.creatures.first { $0.name == "Arbalester" }.unwrap("missing Arbalester")
+        let squire = try setup.creatures.first { $0.name == "Squire" }.unwrap("missing Squire")
+        let archerCell = Cell(x: 3, y: 9)
+        let front = Cell(x: 12, y: 9)
+        var bands: [BattleShotHit] = []
+        for applySword in [false, true] {
+            let battle = try setup.makeBattle(map: .normal, stacks: [
+                SandboxStack(creature: mage.id, team: .player, amount: 10, x: 3, y: 7),
+                SandboxStack(creature: archer.id, team: .player, amount: 24, x: archerCell.x, y: archerCell.y),
+                SandboxStack(creature: squire.id, team: .opponent, amount: 95, x: front.x, y: front.y),
+            ], automated: [], resources: resources)
+            try require(battle.ready(), "could not start the Fireforged fixture")
+            var view = try battle.view()
+            for _ in 0..<10 where view.activeStack?.name != mage.name {
+                try require(battle.perform(.endTurn), "could not advance to the Wandering Mage")
+                view = try battle.view()
+            }
+            if applySword {
+                let spell = try view.spells.first { $0.name == "Fireforged Sword" && $0.available }
+                    .unwrap("missing Fireforged Sword")
+                try require(battle.chooseSpell(spell.id) && battle.choose(archerCell), "Fireforged Sword could not reach the archer")
+                view = try battle.view()
+            } else {
+                try require(battle.perform(.endTurn), "could not skip the control's cast")
+                view = try battle.view()
+            }
+            for _ in 0..<10 where view.activeStack?.name != archer.name {
+                try require(battle.perform(.endTurn), "could not advance to the Fireforged shot")
+                view = try battle.view()
+            }
+            let target = try view.stacks.first { $0.anchor == front }.unwrap("missing the Fireforged victim")
+            let choices = try view.attackOptions.first { $0.target == target.id }.unwrap("no aim at the Fireforged victim")
+            let angle = try choices.angles.first.unwrap("missing the Fireforged shot")
+            bands.append(try (angle.range?.hit).unwrap("missing the Fireforged preview"))
+            let before = try battle.view()
+            let steps = battle.logSteps()
+            let hint = try battle.suggestion().unwrap("the Zig policy offered no playable manual turn")
+            try require(hint.actor == view.active && battle.view() == before && battle.logSteps() == steps,
+                        "reading a suggestion changed the live fight")
+        }
+        try require(bands[1].min > bands[0].min && bands[1].max > bands[0].max && bands[0].min > 0,
+                    "an active Fireforged Sword did not raise the landed shot band")
     }
 
     @MainActor

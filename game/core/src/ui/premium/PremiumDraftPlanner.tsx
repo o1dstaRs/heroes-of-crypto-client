@@ -7,9 +7,11 @@ import { createPortal } from "react-dom";
 
 import type { PremiumAdvice } from "../../api/premium_client";
 import { images } from "../../generated/image_imports";
-import { useTranslation } from "../../i18n/i18n";
+import { t, tf, useTranslation } from "../../i18n/i18n";
 import { CreaturePortraitImage } from "../CreaturePortraitImage";
 import { SYNERGY_KEY_TO_IMAGE } from "../LeftSideBar/SynergiesConstants";
+import { synergyEffectAtLevel } from "../LeftSideBar/synergyLadder";
+import { getMapDisplay } from "../PickAndBan/mapDisplay";
 import { DoctrineIcon } from "../DoctrineIcon";
 import { PremiumIcon } from "../PremiumIcon";
 import { DraftBuildStrip } from "./DraftBuildStrip";
@@ -77,9 +79,16 @@ export const DraftPlannerBoard: React.FC<{
                 type="button"
                 key={key}
                 onClick={() => onSelect?.(key)}
-                aria-label={`${enemy ? "Enemy" : "Your"} ${unit.name}, ${unit.role}, projected ${unit.amount} creatures`}
+                aria-label={tf(
+                    enemy
+                        ? "Enemy {unit}, {role}, projected {count} creatures"
+                        : "Your {unit}, {role}, projected {count} creatures",
+                    { unit: t(unit.name), role: t(unit.role), count: unit.amount },
+                )}
                 aria-pressed={selected === key}
-                title={`${unit.name} · ${unit.role} · ${unit.amount} creatures${plan.setup ? " (selected setup)" : " (before setup augments)"}`}
+                title={`${t(unit.name)} · ${t(unit.role)} · ${tf("{count} creatures", { count: unit.amount })} (${
+                    plan.setup ? t("selected setup") : t("before setup augments")
+                })`}
                 sx={{
                     position: "absolute",
                     left: `${(unit.position.x - unit.width + 1) * 6.25}%`,
@@ -159,7 +168,10 @@ export const DraftPlannerBoard: React.FC<{
                             data-board-zone-upgrade={plannedZone ? "planned" : "selected"}
                             sx={{ ml: 0.8, fontWeight: 500, color: plannedZone ? "#cfe3a6" : "#b3cf9f" }}
                         >
-                            · {plannedZone ? "planned " : ""}Placement {plan.placementLevel}
+                            ·{" "}
+                            {tf(plannedZone ? "planned Placement {level}" : "Placement {level}", {
+                                level: plan.placementLevel,
+                            })}
                         </Box>
                     )}
                 </Box>
@@ -435,7 +447,7 @@ export const PremiumDraftPlanner: React.FC<{
         <Box
             ref={panel}
             role="region"
-            aria-label="Premium draft assessment"
+            aria-label={t("Premium draft assessment")}
             data-premium-draft-planner
             onPointerMove={move}
             onPointerUp={stop}
@@ -472,8 +484,8 @@ export const PremiumDraftPlanner: React.FC<{
                     if (e.target === e.currentTarget) moveByKey(e);
                 }}
                 tabIndex={0}
-                aria-label="Move draft planner with arrow keys or drag"
-                title="Drag to move · arrow keys also move the planner"
+                aria-label={t("Move draft planner with arrow keys or drag")}
+                title={t("Drag to move · arrow keys also move the planner")}
                 sx={{
                     display: "flex",
                     alignItems: "center",
@@ -500,8 +512,8 @@ export const PremiumDraftPlanner: React.FC<{
                 <IconButton
                     size="sm"
                     variant="plain"
-                    aria-label="Reset draft planner position"
-                    title="Reset position"
+                    aria-label={t("Reset draft planner position")}
+                    title={t("Reset position")}
                     onClick={() => {
                         setRect(undefined);
                         try {
@@ -561,7 +573,7 @@ export const PremiumDraftPlanner: React.FC<{
                             }}
                         >
                             <Typography level="title-sm" sx={{ color: ink, fontSize: 12 }}>
-                                AI-recommended formation
+                                {t("AI-recommended formation")}
                             </Typography>
                         </Box>
                         <DraftBuildStrip plan={plan} doctrine={source.doctrine} projectedTier2={projectedTier2} />
@@ -585,43 +597,45 @@ export const PremiumDraftPlanner: React.FC<{
                                     checked={showPlan}
                                     onChange={(e) => setShowPlan(e.target.checked)}
                                 />
-                                Strategy overlay
+                                {t("Strategy overlay")}
                             </Box>
                         </Box>
                         {showPlan && (
                             <Box sx={{ fontSize: 10, mt: 0.4 }}>
-                                <span style={{ color: "#bcd47d" }}>→ Advance / screen</span>
-                                <span style={{ color: "#88cbe0", marginLeft: 12 }}>⇢ Support</span>
+                                <span style={{ color: "#bcd47d" }}>{t("→ Advance / screen")}</span>
+                                <span style={{ color: "#88cbe0", marginLeft: 12 }}>{t("⇢ Support")}</span>
                             </Box>
                         )}
                         <Box sx={{ fontSize: 10, color: muted, mt: 0.6 }}>
-                            {plan.map
-                                ? `Map: ${plan.map === 3 ? "Lava" : plan.map === 4 ? "Mountains" : "Normal"}`
-                                : "Map not revealed"}{" "}
-                            · {plan.enemy.length}/6 enemy picks revealed
+                            {plan.map !== undefined
+                                ? tf("Map: {map}", { map: t(getMapDisplay(plan.map)?.name ?? "Normal") })
+                                : t("Map not revealed")}{" "}
+                            · {tf("{count}/6 enemy picks revealed", { count: plan.enemy.length })}
                         </Box>
                         <Box sx={{ fontSize: 10, color: "#9e907d", mt: 0.4 }}>
-                            AI placement updates with your army and revealed information. Final setup can change it.
-                            Enemy positions and arrows are illustrative.
+                            {t(
+                                "AI placement updates with your army and revealed information. Final setup can change it. Enemy positions and arrows are illustrative.",
+                            )}
                         </Box>
                         {selectedUnit && (
                             <Box
                                 role="status"
                                 sx={{ mt: 0.7, p: 0.7, borderLeft: "2px solid #bd8f52", bgcolor: "#c18d3410" }}
                             >
-                                <strong>{selectedUnit.name}</strong>
+                                <strong>{t(selectedUnit.name)}</strong>
                                 <div style={{ color: muted }}>
-                                    {selectedUnit.role} · {selectedUnit.amount} projected creatures
+                                    {t(selectedUnit.role)} ·{" "}
+                                    {tf("{count} projected creatures", { count: selectedUnit.amount })}
                                 </div>
                             </Box>
                         )}
                     </Box>
                     <Box>
                         <Typography level="title-sm" sx={{ color: ink, fontSize: 12, mb: 0.6 }}>
-                            Match synergies
+                            {t("Match synergies")}
                         </Typography>
                         <Box sx={{ fontSize: 10, color: muted, mb: 0.8 }}>
-                            Shared match variants · enemy levels use revealed picks
+                            {t("Shared match variants · enemy levels use revealed picks")}
                         </Box>
                         <Box
                             data-planner-synergies
@@ -631,71 +645,84 @@ export const PremiumDraftPlanner: React.FC<{
                                 columnGap: 2,
                             }}
                         >
-                            {plan.synergies.map((item) => (
-                                <Box
-                                    key={item.faction}
-                                    title={`${item.effect}. Enemy: ${item.enemyEffect}.`}
-                                    sx={{
-                                        display: "flex",
-                                        gap: 0.7,
-                                        alignItems: "center",
-                                        py: 0.8,
-                                        borderBottom: "1px solid #61482d55",
-                                    }}
-                                >
-                                    {item.variant && (
-                                        <Box
-                                            component="img"
-                                            src={
-                                                (SYNERGY_KEY_TO_IMAGE as Record<string, string>)[
-                                                    `${item.faction}:${item.variant}:1`
-                                                ]
-                                            }
-                                            alt=""
-                                            sx={{ width: 30, height: 30, opacity: item.level ? 1 : 0.5 }}
-                                        />
-                                    )}
-                                    <Box sx={{ flex: 1 }}>
-                                        <Box sx={{ display: "flex", justifyContent: "space-between", gap: 0.5 }}>
-                                            <strong>{item.faction}</strong>
-                                            <span style={{ fontSize: 10, color: muted }}>
-                                                You: {item.level ? `L${item.level}` : "—"} · Enemy:{" "}
-                                                {item.enemyLevel ? `≥L${item.enemyLevel}` : "—"}
-                                            </span>
-                                        </Box>
-                                        <Box sx={{ color: item.level ? "#dec394" : muted, fontSize: 11 }}>
-                                            {item.label}
-                                        </Box>
-                                        {!!item.level && (
-                                            <Box sx={{ color: muted, fontSize: 10, mt: 0.3 }}>{item.effect}</Box>
+                            {plan.synergies.map((item) => {
+                                const effect =
+                                    item.variant && item.level
+                                        ? synergyEffectAtLevel(item.faction, item.variant, item.level, t)
+                                        : t(item.effect);
+                                const enemyEffect =
+                                    item.variant && item.enemyLevel
+                                        ? synergyEffectAtLevel(item.faction, item.variant, item.enemyLevel, t)
+                                        : t(item.enemyEffect);
+                                return (
+                                    <Box
+                                        key={item.faction}
+                                        title={`${effect}. ${t("Enemy")}: ${enemyEffect}.`}
+                                        sx={{
+                                            display: "flex",
+                                            gap: 0.7,
+                                            alignItems: "center",
+                                            py: 0.8,
+                                            borderBottom: "1px solid #61482d55",
+                                        }}
+                                    >
+                                        {item.variant && (
+                                            <Box
+                                                component="img"
+                                                src={
+                                                    (SYNERGY_KEY_TO_IMAGE as Record<string, string>)[
+                                                        `${item.faction}:${item.variant}:1`
+                                                    ]
+                                                }
+                                                alt=""
+                                                sx={{ width: 30, height: 30, opacity: item.level ? 1 : 0.5 }}
+                                            />
                                         )}
-                                        <Box sx={{ display: "flex", gap: "3px", mt: 0.4 }}>
-                                            {Array.from({ length: 6 }, (_, i) => (
-                                                <Box
-                                                    key={i}
-                                                    sx={{
-                                                        height: 3,
-                                                        flex: 1,
-                                                        bgcolor: i < item.count ? "#bd995e" : "#4c3b2b",
-                                                    }}
-                                                />
-                                            ))}
-                                        </Box>
-                                        {item.next && item.count > 0 && ownCreatures < 6 && (
-                                            <Box sx={{ color: accent, fontSize: 10, mt: 0.4 }}>
-                                                {item.next.unitsAway} more for L{item.next.level}
+                                        <Box sx={{ flex: 1 }}>
+                                            <Box sx={{ display: "flex", justifyContent: "space-between", gap: 0.5 }}>
+                                                <strong>{t(item.faction)}</strong>
+                                                <span style={{ fontSize: 10, color: muted }}>
+                                                    {t("You")}: {item.level ? `L${item.level}` : "—"} · {t("Enemy")}:{" "}
+                                                    {item.enemyLevel ? `≥L${item.enemyLevel}` : "—"}
+                                                </span>
                                             </Box>
-                                        )}
+                                            <Box sx={{ color: item.level ? "#dec394" : muted, fontSize: 11 }}>
+                                                {t(item.label)}
+                                            </Box>
+                                            {!!item.level && (
+                                                <Box sx={{ color: muted, fontSize: 10, mt: 0.3 }}>{effect}</Box>
+                                            )}
+                                            <Box sx={{ display: "flex", gap: "3px", mt: 0.4 }}>
+                                                {Array.from({ length: 6 }, (_, i) => (
+                                                    <Box
+                                                        key={i}
+                                                        sx={{
+                                                            height: 3,
+                                                            flex: 1,
+                                                            bgcolor: i < item.count ? "#bd995e" : "#4c3b2b",
+                                                        }}
+                                                    />
+                                                ))}
+                                            </Box>
+                                            {item.next && item.count > 0 && ownCreatures < 6 && (
+                                                <Box sx={{ color: accent, fontSize: 10, mt: 0.4 }}>
+                                                    {tf("{count} more for L{level}", {
+                                                        count: item.next.unitsAway,
+                                                        level: item.next.level,
+                                                    })}
+                                                </Box>
+                                            )}
+                                        </Box>
                                     </Box>
-                                </Box>
-                            ))}
+                                );
+                            })}
                         </Box>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.7, mt: 1.1, flexWrap: "wrap" }}>
                             {!!draft.doctrine && <DoctrineIcon doctrineId={draft.doctrine} size={30} />}
                             {plan.artifacts.map((item) => (
                                 <Box
                                     key={item.tier}
-                                    title={`${item.name}: ${Artifact.formatArtifactDescription(item)}`}
+                                    title={`${t(item.name)}: ${Artifact.formatArtifactDescription(item)}`}
                                     sx={{ display: "flex", gap: 0.5, alignItems: "center", flex: "1 1 100px" }}
                                 >
                                     <Box
@@ -706,21 +733,21 @@ export const PremiumDraftPlanner: React.FC<{
                                     />
                                     <Box sx={{ fontSize: 11 }}>
                                         <span style={{ color: muted }}>T{item.tier} </span>
-                                        {item.name}
+                                        {t(item.name)}
                                     </Box>
                                 </Box>
                             ))}
                             {!plan.artifacts.length && (
-                                <span style={{ color: muted, fontSize: 11 }}>Artifacts appear when picked.</span>
+                                <span style={{ color: muted, fontSize: 11 }}>{t("Artifacts appear when picked.")}</span>
                             )}
                         </Box>
                     </Box>
                 </Box>
                 <Box sx={{ mt: 1.4, pt: 1.1, borderTop: "1px solid #79543866" }}>
                     <Typography level="title-sm" sx={{ color: ink, fontSize: 13 }}>
-                        Battle plan{" "}
+                        {t("Battle plan")}{" "}
                         <Box component="span" sx={{ fontSize: 10, color: muted }}>
-                            · updates as you pick
+                            · {t("updates as you pick")}
                         </Box>
                     </Typography>
                     <Box sx={{ mt: 0.5, color: accent }}>{assessment.headline}</Box>
@@ -759,7 +786,7 @@ export const PremiumDraftPlanner: React.FC<{
                 </Box>
                 {children}
                 <Box component="details" sx={{ mt: 1, fontSize: 11, color: muted }}>
-                    <summary style={{ cursor: "pointer", color: accent }}>Draft routes & details</summary>
+                    <summary style={{ cursor: "pointer", color: accent }}>{t("Draft routes & details")}</summary>
                     <PremiumDraftRoutes
                         routes={assessment.routes}
                         remaining={assessment.remaining}
@@ -776,8 +803,8 @@ export const PremiumDraftPlanner: React.FC<{
                 <Box
                     component="button"
                     type="button"
-                    aria-label="Resize draft planner with arrow keys or drag"
-                    title="Drag to resize"
+                    aria-label={t("Resize draft planner with arrow keys or drag")}
+                    title={t("Drag to resize")}
                     onPointerDown={(e) => start(e, true)}
                     onKeyDown={(e) => moveByKey(e, true)}
                     sx={{

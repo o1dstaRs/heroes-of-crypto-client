@@ -149,7 +149,7 @@ struct SandboxStackEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(stack.name)
+            Text(LocalizedStringKey(stack.name))
                 .font(BattleResources.display(13))
                 .foregroundStyle(BattlePalette.gold)
             HStack(spacing: 5) {

@@ -51,6 +51,11 @@ const loginHref = `${home}/auth/login/?redirect=${encodeURIComponent(`${home}/pr
             <a class="premium-nav-play" href={`${home}/play/`}>{t("Play", "Перейти к игре")} ↗</a>
         </nav>
         <div class="premium-main">
+            <section class="premium-section" aria-labelledby="premium-recent-ranked">
+                <h2 id="premium-recent-ranked">{t("Recent ranked activity", "Последние рейтинговые игры")}</h2>
+                <p class="premium-meta-source" data-premium-ranked-status role="status">{t("Loading ranked results…", "Загружаем рейтинговые результаты…")}</p>
+                <ul data-premium-ranked-units hidden></ul>
+            </section>
             <form class="premium-filters" data-premium-filters>
                 <label>{t("Battle data", "Данные боёв")}<select name="snapshot" aria-label={t("Battle data", "Данные боёв")}></select></label>
                 <label>{t("Army type", "Тип армии")}<select name="cohort"><option value="ranked-draft">{t("Ranked draft", "Рейтинговый драфт")}</option><option value="uniform-mixed">{t("Mixed armies", "Смешанные армии")}</option><option value="ranged-heavy">{t("Ranged heavy", "Стрелковые")}</option><option value="ground-melee">{t("Ground melee", "Наземный ближний бой")}</option><option value="flyer-heavy">{t("Flyer heavy", "Летающие")}</option><option value="caster-support">{t("Caster & support", "Магия и поддержка")}</option><option value="cross-archetype">{t("Cross-archetype", "Разные архетипы")}</option></select></label>

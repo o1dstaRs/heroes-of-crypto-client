@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RankedStatisticsView: View {
     let api: RankedStatisticsAPI
+    let openMatchHistory: () -> Void
 
     private enum Page: String, CaseIterable, Identifiable {
         case players = "Players"
@@ -135,6 +136,20 @@ struct RankedStatisticsView: View {
                     .accessibilityAddTraits(page == item ? .isSelected : [])
                 }
             }
+            Button(action: openMatchHistory) {
+                Group {
+                    if compact { Image(systemName: "clock.arrow.circlepath") }
+                    else { Label("My Match History", systemImage: "clock.arrow.circlepath") }
+                }
+                .font(.system(size: 13, weight: .medium))
+                .frame(minWidth: 34, minHeight: 34)
+                .padding(.horizontal, compact ? 0 : 11)
+                .background(StatisticsTheme.surface, in: RoundedRectangle(cornerRadius: 7))
+                .overlay { RoundedRectangle(cornerRadius: 7).strokeBorder(StatisticsTheme.edge) }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("My Match History")
+            .help("Search your matches and open ranked replays")
             Button(action: refresh) {
                 Group {
                     if compact { Image(systemName: "arrow.clockwise") }
@@ -155,7 +170,7 @@ struct RankedStatisticsView: View {
 
     @ViewBuilder private func players(compact: Bool) -> some View {
         Picker("Players leaderboard", selection: $scope) {
-            ForEach(PlayerScope.allCases) { Text($0.rawValue).tag($0) }
+            ForEach(PlayerScope.allCases) { Text(LocalizedStringKey($0.rawValue)).tag($0) }
         }
         .pickerStyle(.segmented)
         .labelsHidden()
@@ -254,7 +269,7 @@ struct RankedStatisticsView: View {
             StatisticsPodium(lines: leaders(lines), measure: overallOrder.rawValue, compact: compact, select: select)
             StatisticsLeaderboard(title: "Player leaderboard", columns: labels, lines: lines, search: $playerSearch, select: select) {
                 Picker("Rank by", selection: $overallOrder) {
-                    ForEach(OverallOrder.allCases) { Text($0.rawValue).tag($0) }
+                    ForEach(OverallOrder.allCases) { Text(LocalizedStringKey($0.rawValue)).tag($0) }
                 }
                 .labelsHidden()
                 .frame(width: compact ? 100 : 117)
@@ -318,8 +333,8 @@ struct RankedStatisticsView: View {
         VStack(spacing: 11) {
             if loading { ProgressView().controlSize(.small).accessibilityHidden(true) }
             else { Image(systemName: retry ? "exclamationmark.circle" : "trophy").font(.system(size: 23)).foregroundStyle(StatisticsTheme.gold) }
-            Text(title).font(BattleResources.display(24))
-            if let detail { Text(detail).foregroundStyle(StatisticsTheme.muted).font(.subheadline) }
+            Text(LocalizedStringKey(title)).font(BattleResources.display(24))
+            if let detail { Text(LocalizedStringKey(detail)).foregroundStyle(StatisticsTheme.muted).font(.subheadline) }
             if retry { Button("Try Again", action: refresh) }
         }
         .multilineTextAlignment(.center)

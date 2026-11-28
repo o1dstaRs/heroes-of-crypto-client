@@ -85,15 +85,15 @@ const AugmentTooltipContent: React.FC<{ kind: Augment.AugmentType["type"] }> = (
                     {t("Rectangular board — highlighted cells are available for deployment.")}
                 </Typography>
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 0.45 }}>
-                    <PlacementMiniBoard rows={3} partial label="3 · partial" />
+                    <PlacementMiniBoard rows={3} partial label={t("3 · partial")} />
                     <Typography aria-hidden sx={{ color: "#dcb158", fontSize: 17 }}>
                         →
                     </Typography>
-                    <PlacementMiniBoard rows={4} label="4 · full" />
+                    <PlacementMiniBoard rows={4} label={t("4 · full")} />
                     <Typography aria-hidden sx={{ color: "#dcb158", fontSize: 17 }}>
                         →
                     </Typography>
-                    <PlacementMiniBoard rows={6} edge label="6 · edge line" />
+                    <PlacementMiniBoard rows={6} edge label={t("6 · edge line")} />
                 </Box>
             </>
         )}

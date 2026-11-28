@@ -14,7 +14,7 @@ private struct BattlefieldPointerHint: View {
     var body: some View {
         GeometryReader { geometry in
             if let anchor = dragLocation ?? pointer.location {
-                Text(message)
+                Text(LocalizedStringKey(message))
                     .font(BattleResources.display(13))
                     .foregroundStyle(BattlePalette.color(0xf2cca1))
                     .padding(.horizontal, 12)
@@ -41,11 +41,14 @@ struct BattlefieldGhost {
 }
 
 struct Battlefield: View {
+    @Environment(\.locale) private var locale
     let battle: BattleView
     let playback: BattlePlayback
     let animating: Bool
     let inspectionEnabled: Bool
     let showStackFootprints: Bool
+    let staggerDuplicateIdle: Bool
+    let suggestion: BattleSuggestion?
     let projection: BattlefieldProjection?
     let placement: SandboxCreature?
     let placements: [Cell: Team]
@@ -75,6 +78,7 @@ struct Battlefield: View {
     @State private var dragCell: Cell?
     @State private var idleStarted = Date()
     @State private var inspection: UnitInspection?
+    @State private var firePitOffsets: [CGFloat] = []
 
     private struct UnitInspection: Identifiable {
         let id: Int
@@ -127,7 +131,7 @@ struct Battlefield: View {
                     let target = if let ray = hoveredThrough {
                         battle.stacks.first { $0.id == ray.hits.first?.target }
                     } else { hoveredUnit }
-                    return battle.actionHint(at: cell, target: target, canAttackHere: canAttackHere)
+                    return battle.actionHint(at: cell, target: target, canAttackHere: canAttackHere, locale: locale)
                 }
                 let landing = movePreview(from: moveLandings)
                 let ghost = draft ?? (dragged == nil && landing?.anchor != battle.movingStack?.anchor ? landing : nil)
@@ -144,21 +148,27 @@ struct Battlefield: View {
                 let hoveredRangeID = revealsRanges ? hoveredStackID : nil
                 let auras = BattlefieldAura.visible(in: battle, selectedID: selectedRangeID, hoveredID: hoveredRangeID, draggedID: dragged)
                 ZStack(alignment: .topLeading) {
-                    floor(projection, moveCells: moveCells)
-                    if battle.map == .firePit {
-                        FirePit(projection: projection, boardSize: battle.size, flowing: !battle.lava.isEmpty)
-                    }
-                    if revealsRanges {
-                        let ranges = BattleShotRange.visible(in: battle, selectedID: selectedRangeID, hoveredID: hoveredRangeID)
-                        if !ranges.isEmpty { BattleShotRangeOverlay(ranges: ranges, projection: projection) }
-                    }
-                    boardGuides(projection, landing: draft ?? landing)
-                    spellAreaGuide(projection)
-                    projectileGuide(projection)
                     BattlefieldSprites(battle: battle, playback: playback, projection: projection,
                                        animating: animating, dragged: dragged, dragPoint: dragPoint, ghost: ghost,
-                                       targetTints: targetTints, auras: auras)
+                                       targetTints: targetTints, auras: auras, staggerDuplicateIdle: staggerDuplicateIdle,
+                                       viewport: geometry.size) {
+                        floor(projection, moveCells: moveCells)
+                        if battle.map == .firePit {
+                            FirePit(projection: projection, boardSize: battle.size, flowing: !battle.lava.isEmpty,
+                                    registration: firePitOffsets)
+                        }
+                        if revealsRanges {
+                            let ranges = BattleShotRange.visible(in: battle, selectedID: selectedRangeID, hoveredID: hoveredRangeID)
+                            if !ranges.isEmpty { BattleShotRangeOverlay(ranges: ranges, projection: projection) }
+                        }
+                        boardGuides(projection, landing: draft ?? landing)
+                        spellAreaGuide(projection)
+                        projectileGuide(projection)
+                    }
                     meleeAttackGuide(projection)
+                    if canInspect, hoveredAttack == nil, hoveredThrough?.valid != true, let suggestion {
+                        BattlefieldSuggestion(advice: suggestion, battle: battle, projection: projection)
+                    }
                     projectileLabels(projection).zIndex(1999)
                     forMoveButtons(projection, rosterLandings: rosterLandings, moveCells: moveCells).zIndex(2000)
                     barrelControls(projection).zIndex(2001)
@@ -215,6 +225,9 @@ struct Battlefield: View {
                 .onChange(of: cursorMode, initial: true) { cursor?.setBoard(cursorMode) }
                 .onDisappear { cursor?.setBoard(.standard) }
                 .onChange(of: canInspect) { if !canInspect { inspection = nil } }
+                .task(id: battle.map) {
+                    if battle.map == .firePit { firePitOffsets = await FirePit.registrationOffsets() }
+                }
             } else {
                 ContentUnavailableView("Battlefield unavailable", systemImage: "square.grid.3x3")
             }
@@ -567,7 +580,7 @@ struct Battlefield: View {
                     if let icon = BattleResources.image("spell-\(BattleResources.creature(spell.name))") {
                         Image(nsImage: icon).resizable().frame(width: 21, height: 21)
                     }
-                    Text(spell.name).font(BattleResources.display(12))
+                    Text(LocalizedStringKey(spell.name)).font(BattleResources.display(12))
                 }
                 .foregroundStyle(BattlePalette.parchment)
                 .padding(.horizontal, 7).padding(.vertical, 3)
@@ -592,8 +605,14 @@ struct Battlefield: View {
             } else {
                 ForEach(shotHits, id: \.target) { hit in
                     if let victim = battle.stacks.first(where: { $0.id == hit.target }) {
-                        attackForecast([hit], over: victim, divisor: hoveredThrough?.valid == true ? hit.divisor : nil,
-                                       projection: projection)
+                        attackForecast([hit], over: victim, divisor: nil, projection: projection)
+                    }
+                }
+                if let area = hoveredArea, let divisor = area.divisor {
+                    let cells = area.splash.cells(size: battle.size, excluding: Set(battle.holes))
+                    if let right = cells.map(\.x).max(), let bottom = cells.map(\.y).min() {
+                        let corner = projection.point(x: CGFloat(right + 1) - 0.72, y: CGFloat(bottom) + 0.08)
+                        BattleDamageForecast.areaRange(divisor, at: corner, projection: projection)
                     }
                 }
             }
@@ -601,11 +620,12 @@ struct Battlefield: View {
     }
 
     private var shotHits: [BattleShotHit] {
-        if let ray = hoveredThrough, ray.valid { return ray.hits }
-        if let area = hoveredArea { return area.hits ?? [] }
-        if let hits = hoveredAttack?.angle.range?.hits ?? hoveredAttack?.angle.hits, !hits.isEmpty { return hits }
-        if let hit = hoveredAttack?.angle.range?.hit ?? hoveredAttack?.angle.hit { return [hit] }
-        return []
+        if let ray = hoveredThrough, ray.valid { return BattleShotHit.byVictim(ray.hits) }
+        if let area = hoveredArea { return BattleShotHit.byVictim(area.hits ?? []) }
+        guard let angle = hoveredAttack?.angle else { return [] }
+        var hits = angle.range?.hits ?? angle.hits ?? []
+        if let hit = angle.range?.hit ?? angle.hit { hits.insert(hit, at: 0) }
+        return BattleShotHit.byVictim(hits)
     }
 
     private func attackForecast(_ hits: [BattleShotHit], over victim: Stack, divisor: Int?,

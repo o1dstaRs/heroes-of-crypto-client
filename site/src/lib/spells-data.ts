@@ -390,8 +390,11 @@ function englishDescription(book: SpellBook, raw: RawSpell): string {
 
 function russianDescription(book: SpellBook, raw: RawSpell, english: string): string {
     // Like the English, a "{}" takes the spell's power, so a rebalance reaches both languages.
-    return descriptionsRu[`${book}:${raw.name}`]?.replace(/\{\}/g, String(raw.power)) ?? english;
+    return russianSpellTemplate(book, raw.name)?.replace(/\{\}/g, String(raw.power)) ?? english;
 }
+
+export const russianSpellTemplate = (book: string, name: string): string | undefined =>
+    descriptionsRu[`${book}:${name}`];
 
 function spellPolarity(raw: RawSpell): SpellPolarity {
     if (damageSpells.has(raw.name)) {

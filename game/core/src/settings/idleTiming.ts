@@ -1,3 +1,5 @@
+import { onMacPreferenceChange } from "./macPreferences";
+
 const STORAGE_KEY = "hoc:staggerDuplicateIdle";
 const listeners = new Set<() => void>();
 let enabled = true;
@@ -12,15 +14,29 @@ export const subscribeStaggerDuplicateIdle = (listener: () => void): (() => void
     listeners.add(listener);
     return () => listeners.delete(listener);
 };
-export function setStaggerDuplicateIdle(value: boolean): void {
+const applyStaggerDuplicateIdle = (value: boolean): void => {
     enabled = value;
+    for (const listener of listeners) listener();
+};
+export function setStaggerDuplicateIdle(value: boolean): void {
     try {
         globalThis.localStorage?.setItem(STORAGE_KEY, value ? "1" : "0");
     } catch {
         // The preference still applies for the current session.
     }
-    for (const listener of listeners) listener();
+    applyStaggerDuplicateIdle(value);
 }
+
+onMacPreferenceChange([STORAGE_KEY], () => {
+    try {
+        const stored = globalThis.localStorage?.getItem(STORAGE_KEY);
+        if (stored !== null && stored !== undefined && (stored !== "0") !== enabled) {
+            applyStaggerDuplicateIdle(stored !== "0");
+        }
+    } catch {
+        // Keep the current preference when browser storage is unavailable.
+    }
+});
 
 // Each board owns its ordering. Recreated units retain their slot; removal never
 // renumbers survivors or jumps their phase. The whole registry expires with the board.
