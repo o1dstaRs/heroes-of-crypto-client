@@ -14550,7 +14550,8 @@ export class RenderableUnit extends Unit {
         // per-ability block, the description falls back to the flat power-0 value and reads "0%" everywhere.
         const blacksmithToolsAbility = this.getAbility("Blacksmith Tools");
         if (blacksmithToolsAbility) {
-            const { stun, nothing, double, frozen } = AllAbilities.getCraftChances(this.getLuck());
+            const tome = this.getBuffPower("Tome of Amplification") ?? 0;
+            const { stun, nothing, double, frozen } = AllAbilities.getCraftChances(this.getLuck(), tome);
             this.refreshAbiltyDescription(
                 blacksmithToolsAbility.getName(),
                 blacksmithToolsAbility

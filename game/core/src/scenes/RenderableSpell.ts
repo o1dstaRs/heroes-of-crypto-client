@@ -410,10 +410,9 @@ export class PixiRenderableSpell extends Spell {
         } else if (ownerStackPower < minimalStackPower) {
             lines.push(`Requires stack power ${minimalStackPower}`);
         }
-        // Craft's per-ally outcome chances shift with the caster's luck, so show the exact calculated
-        // percentages instead of the static blurb (single source of truth: getCraftChances).
+        // Use the same luck and Tome bonus for the card that the cast uses for its rolls.
         if (this.getName() === "Craft" && casterLuck !== undefined) {
-            const c = AllAbilities.getCraftChances(casterLuck);
+            const c = AllAbilities.getCraftChances(casterLuck, casterTomeBuffPercentage);
             return {
                 information: [
                     ...lines,
