@@ -233,14 +233,11 @@ export interface IHoverInfo {
     spellElement?: SpellElement;
     /** Main damage/healing/buff value, rendered separately from the longer rules text. */
     spellEffectSummary?: ISpellEffectSummary;
-    // True while the cursor is hovering an enemy unit that the active unit can attack. Drives the
-    // HoMM-style attack cursor (themed melee/ranged/magic PNG only shows when actively aiming at a
-    // valid target). Optional because UpdateHoverInfo emits {} when no hover info is present.
+    /** A legal attack hover keeps the default pointer when there is no bow or wand to show. */
     isHoveringAttackTarget?: boolean;
     /** Bow or wand for a locally actionable target under the pointer. */
     targetingCursor?: TargetingCursor;
-    // The side the sword blade must point toward for a legal melee landing. The base asset points left;
-    // the cursor hook swaps in its mirrored partner when the target is to the attacker's right.
+    /** The direction from the melee landing toward the target. */
     meleeCursorDirection?: "left" | "right";
 }
 

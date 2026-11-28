@@ -111,6 +111,48 @@ function fixture(team: TeamType, charges: number) {
 }
 
 describe("ranked spell selection", () => {
+    test("shows a wand over a legal recipient and clears it on invalid hover, handoff, and cancellation", () => {
+        const f = fixture(TeamVals.LEFT, 2);
+        try {
+            f.select();
+            Object.assign(f.scene, {
+                rangedProjectiles: { hasActive: () => false },
+                isPlayingActionAnimation: () => false,
+                isAwaitingAuthoritativeTurnHandoff: () => false,
+                pathHelper: { getMovePath: () => ({ cells: [] }) },
+                texAny: () => Texture.EMPTY,
+            });
+            Object.assign(f.scene.hoverManager, {
+                clearAuraVisuals() {},
+                addTargetHighlight() {},
+                drawDamagePrediction() {},
+                drawSpellCastPreview() {},
+            });
+            expect(f.scene.getTargetingCursor()).toBeUndefined();
+
+            f.scene.sc_mouseWorld = f.enemy.getPosition();
+            f.scene.hover();
+            expect(f.scene.getTargetingCursor()).toBe("magic");
+            f.scene.isAwaitingAuthoritativeTurnHandoff = () => true;
+            expect(f.scene.getTargetingCursor()).toBeUndefined();
+            f.scene.isAwaitingAuthoritativeTurnHandoff = () => false;
+
+            f.scene.getUnitAtPosition = () => f.caster;
+            f.scene.sc_mouseWorld = f.caster.getPosition();
+            f.scene.hover();
+            expect(f.scene.getTargetingCursor()).toBeUndefined();
+
+            f.scene.getUnitAtPosition = () => f.enemy;
+            f.scene.sc_mouseWorld = f.enemy.getPosition();
+            f.scene.hover();
+            expect(f.scene.getTargetingCursor()).toBe("magic");
+            f.scene.currentActiveSpell = undefined;
+            expect(f.scene.getTargetingCursor()).toBeUndefined();
+        } finally {
+            f.layer.destroy({ children: true });
+        }
+    });
+
     for (const team of [TeamVals.LEFT, TeamVals.RIGHT]) {
         for (const charges of [3, 2]) {
             test(`team ${team}, ${charges} charges: one card selection and one target click submit only the cast`, () => {

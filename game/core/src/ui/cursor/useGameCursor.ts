@@ -39,8 +39,7 @@ export function useGameCursor(): void {
     useEffect(() => {
         const connection = manager.onHoverInfoUpdated.connect((hoverInfo) => {
             const nextMode = resolveCursorMode(hoverInfo);
-            // Hover payloads change far more often than the cursor itself. Avoid rerendering this
-            // app-root hook for every pointer move when the resolved cursor remains identical.
+            // Keep the canvas from rerendering for hover updates with the same cursor.
             setMode((currentMode) => (currentMode === nextMode ? currentMode : nextMode));
         });
         return () => {
