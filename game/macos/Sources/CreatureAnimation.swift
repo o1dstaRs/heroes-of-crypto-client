@@ -447,6 +447,27 @@ enum CreatureAnimation {
                      widthRatio: frame.widthRatio * trimRatio, anchorX: frame.anchorX, trim: trim?.rect)
     }
 
+    static func battlefieldImage(_ sprite: Frame, creature: String, pose: CreaturePose,
+                                 idle: (time: TimeInterval, age: TimeInterval), battlefieldTime: TimeInterval,
+                                 reduceMotion: Bool, battleMageStanding: @autoclosure () -> CGImage? = nil) -> CGImage {
+        guard sprite.action == .idle else { return sprite.image }
+        switch creature {
+        case "Battle Mage" where pose.action == .idle:
+            guard let standing = battleMageStanding() else { return sprite.image }
+            return reduceMotion ? standing : BattleMageIdleAppearance.image(standing, elapsed: idle.time)
+        case "Fairy":
+            return FairyIdleAppearance.image(sprite.image, frame: sprite.index, elapsed: idle.time)
+        case "Nightmare" where !reduceMotion:
+            return NightmareIdleAppearance.image(sprite.image, elapsed: idle.time)
+        case "Elf" where pose.action == .idle && !reduceMotion:
+            return ElfIdleAppearance.image(sprite.image, time: battlefieldTime, idleAge: idle.age)
+        case "Goblin Knight" where pose.action == .idle && !reduceMotion:
+            return GoblinKnightIdleAppearance.image(sprite.image, frame: sprite.index, elapsed: idle.time)
+        default:
+            return sprite.image
+        }
+    }
+
     private static func registration(for creature: String, key: String, clip: CreatureClip, index: Int)
         -> (action: CreatureAction, foot: CGFloat, height: CGFloat, widthRatio: CGFloat, anchorX: CGFloat) {
         let action = CreatureAction(rawValue: key) ?? (key.hasPrefix("melee_attack") ? .meleeAttack : .attack)

@@ -81,9 +81,9 @@ struct SkirmishSmoke {
         try checkSandboxShortcuts()
         try checkChakram(setup, resources: resources)
         if Bundle.main.url(forResource: "animations", withExtension: "json") != nil {
-            try checkBattleMageIdle(resources)
+            try await checkGoblinKnightIdle()
             try checkAnimationFrames(opening.stacks)
-            try checkIdleRoster(setup.creatures)
+            try checkIdleRoster(setup.creatures, resources: resources)
             try checkBoardFraming(opening.stacks, artwork: artwork)
             try checkProjectileAssets(url.deletingLastPathComponent())
             try checkBowReleases(setup, resources: resources, artwork: artwork)
@@ -1305,23 +1305,53 @@ struct SkirmishSmoke {
     }
 
     @MainActor
-    private static func checkBattleMageIdle(_ resources: URL) throws {
-        let url = resources.appendingPathComponent("battle_mage.webp")
-        let source = try CGImageSourceCreateWithURL(url as CFURL, nil).unwrap("missing the Battle Mage's standing art")
-        let body = try CGImageSourceCreateImageAtIndex(source, 0, nil).unwrap("invalid Battle Mage artwork")
-        let opening = BattleMageIdleAppearance.image(body, elapsed: 0)
-        let later = BattleMageIdleAppearance.image(body, elapsed: 0.82)
-        let firstPixels = try framePixels(opening).unwrap("could not read the Battle Mage's first idle frame")
-        let laterPixels = try framePixels(later).unwrap("could not read the Battle Mage's next idle frame")
-        try require(opening.width == later.width && opening.height == later.height && firstPixels != laterPixels,
-                    "the Battle Mage stayed on the same idle image")
+    private static func checkGoblinKnightIdle() async throws {
+        let creature = "Goblin Knight"
+        let rest = CreaturePose(action: .idle, time: 0)
+        CreatureAnimation.prewarm(creature, action: .idle)
+        let deadline = ContinuousClock.now + .seconds(5)
+        while CreatureAnimation.frame(creature, pose: rest, inBackground: true) == nil && ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let idle = try CreatureAnimation.frame(creature, pose: rest, inBackground: true)
+            .unwrap("Goblin Knight's idle sheet did not load for the battlefield")
+        for (time, index) in [(6.999, 0), (7.0, 1), (7.101, 2), (7.62, 7), (8.199, 12), (8.201, 0), (19.02, 1)] {
+            let pose = CreaturePose(action: .idle, time: time)
+            let frame = try CreatureAnimation.frame(creature, pose: pose, inBackground: true)
+                .unwrap("missing Goblin Knight's idle cel at \(time)")
+            try require(frame.index == index && frame.foot == idle.foot && frame.heightScale == idle.heightScale &&
+                        frame.anchorX == idle.anchorX && frame.image.width == idle.image.width,
+                        "Goblin Knight lost the browser's gesture timing or standing registration at \(time)")
+            if index == 7 {
+                try require(framePixels(frame.image) != framePixels(idle.image), "Goblin Knight's sword gesture drew its standing pose")
+            }
+        }
+        let still = CreatureAnimation.battlefieldImage(idle, creature: creature, pose: rest, idle: (0, 0),
+                                                       battlefieldTime: 0, reduceMotion: true)
+        try require(still === idle.image, "Goblin Knight's cape should rest with Reduce Motion enabled")
     }
 
     @MainActor
-    private static func checkIdleRoster(_ creatures: [SandboxCreature]) throws {
-        for creature in creatures {
-            let idle = CreatureAnimation.timing(for: creature.name, action: .idle, direction: nil)
-            try require(idle?.duration.isFinite == true && (idle?.duration ?? 0) > 0, "missing the idle timeline for \(creature.name)")
+    private static func checkIdleRoster(_ creatures: [SandboxCreature], resources: URL) throws {
+        let mageURL = resources.appendingPathComponent("battle_mage.webp")
+        let source = try CGImageSourceCreateWithURL(mageURL as CFURL, nil).unwrap("missing Battle Mage's standing art")
+        let mage = try CGImageSourceCreateImageAtIndex(source, 0, nil).unwrap("invalid Battle Mage standing art")
+        // The Queen's summon fights on the board without appearing in the sandbox roster.
+        for name in creatures.map(\.name) + ["Arachna Spider"] {
+            let timing = try CreatureAnimation.timing(for: name, action: .idle, direction: nil)
+                .unwrap("missing the idle timeline for \(name)")
+            try require(timing.duration.isFinite && timing.duration > 0, "invalid idle duration for \(name)")
+            func pixels(at time: TimeInterval) throws -> Data {
+                let pose = CreaturePose(action: .idle, time: time)
+                let frame = try CreatureAnimation.frame(name, pose: pose).unwrap("missing \(name) idle cel at \(time)")
+                let art = CreatureAnimation.battlefieldImage(frame, creature: name, pose: pose, idle: (time, time),
+                                                             battlefieldTime: time, reduceMotion: false, battleMageStanding: mage)
+                return try framePixels(art).unwrap("empty \(name) idle cel at \(time)")
+            }
+            let standing = try pixels(at: 0)
+            let samples = [0.17, 0.49, 0.83, 1.29] + [0.21, 0.47, 0.73, 0.92].map { timing.duration * $0 }
+            let animates = try samples.contains { try pixels(at: $0) != standing }
+            try require(animates, "\(name) stayed on the same idle image on the battlefield")
         }
         for name in ["Elf", "Troll"] {
             let timing = try CreatureAnimation.timing(for: name, action: .idle, direction: nil)
@@ -1700,9 +1730,12 @@ struct SkirmishSmoke {
                                       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue),
               let data = context.data else { return nil }
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: width))
-        let rgba = data.assumingMemoryBound(to: UInt8.self)
-        guard (0..<(width * width)).contains(where: { rgba[$0 * 4 + 3] > 0 }) else { return nil }
-        return Data(bytes: data, count: bytesPerRow * width)
+        // The raw bitmap pointer is owned by the context, including while Data copies its bytes.
+        return withExtendedLifetime(context) {
+            let rgba = data.assumingMemoryBound(to: UInt8.self)
+            guard (0..<(width * width)).contains(where: { rgba[$0 * 4 + 3] > 0 }) else { return nil }
+            return Data(bytes: data, count: bytesPerRow * width)
+        }
     }
 
     static func advanceToPlayer(_ battle: NativeBattle) throws -> BattleView {

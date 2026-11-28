@@ -426,18 +426,9 @@ struct BattlefieldSprites<Ground: View>: View {
         }
         let highlight: TargetHighlight?
         if let sprite {
-            let art = if pose.action == .idle && sprite.action == .idle && stack.name == "Battle Mage",
-                         let standing = BattleResources.cgImage("battle_mage") {
-                reduceMotion ? standing : BattleMageIdleAppearance.image(standing, elapsed: idleTime)
-            } else if sprite.action == .idle && stack.name == "Fairy" {
-                FairyIdleAppearance.image(sprite.image, frame: sprite.index, elapsed: idleTime)
-            } else if sprite.action == .idle && stack.name == "Nightmare" && !reduceMotion {
-                NightmareIdleAppearance.image(sprite.image, elapsed: idleTime)
-            } else if pose.action == .idle && sprite.action == .idle && stack.name == "Elf" && !reduceMotion {
-                ElfIdleAppearance.image(sprite.image, time: flagTime, idleAge: idleTiming.age)
-            } else {
-                sprite.image
-            }
+            let art = CreatureAnimation.battlefieldImage(sprite, creature: stack.name, pose: pose, idle: idleTiming,
+                                                         battlefieldTime: flagTime, reduceMotion: reduceMotion,
+                                                         battleMageStanding: BattleResources.cgImage("battle_mage"))
             highlight = drawSprite(sprite, art: art, presentation: presentation, facing: facing, tint: aimTint,
                                    statusTint: statusTint, captureBody: captureBody, in: body)
         } else if let portrait = BattleResources.cgImage(BattleResources.creature(stack.name)) {

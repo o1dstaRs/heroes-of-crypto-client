@@ -13,6 +13,7 @@ const smoothstep = (a: number, b: number, x: number): number => {
 
 export const GOBLIN_ETCH_FRAME_MS = 100;
 export const GOBLIN_ETCH_START_MS = 7000;
+export const GOBLIN_ETCH_CYCLE_MS = 12000;
 export const GOBLIN_ETCH_BLADE_POSES: readonly (readonly [number, number, number, number])[] = [
     [353, 474, 589, 706],
     [459, 426, 687, 647],
@@ -36,7 +37,7 @@ export const GOBLIN_ETCH_CONTACTS = GOBLIN_ETCH_BLADE_POSES.slice(4, 8).map((pos
 
 /** Only completed, actually drawn contact frames can extend the ground trace. */
 export function goblinIdleEtch(elapsedMs: number): { frame: number; active: boolean; segments: number; frost: number } {
-    const t = Math.max(0, Number.isFinite(elapsedMs) ? elapsedMs : 0) % 12000;
+    const t = Math.max(0, Number.isFinite(elapsedMs) ? elapsedMs : 0) % GOBLIN_ETCH_CYCLE_MS;
     const action = t - GOBLIN_ETCH_START_MS;
     const active = action >= 0 && action < 1200;
     const frame = active ? Math.min(11, Math.floor(action / GOBLIN_ETCH_FRAME_MS)) : 0;

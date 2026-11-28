@@ -86,7 +86,7 @@ if [[ "${1:-}" == "--test" ]]; then
         Sources/BattleSmokeClouds.swift Tests/SmokeVolumeSmoke.swift Sources/BattlefieldOptics.swift Tests/OpticsSmoke.swift \
         Sources/BattleDamageSpell.swift Sources/BattleStatusEffects.swift Sources/BattleChakram.swift Sources/SandboxKeyboardShortcuts.swift \
         Sources/CreatureAnimation.swift Sources/BattleProjectile.swift Sources/FairyIdleAppearance.swift Sources/BattleMageIdleAppearance.swift \
-        Sources/ElfIdleAppearance.swift \
+        Sources/ElfIdleAppearance.swift Sources/NightmareIdleAppearance.swift Sources/GoblinKnightIdleAppearance.swift \
         Sources/LeprechaunAppearance.swift \
         Sources/FirePitRegistration.swift Sources/SandboxTurnClock.swift Sources/SandboxSetup.swift Sources/SandboxLoadouts.swift \
         Sources/BattleFightSummary.swift Sources/UnitInspectionDescriptions.swift \

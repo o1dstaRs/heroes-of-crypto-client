@@ -19,6 +19,12 @@ import { BOAR_LAB_WALK_SCALE_X, BOAR_LAB_WALK_SCALE_Y } from "../../core/src/sce
 import { FAIRY_LAB_IDLE_CYCLE_MS } from "../../core/src/scenes/FairyLabIdle";
 import { FAIRY_IDLE_GESTURE_HAIR_GAINS, fairyIdleMotion } from "../../core/src/scenes/FairyLabIdleVisuals";
 import {
+    GOBLIN_ETCH_BLADE_POSES,
+    GOBLIN_ETCH_CYCLE_MS,
+    GOBLIN_ETCH_FRAME_MS,
+    GOBLIN_ETCH_START_MS,
+} from "../../core/src/scenes/GoblinKnightIdleVisuals";
+import {
     HYDRA_LAB_WALK_FOOT_ANCHOR_Y,
     HYDRA_LAB_WALK_HEIGHT_SCALE,
     HYDRA_LAB_WALK_WIDTH_SCALE,
@@ -339,6 +345,32 @@ export function bundleAnimations(output: string, creatures: readonly string[]): 
         });
         for (const action of actions) {
             const board = reference?.[action];
+            if (creature === "Goblin Knight" && action === "idle") {
+                // Pixi selects the sword gesture in a shader, outside the board's body clip.
+                const directory = join(location, "goblin_knight_etch", "atlas");
+                const resource = "goblin_knight_etch_atlas.webp";
+                const columns = 4;
+                const rows = 3;
+                const atlas = locateAtlas(directory, resource);
+                if (atlas?.width !== columns * 768 || atlas.height !== rows * 768 || !copyFrom(directory, resource)) {
+                    throw new Error(`Missing the Goblin Knight idle gesture (${resource}).`);
+                }
+                const gesture = GOBLIN_ETCH_BLADE_POSES.map((_, index) => ({ resource, columns, rows, index }));
+                const frameSources = [gesture[0], ...gesture];
+                animations.idle = {
+                    frameSources,
+                    frameCount: frameSources.length,
+                    frameDuration: GOBLIN_ETCH_FRAME_MS / 1000,
+                    durations: [
+                        GOBLIN_ETCH_START_MS,
+                        ...gesture.map(() => GOBLIN_ETCH_FRAME_MS),
+                        GOBLIN_ETCH_CYCLE_MS - GOBLIN_ETCH_START_MS - gesture.length * GOBLIN_ETCH_FRAME_MS,
+                    ],
+                    sequence: [...frameSources.map((_, index) => index), 0],
+                    footAnchor: 732 / 768,
+                };
+                continue;
+            }
             const idleWind =
                 creature === "Zena" && action === "idle"
                     ? {
