@@ -459,8 +459,16 @@ export function bundleAnimations(output: string, creatures: readonly string[]): 
             }
             const footAnchor = tallBoardModelFootAnchorY(creature, action, meta);
             const frameHeight = resource ? files.get(resource)!.height / meta.layout.rows : meta.frameHeight;
+            // The web's idle shader maps the padded atlas cel onto the original standing sprite.
+            // Draw the whole cel at the same scale per authored pixel on Mac.
+            const paddedIdleScale =
+                stem === "leprechaun_lab_idle"
+                    ? meta.frameHeight / approvedAtlases.Leprechaun.idle.frameHeight
+                    : undefined;
             const registration = Array.from({ length: meta.frameCount }, (_, frame) =>
-                actionRegistration(creature, action, frame, footAnchor, frameHeight),
+                paddedIdleScale === undefined
+                    ? actionRegistration(creature, action, frame, footAnchor, frameHeight)
+                    : { x: paddedIdleScale, y: paddedIdleScale },
             );
             const durations =
                 creature === "Wolf" && action === "idle"

@@ -1499,8 +1499,12 @@ struct SkirmishSmoke {
         let sheet = try CGImageSourceCreateImageAtIndex(source, 0, nil).unwrap("could not decode the Leprechaun sheet")
         let raw = try sheet.cropping(to: CGRect(x: 0, y: 0, width: 1024, height: 1024))
             .flatMap(framePixels).unwrap("missing original Leprechaun pixels")
-        let corrected = try CreatureAnimation.frame("Leprechaun", pose: CreaturePose(action: .idle, time: 0))
-            .flatMap { framePixels($0.image) }.unwrap("missing corrected Leprechaun pixels")
+        let resting = try CreatureAnimation.frame("Leprechaun", pose: CreaturePose(action: .idle, time: 0))
+            .unwrap("missing the Leprechaun’s standing pose")
+        try require(abs(resting.heightScale - 1024.0 / 768) < 0.0001 && abs(resting.widthRatio - 1) < 0.0001 &&
+                    abs(resting.foot - 872.0 / 1024) < 0.0001,
+                    "the padded Leprechaun idle canvas lost the browser’s scale or sole anchor")
+        let corrected = try framePixels(resting.image).unwrap("missing corrected Leprechaun pixels")
         let cloth = stride(from: 0, to: raw.count, by: 4).filter { i in
             raw[i + 3] >= 220 && raw[i + 1] > raw[i] && Int(raw[i + 1]) > Int(raw[i + 2]) + 12
         }
