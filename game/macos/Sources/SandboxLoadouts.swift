@@ -58,10 +58,11 @@ struct SandboxTeamPreview: Decodable {
 }
 
 /// Reuses the web engine's pre-fight rules to generate the input for the native Zig battle.
-@MainActor
 final class SandboxLoadoutEngine {
     let options: SandboxLoadoutOptions
     private let context: JSContext
+    private var acceptedSetup: Input?
+    private var narrating = false
 
     init(resources: URL) throws {
         guard let context = JSContext() else { throw EngineError(message: "Could not open the Sandbox setup engine.") }
@@ -112,7 +113,47 @@ final class SandboxLoadoutEngine {
         guard battle.configureSandbox(anchors: stacks.map(\.anchor), automated: automated) else {
             throw EngineError(message: "Move any stacks outside the new deployment zone before applying that change.")
         }
+        var accepted = Input(map: map.rawValue, boardSeed: boardSeed, stacks: rows, teams: teams)
+        for team in preview.teams {
+            let key = String(team.team.rawValue)
+            if accepted.teams[key]?.tier1 == options.barrelBarricade {
+                accepted.teams[key]?.barrels = team.barrels
+            }
+        }
+        acceptedSetup = accepted
         return (battle, Dictionary(uniqueKeysWithValues: preview.teams.map { ($0.team, $0) }))
+    }
+
+    func beginBattleLog(stacks: [Stack]) {
+        narrating = false
+        guard var input = acceptedSetup, input.stacks.count == stacks.count else { return }
+        for (index, stack) in stacks.enumerated() {
+            guard let anchor = stack.anchor, input.stacks[index].name == stack.name else { return }
+            input.stacks[index].x = anchor.x
+            input.stacks[index].y = anchor.y
+        }
+        guard let json = try? JSONEncoder().encode(input) else { return }
+        context.exception = nil
+        narrating = context.objectForKeyedSubscript("hocBeginBattleLog")?
+            .call(withArguments: [String(decoding: json, as: UTF8.self)])?.toBool() == true
+    }
+
+    func battleLog(for battle: NativeBattle, steps: String?) -> [String]? {
+        guard narrating else { return nil }
+        guard let steps else { narrating = false; return nil }
+        context.exception = nil
+        guard let json = context.objectForKeyedSubscript("hocAdvanceBattleLog")?.call(withArguments: [steps])?.toString(),
+              let result = try? JSONDecoder().decode(Narration.self, from: Data(json.utf8)) else {
+            narrating = false
+            return nil
+        }
+        guard battle.logStateMismatch(result.digest) == nil else { narrating = false; return nil }
+        return result.lines
+    }
+
+    private struct Narration: Decodable {
+        let lines: [String]
+        let digest: String
     }
 
     private struct Input: Encodable {
@@ -122,15 +163,15 @@ final class SandboxLoadoutEngine {
             let level: Int
             let team: Int
             let amount: Int
-            let x: Int32
-            let y: Int32
+            var x: Int32
+            var y: Int32
             let width: Int32
             let height: Int32
         }
         let map: Int
         let boardSeed: UInt32?
-        let stacks: [Stack]
-        let teams: [String: SandboxLoadout]
+        var stacks: [Stack]
+        var teams: [String: SandboxLoadout]
     }
 
     private struct Preview: Decodable {

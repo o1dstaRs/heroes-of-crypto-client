@@ -1,3 +1,4 @@
+const std = @import("std");
 const ai = @import("common/ai.zig");
 const combat = @import("common/combat.zig");
 const engine = @import("common/engine.zig");
@@ -6,6 +7,8 @@ const rec = @import("common/recording.zig");
 const spells = @import("common/spells.zig");
 const st = @import("common/state.zig");
 const terrain = @import("common/terrain.zig");
+const util = @import("common/v08/util.zig");
+const projectile = @import("projectile_aim.zig");
 
 const Cell = st.Cell;
 const State = st.State;
@@ -46,9 +49,10 @@ pub fn attack(ctx: *ai.Ctx, target: u8) ?rec.Action {
     const state = ctx.s;
     const unit = ctx.unit();
     if (unit.attack_type_selected == st.AttackType.RANGE) {
-        if (unit.moved_this_turn or !engine.canLandRangeAttack(state, unit)) return null;
-        const shot = ai.findLegalRangeAttack(ctx, target) orelse return null;
-        return if (shot.range_attack.target == target) shot else null;
+        var options: [max_attack_angles]AttackAngle = undefined;
+        const angles = attackAngles(ctx, target, &.{}, &options, null);
+        if (angles.len == 0) return null;
+        return aimedAttack(ctx, target, angles[0]);
     }
     if (!canAimMelee(ctx, target)) return null;
     const from = engine.unitCells(unit);
@@ -66,35 +70,70 @@ pub fn attack(ctx: *ai.Ctx, target: u8) ?rec.Action {
 pub const max_attack_angles = 16;
 pub const Splash = struct { center: Cell, single: bool = false };
 pub const RangedReply = struct { target: u8, splash: ?Splash };
-pub const AreaAim = struct { aim: Cell, splash: Splash };
-pub const AttackAngle = struct { cell: Cell, side: ?u8 = null, splash: ?Splash = null };
+pub const AreaAim = struct { aim: Cell, splash: Splash, hits: []const projectile.ShotHit = &.{} };
+pub const AttackAngle = struct {
+    cell: Cell,
+    side: ?u8 = null,
+    splash: ?Splash = null,
+    range: ?projectile.Range = null,
+    hit: ?projectile.ShotHit = null,
+    hits: []const projectile.ShotHit = &.{},
+};
 
-pub fn attackAngles(ctx: *ai.Ctx, target: u8, moves: []const Cell, output: *[max_attack_angles]AttackAngle) []const AttackAngle {
+fn prefersRangeEdge(unit: *const st.Unit, lhs: AttackAngle, rhs: AttackAngle) bool {
+    const left = lhs.range.?;
+    const right = rhs.range.?;
+    if (left.clean != right.clean) return left.clean;
+    if (left.divisor != right.divisor) return left.divisor < right.divisor;
+    const origin = projectile.Point.fromWorld(.{ unit.pos_x, unit.pos_y });
+    const dx = left.aim.x - origin.x;
+    const dy = left.aim.y - origin.y;
+    const rx = right.aim.x - origin.x;
+    const ry = right.aim.y - origin.y;
+    return dx * dx + dy * dy < rx * rx + ry * ry;
+}
+
+pub fn attackAngles(ctx: *ai.Ctx, target: u8, moves: []const Cell, output: *[max_attack_angles]AttackAngle, storage: ?std.mem.Allocator) []const AttackAngle {
     const unit = ctx.unit();
     const target_cells = engine.unitCells(&ctx.s.units[target]);
     var count: usize = 0;
     if (unit.attack_type_selected == st.AttackType.RANGE) {
+        if (projectile.canAimThrough(ctx.s, ctx.ui)) return &.{};
         for (target_cells.slice()) |cell| {
             for (0..4) |index| {
                 const side: u8 = @intCast(index);
-                if (aimedShot(ctx, target, cell, side) == null) continue;
-                output[count] = .{ .cell = cell, .side = side, .splash = shotSplash(ctx.s, ctx.ui, target, cell, side) };
+                const range = projectile.rangeEdge(ctx.s, ctx.ui, target, cell, side, storage) orelse continue;
+                if (range.stops_at_obstacle and shotObstacle(ctx, range) == null) continue;
+                output[count] = .{ .cell = cell, .side = side, .splash = shotSplash(ctx.s, ctx.ui, target, cell, side), .range = range };
                 count += 1;
             }
         }
+        std.sort.insertion(AttackAngle, output[0..count], unit, prefersRangeEdge);
     } else if (canAimMelee(ctx, target)) {
         const base = engine.baseCell(unit);
+        const victim = &ctx.s.units[target];
         if (ai.adjacent(engine.unitCells(unit).slice(), target_cells.slice())) {
-            output[count] = .{ .cell = base };
+            output[count] = meleeAngle(ctx, victim, base, 1, storage);
             count += 1;
         }
+        const paths = if (moves.len > 0) movePath(ctx) else null;
         for (moves) |anchor| {
             if (ai.sameCell(anchor, base) or !ai.adjacent(ai.footprintForAnchor(unit, anchor).slice(), target_cells.slice())) continue;
-            output[count] = .{ .cell = anchor };
+            const route = if (paths) |path| path.get(pathing.key(anchor.x, anchor.y)) else null;
+            const length = if (route) |r| paths.?.routeCells(r, &ctx.route_buf) else 1;
+            output[count] = meleeAngle(ctx, victim, anchor, length, storage);
             count += 1;
         }
     }
     return output[0..count];
+}
+
+fn meleeAngle(ctx: *const ai.Ctx, victim: *const st.Unit, anchor: Cell, length: usize, storage: ?std.mem.Allocator) AttackAngle {
+    return .{
+        .cell = anchor,
+        .hit = projectile.meleeHit(ctx.s, ctx.unit(), victim, anchor, length),
+        .hits = if (storage) |arena| projectile.spinHits(ctx.s, ctx.ui, anchor, length, arena) else &.{},
+    };
 }
 
 pub fn aimedAttack(ctx: *ai.Ctx, target: u8, angle: AttackAngle) ?rec.Action {
@@ -116,13 +155,17 @@ fn canAimMelee(ctx: *const ai.Ctx, target: u8) bool {
     return ai.isMeleeSelection(unit.attack_type_selected) and !unit.has(.no_melee) and ai.isLegalMeleeTarget(ctx.s, ctx.ui, target);
 }
 
-fn aimedShot(ctx: *const ai.Ctx, target: u8, cell: Cell, side: u8) ?rec.Action {
+fn aimedShot(ctx: *ai.Ctx, target: u8, cell: Cell, side: u8) ?rec.Action {
     const unit = ctx.unit();
-    if (unit.attack_type_selected != st.AttackType.RANGE or unit.moved_this_turn or side >= 4 or
-        ai.occupant(ctx.s, cell) != target) return null;
-    if (!combat.sideObservableEx(ctx.s, cell, side, unit.team, unit.has(.through_shot), combat.isSplashShooter(unit)) or
-        !ai.rangeShotLandable(ctx.s, ctx.ui, target, cell, side)) return null;
-    return .{ .range_attack = .{ .attacker = ctx.ui, .target = target, .aim_cell = cell, .aim_side = side } };
+    if (unit.attack_type_selected != st.AttackType.RANGE or projectile.canAimThrough(ctx.s, ctx.ui)) return null;
+    const range = projectile.rangeEdge(ctx.s, ctx.ui, target, cell, side, null) orelse return null;
+    if (range.stops_at_obstacle) return shotObstacle(ctx, range);
+    return projectile.shotAction(ctx.ui, target, cell, side);
+}
+
+fn shotObstacle(ctx: *ai.Ctx, range: projectile.Range) ?rec.Action {
+    const stone = range.obstacle.?.world() orelse return null;
+    return obstacleAttackAt(ctx, engine.cellForPosition(stone[0], stone[1]), stone);
 }
 
 pub fn canAimAreaThrow(state: *const State, slot: u8) bool {
@@ -131,7 +174,7 @@ pub fn canAimAreaThrow(state: *const State, slot: u8) bool {
         !unit.moved_this_turn and engine.canLandRangeAttack(state, unit);
 }
 
-pub fn areaAim(state: *const State, slot: u8, cell: Cell) ?AreaAim {
+pub fn areaAim(state: *const State, slot: u8, cell: Cell, storage: ?std.mem.Allocator) ?AreaAim {
     const code = state.grid.board[@intCast(cell.x)][@intCast(cell.y)];
     if (code != st.EMPTY and code != st.LAVA and !(code == st.BLOCK and terrain.hasScatteredMountains(state))) return null;
     const splash = areaSplash(state, slot, cell);
@@ -140,10 +183,16 @@ pub fn areaAim(state: *const State, slot: u8, cell: Cell) ?AreaAim {
     spells.cellsAroundCell(splash.center, &ring);
     var first: ?u8 = null;
     var owner: ?u8 = null;
+    var members: [9]u8 = undefined;
+    var count: usize = 0;
     for (0..ring.len + 1) |index| {
         const target = ai.occupant(state, if (index == ring.len) splash.center else ring.slice()[index]) orelse continue;
         if (first == null) first = target;
         if (owner == null and combat.wingshieldOwner(&state.units[target])) owner = target;
+        if (std.mem.indexOfScalar(u8, members[0..count], target) == null) {
+            members[count] = target;
+            count += 1;
+        }
     }
     if (combat.forcedTarget(state, attacker)) |forced| {
         const cell_set = engine.unitCells(&state.units[forced]);
@@ -156,7 +205,22 @@ pub fn areaAim(state: *const State, slot: u8, cell: Cell) ?AreaAim {
     if (owner orelse first) |victim| {
         if (state.forbids(attacker, state.units[victim].uid)) return null;
     }
-    return .{ .aim = cell, .splash = splash };
+    if (owner != null) {
+        var written: usize = 0;
+        for (members[0..count]) |target| {
+            if (!combat.wingshieldOwner(&state.units[target])) continue;
+            members[written] = target;
+            written += 1;
+        }
+        count = written;
+    }
+    const point = engine.positionForCell(@floatFromInt(splash.center.x), @floatFromInt(splash.center.y));
+    const divisor = util.rangeDivisorAt(attacker, point[0], point[1], attacker.pos_x, attacker.pos_y);
+    return .{
+        .aim = cell,
+        .splash = splash,
+        .hits = if (storage) |arena| projectile.splashHits(state, slot, members[0..count], divisor, arena) else &.{},
+    };
 }
 
 fn areaSplash(state: *const State, slot: u8, aim: Cell) Splash {
@@ -236,8 +300,12 @@ fn contactFromRoute(ctx: *ai.Ctx, paths: *const pathing.MovePath, route: *const 
 }
 
 pub fn obstacleAttack(ctx: *ai.Ctx, cell: Cell) ?rec.Action {
-    const unit = ctx.unit();
     const point = engine.positionForCell(@floatFromInt(cell.x), @floatFromInt(cell.y));
+    return obstacleAttackAt(ctx, cell, point);
+}
+
+fn obstacleAttackAt(ctx: *ai.Ctx, cell: Cell, point: [2]f64) ?rec.Action {
+    const unit = ctx.unit();
     const from = engine.baseCell(unit);
     const shot = unit.attack_type_selected == st.AttackType.RANGE and engine.canLandRangeAttack(ctx.s, unit);
     var contact: Contact = .{ .cell = from, .steps = &.{}, .lava = false };
@@ -279,7 +347,36 @@ pub fn canPrepareSpell(state: *const State, slot: u8, spell: u8) bool {
     return spells.usable(unit, book, &state.spell_cfg[spell]);
 }
 
-pub fn spellAction(state: *const State, slot: u8, spell: u8, cell: ?Cell) ?rec.Action {
+pub const FireWallAim = struct {
+    footprint: engine.Cells = .{},
+    lit: engine.Cells = .{},
+};
+
+// Mirrors the four-cell Fire Wall footprint and board rules in Zig's fireWallCast.
+pub fn fireWallAim(state: *const State, center: Cell, orientation: u2) FireWallAim {
+    const dx, const dy = switch (orientation) {
+        0 => .{ @as(i32, 1), @as(i32, 0) },
+        1 => .{ @as(i32, 1), @as(i32, -1) },
+        2 => .{ @as(i32, 0), @as(i32, 1) },
+        3 => .{ @as(i32, 1), @as(i32, 1) },
+    };
+    var result: FireWallAim = .{};
+    var new_cells: usize = 0;
+    for (0..4) |index| {
+        const offset = @as(i32, @intCast(index)) - 2;
+        const cell: Cell = .{ .x = center.x + dx * offset, .y = center.y + dy * offset };
+        if (!engine.cellWithinGrid(cell)) continue;
+        result.footprint.push(cell);
+        const tile = state.grid.board[@intCast(cell.x)][@intCast(cell.y)];
+        if (tile != st.EMPTY and tile != st.LAVA) continue;
+        result.lit.push(cell);
+        if (!state.fight.hasFire(cell.x, cell.y)) new_cells += 1;
+    }
+    if (@as(usize, state.fight.n_fire) + new_cells > st.MAX_FIRE) result.lit.len = 0;
+    return result;
+}
+
+pub fn spellAction(state: *const State, slot: u8, spell: u8, cell: ?Cell, orientation: u2) ?rec.Action {
     if (!canPrepareSpell(state, slot, spell)) return null;
     const where = spellAim(state, spell) orelse return null;
     const target = if (where == .unit) ai.occupant(state, cell orelse return null) orelse return null else 0;
@@ -291,6 +388,7 @@ pub fn spellAction(state: *const State, slot: u8, spell: u8, cell: ?Cell) ?rec.A
         .has_target = where == .unit,
         .cell = cell orelse .{ .x = 0, .y = 0 },
         .has_cell = where == .cell,
+        .orientation = orientation,
     } };
     // Ask the actual Zig cast to validate the aim. Its RNG and state changes stay in the scratch board.
     var scratch = state.*;

@@ -21,7 +21,6 @@ import {
     synergyVariantsForSeed,
     HoCConfig,
     HoCConstants,
-    HoCLib,
     TeamVals,
     ToFactionName,
     type AttackType,
@@ -66,6 +65,7 @@ import {
     type SceneActionEngine,
 } from "./Sandbox";
 import { animatableEffectNames, diffUnitEffects } from "./effect_pops";
+import { effectsAppliedSceneLogLines, sceneLogBoardEventLine, spellCastNarratedPairs } from "./sceneLogEvents";
 import { formatTurnLogHeader } from "./sceneLogTurnHeaders";
 import { PlayActionType, PlayPhase, PlayTransientCellKind } from "../api/play_protocol";
 import type { RenderableUnit } from "./RenderableUnit";
@@ -89,6 +89,8 @@ import { setBoardMirror } from "../pixi/boardMirror";
 import { readBoardSidePreference, shouldMirrorBoard } from "../settings/playerBoardSide";
 import type { PremiumTurnPreview } from "../api/premium_client";
 import { PremiumTurnOverlay } from "./PremiumTurnOverlay";
+
+export { effectsAppliedSceneLogLines, rankedSystemMoveSceneLogLine, spellCastNarratedPairs } from "./sceneLogEvents";
 
 /**
  * Rebuild "already made a turn this lap" from the server, on every snapshot. The ranked client never runs the
@@ -132,17 +134,6 @@ export const isRankedAuthoritativeRecordAlreadyApplied = (
         latestSequence >= 0 &&
         latestSequence <= lastAppliedSequence
     );
-};
-
-/** Convert an authoritative system-move world position back to the destination cell shown in the fight log. */
-export const rankedSystemMoveSceneLogLine = (
-    unitName: string,
-    reason: Extract<GameEvent, { type: "unit_moved_by_system" }>["reason"],
-    position: HoCMath.XY,
-    gridSettings: Parameters<typeof GridMath.getCellForPosition>[0],
-): string => {
-    const cell = GridMath.getCellForPosition(gridSettings, position);
-    return `${unitName} moved by ${reason} to(${cell.x}, ${cell.y})`;
 };
 
 /**
@@ -1276,62 +1267,6 @@ export const multiHitSceneLogLines = (
         lines.push(flag ? `${flag} ${text}` : text);
     }
     return lines;
-};
-
-/**
- * One scene-log line per buff/debuff/effect the action landed (or a debuff a target resisted), from
- * the authoritative `effects_applied` event — the ONLY source that names every recipient of a mass
- * cast and every on-hit rider (Stun, Break, Poison, …) in ranked. `suppress` holds "unitId|name"
- * pairs already told by the entry's own cast line ("cast Riot on Pikeman"), so a single-target cast
- * is not narrated twice.
- */
-export const effectsAppliedSceneLogLines = (
-    event: GameEvent,
-    unitNames: ReadonlyMap<string, string>,
-    flagForUnit: (unitId: string) => string = () => "",
-    suppress: ReadonlySet<string> = new Set(),
-): string[] => {
-    if (event.type !== "effects_applied") {
-        return [];
-    }
-    const lines: string[] = [];
-    for (const entry of event.applications) {
-        if (!entry.resisted && suppress.has(`${entry.unitId}|${entry.name}`)) {
-            continue;
-        }
-        const name = unitNames.get(entry.unitId) ?? "Unit";
-        const flag = flagForUnit(entry.unitId);
-        let text: string;
-        if (entry.resisted) {
-            text = `${name} resisted ${entry.name}${entry.resistedBy ? ` (${entry.resistedBy})` : ""}`;
-        } else if (entry.kind === "buff" && entry.sourceUnitId) {
-            text = `${name} copied ${entry.name} from ${unitNames.get(entry.sourceUnitId) ?? "Unit"}`;
-        } else {
-            const verb = entry.kind === "buff" ? "gains" : entry.kind === "debuff" ? "suffers" : "got";
-            // A duration at or past the whole-fight cap reads as "permanent" — no lap suffix.
-            const lapSuffix =
-                entry.laps && entry.laps > 0 && entry.laps < HoCConstants.NUMBER_OF_LAPS_TOTAL
-                    ? ` for ${HoCLib.getLapString(entry.laps)}`
-                    : "";
-            text = `${name} ${verb} ${entry.name}${lapSuffix}`;
-        }
-        lines.push(flag ? `${flag} ${text}` : text);
-    }
-    return lines;
-};
-
-/**
- * The "unitId|name" pairs a journal entry's spell_cast events already narrate ("cast Riot on
- * Pikeman"), used to keep effectsAppliedSceneLogLines from repeating them.
- */
-export const spellCastNarratedPairs = (events: readonly GameEvent[]): Set<string> => {
-    const pairs = new Set<string>();
-    for (const event of events) {
-        if (event.type === "spell_cast" && event.targetId) {
-            pairs.add(`${event.targetId}|${event.spellName}`);
-        }
-    }
-    return pairs;
 };
 
 /** Wild Regeneration's authoritative delivery wording, matching the sandbox engine scene log. */
@@ -3469,46 +3404,18 @@ export class RankedPlayScene extends Sandbox {
     }
     private eventToSceneLogLine(event: GameEvent, unitNames: ReadonlyMap<string, string>): string | undefined {
         const nameOf = (unitId: string): string => unitNames.get(unitId) ?? "Unit";
-        const cellLabel = (cell?: HoCMath.XY): string => (cell ? `(${cell.x}, ${cell.y})` : "");
+        const boardLine = sceneLogBoardEventLine(event, unitNames, () => this.sc_sceneSettings.getGridSettings());
+        if (boardLine) return boardLine;
 
         switch (event.type) {
             case "fight_started":
                 return "Fight started!";
-            case "lap_initialized":
-                return `Lap ${event.lap} started`;
-            case "lap_flipped":
-                return `Lap ${event.currentLap} started`;
-            case "center_dried":
-                return "Center dried";
-            case "center_obstacle_cleared":
-                return "Center obstacle cleared";
-            case "narrowing_applied":
-                return "Map narrowed";
-            case "unit_moved_by_system":
-                return rankedSystemMoveSceneLogLine(
-                    nameOf(event.unitId),
-                    event.reason,
-                    event.position,
-                    this.sc_sceneSettings.getGridSettings(),
-                );
             case "pyre_exploded": {
                 const hits = event.hits.map((hit) => `${nameOf(hit.unitId)} (${hit.amount})`).join(", ");
                 return hits ? `${nameOf(event.unitId)} explodes: ${hits}` : `${nameOf(event.unitId)} explodes`;
             }
-            case "unit_destroyed":
-                return `${nameOf(event.unitId)} ${
-                    event.reason === "dead_cleanup"
-                        ? "died"
-                        : event.reason === "armageddon"
-                          ? "destroyed by Armageddon"
-                          : event.reason === "poison"
-                            ? "succumbed to poison"
-                            : "destroyed by narrowing"
-                }`;
             case "unit_resurrected":
                 return `${nameOf(event.unitId)} resurrected (${event.amount})`;
-            case "armageddon_applied":
-                return `${nameOf(event.unitId)} received (${event.damage}) from Armageddon`;
             case "morale_applied":
                 return `${nameOf(event.unitId)} is on ${event.kind === "plus" ? "Morale" : "Dismorale"} this lap!`;
             case "poison_ticked":
@@ -3521,10 +3428,6 @@ export class RankedPlayScene extends Sandbox {
                 return `${nameOf(event.unitId)} waits (hourglass)`;
             case "unit_defended":
                 return `${nameOf(event.unitId)} uses Luck Shield`;
-            case "attack_type_selected":
-                return `${nameOf(event.unitId)} selected ${this.attackTypeLabel(event.attackType)} attack`;
-            case "unit_moved":
-                return `${nameOf(event.unitId)} moved to${cellLabel(event.targetCells[0] ?? event.path.at(-1))}`;
             case "unit_placed":
                 return undefined;
             case "unit_split":
@@ -3631,10 +3534,6 @@ export class RankedPlayScene extends Sandbox {
             // reads identically whether or not the target's magic armor shrugged off the movement debuff.
             case "vine_placed":
                 return event.snareResisted ? `${nameOf(event.targetId)} resisted from Vine Throw snare` : undefined;
-            case "fight_finished":
-                return event.winningTeam === TeamVals.NO_TEAM
-                    ? "Fight finished! Draw!"
-                    : `Fight finished! ${event.winningTeam === TeamVals.LEFT ? "Green" : "Red"} team wins!`;
             case "turn_completed":
             case "next_unit_selected":
                 return undefined;
@@ -3653,18 +3552,6 @@ export class RankedPlayScene extends Sandbox {
             return "🏹💥";
         }
         return attackType === "range" ? "🏹" : "⚔️";
-    }
-    private attackTypeLabel(attackType: AttackType): string {
-        if (attackType === AttackVals.RANGE) {
-            return "range";
-        }
-        if (attackType === AttackVals.MAGIC || attackType === AttackVals.MELEE_MAGIC) {
-            return "magic";
-        }
-        if (attackType === AttackVals.MELEE) {
-            return "melee";
-        }
-        return "new";
     }
     protected override shouldRenderArmageddonInline(): boolean {
         return false;

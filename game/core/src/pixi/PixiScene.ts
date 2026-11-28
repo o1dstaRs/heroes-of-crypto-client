@@ -43,6 +43,7 @@ import {
     IVisibleOverallImpact,
     IVisibleState,
     VisibleButtonState,
+    type TargetingCursor,
 } from "../scenes/VisibleState";
 import { EDGES_SIZE, MAX_FPS } from "../statics";
 import { HotKey } from "../utils/hotkeys";
@@ -404,6 +405,9 @@ export abstract class PixiScene {
     public setAimIntentSink(_sink?: (aim: PlayAim | undefined) => void): void {}
     public setOpponentAim(_intent?: OpponentAim): void {}
     public clearLocalAimTarget(): void {}
+    public getTargetingCursor(): TargetingCursor | undefined {
+        return undefined;
+    }
     public getTouchConfirmationLabel(_point: HoCMath.XY): string | null {
         return null;
     }
@@ -1138,6 +1142,9 @@ export abstract class PixiScene {
     }
     public getUnitsOverlay(): UnitsOverlay | undefined {
         return undefined;
+    }
+    public containsBattlefieldPoint(_point: HoCMath.XY): boolean {
+        return false;
     }
     public HomeCamera(): void {
         const minX = -1024,

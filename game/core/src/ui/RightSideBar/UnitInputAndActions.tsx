@@ -5,7 +5,7 @@ import Input from "@mui/joy/Input";
 import Stack from "@mui/joy/Stack";
 import Tooltip from "@mui/joy/Tooltip";
 import Typography from "@mui/joy/Typography";
-import { TeamType } from "@heroesofcrypto/common";
+import { TeamVals, type TeamType } from "@heroesofcrypto/common";
 
 import { usePixiManager } from "../../pixi/PixiGameManager";
 import { shortcutLetter } from "../../utils/shortcutLetter";
@@ -58,9 +58,12 @@ const UnitInputAndActions = ({
 
     useEffect(() => {
         const refresh = () => {
-            // Slots only matter while placing the army - hide once the fight is underway. Fall back to
-            // the last team so deleting a unit (which clears the selection) still animates the freed slot.
-            const team = startedRef.current ? undefined : (selectedTeamType ?? lastTeamRef.current);
+            // A roster pick is still unassigned. Keep the last board team's slot count available after
+            // a deletion clears selection so the newly freed slot still animates.
+            const team =
+                startedRef.current || selectedTeamType === TeamVals.NO_TEAM
+                    ? undefined
+                    : (selectedTeamType ?? lastTeamRef.current);
             if (team === undefined) {
                 setSlots(null);
                 prevRemainingRef.current = null;

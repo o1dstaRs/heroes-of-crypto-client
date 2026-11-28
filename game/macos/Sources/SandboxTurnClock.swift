@@ -26,6 +26,10 @@ struct SandboxTurnClock {
         func remaining(at now: ContinuousClock.Instant) -> TimeInterval {
             max(0, min(limit, SandboxTurnClock.seconds(now.duration(to: deadline))))
         }
+
+        func hasReachedHalfway(at now: ContinuousClock.Instant) -> Bool {
+            limit > 0 && now >= start + .seconds(limit / 2)
+        }
     }
 
     struct Key: Equatable {

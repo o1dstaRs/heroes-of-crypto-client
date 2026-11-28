@@ -17,11 +17,7 @@ void main(){
 }`;
 
 // Both halves sample one continuous elliptical flow, including its lighting at the seams.
-const fragment = /* glsl */ `#version 300 es
-in vec2 vUV;
-in vec4 vColor;
-out vec4 finalColor;
-uniform float uTime;
+export const griffinTornadoMaterial = /* glsl */ `
 float hash(vec3 p){
     p=fract(p*.1031);
     p+=dot(p,p.yzx+33.33);
@@ -38,7 +34,7 @@ float noise(vec3 p){
 float fbm(vec3 p){
     return noise(p)*.56+noise(p*2.03+13.4)*.28+noise(p*4.11+31.7)*.16;
 }
-void main(){
+vec4 griffinWindColor(vec2 vUV, float uTime){
     float angle=vUV.x*6.2831853;
     float h=vUV.y;
     // Positive sampling phase advects the material in negative world rotation (clockwise).
@@ -65,8 +61,17 @@ void main(){
     float motes=smoothstep(.79,.9,noise(field*23.))*wisps*billow;
     dust+=vec3(.58,.43,.20)*motes;
     dust=max(dust,vec3(.06));
-    finalColor=vec4(dust*density,density)*vColor;
-}`;
+    return vec4(dust*density,density);
+}
+`;
+
+const fragment = /* glsl */ `#version 300 es
+in vec2 vUV;
+in vec4 vColor;
+out vec4 finalColor;
+uniform float uTime;
+${griffinTornadoMaterial}
+void main(){finalColor=griffinWindColor(vUV,uTime)*vColor;}`;
 
 export function createGriffinTornadoShader(): Shader {
     return new Shader({

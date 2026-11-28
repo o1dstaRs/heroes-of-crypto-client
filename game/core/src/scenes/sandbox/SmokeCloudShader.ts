@@ -16,19 +16,11 @@ void main(){
 }`;
 
 /** Local volume integration: extinction, directional self-shadow, pale edge scattering and soot. */
-export const SMOKE_CLOUD_FRAGMENT = /* glsl */ `#version 300 es
-precision highp float;
-in vec2 vUV;
-in vec4 vColor;
-out vec4 finalColor;
-uniform sampler3D uNoise;
-uniform float uTime;
-uniform float uSeed;
-uniform float uPresence;
-float noise3(vec3 p){return texture(uNoise,p/32.).r;}
+export const smokeCloudMaterial = /* glsl */ `
+float noise3(vec3 p){return SMOKE_NOISE(p/32.).r;}
 float field(vec3 p){
     float angle=uSeed*2.39996;
-    p.xy=mat2(cos(angle),-sin(angle),sin(angle),cos(angle))*p.xy;
+    p.xy=mat2(vec2(cos(angle),-sin(angle)),vec2(sin(angle),cos(angle)))*p.xy;
     vec3 q=p*3.4+vec3(uSeed,uSeed*.73,uSeed*.31)+vec3(-.18,-.25,.11)*uTime;
     // Independent low-frequency displacement axes roll the whole billow.
     // Avoid periodic sine ridges, which read as parallel ribbons at gameplay scale.
@@ -48,7 +40,7 @@ float density(vec3 p){
     return envelope*core*edgeErosion;
 }
 float hash(float x){return fract(sin(x*127.1+uSeed*311.7)*43758.5453);}
-void main(){
+vec4 smokeColor(vec2 vUV){
     vec2 xy=(vUV*2.-1.)*1.24;
     vec3 rgb=vec3(0.);float trans=1.;float depthMoment=0.;
     const float stepSize=2.2/20.;
@@ -112,7 +104,7 @@ void main(){
         if(max(abs(delta.x),abs(delta.y))>radius*1.65+pixelWidth*2.)continue;
         float spin=uTime*(.45+hash(id+25.)*.8)+id*2.4;
         float tumble=sin(uTime*(.8+hash(id+27.)*.65)+id);
-        delta=mat2(cos(spin),-sin(spin),sin(spin),cos(spin))*delta;
+        delta=mat2(vec2(cos(spin),-sin(spin)),vec2(sin(spin),cos(spin)))*delta;
         vec2 local=delta/(radius*vec2(.22+.78*abs(tumble),1.));
         float polar=atan(local.y,local.x);
         float contour=1.+.16*sin(polar*3.+id)+.09*sin(polar*7.-id);
@@ -140,8 +132,23 @@ void main(){
         float a=coverage*chip*lifetime*uPresence*mix(.48,.96,depth)*attenuation;
         ashRGB=ashRGB*(1.-a)+color*a;ashA=ashA+(1.-ashA)*a;
     }
-    finalColor=vec4(rgb*(1.-ashA)+ashRGB,smokeA*(1.-ashA)+ashA)*vColor;
+    return vec4(rgb*(1.-ashA)+ashRGB,smokeA*(1.-ashA)+ashA);
+}`;
 
+export const SMOKE_CLOUD_FRAGMENT = /* glsl */ `#version 300 es
+precision highp float;
+precision highp sampler3D;
+in vec2 vUV;
+in vec4 vColor;
+out vec4 finalColor;
+uniform sampler3D uNoise;
+uniform float uTime;
+uniform float uSeed;
+uniform float uPresence;
+#define SMOKE_NOISE(p) texture(uNoise,p)
+${smokeCloudMaterial}
+void main(){
+    finalColor=smokeColor(vUV)*vColor;
 }`;
 
 export function createSmokeCloudShader(noise: BufferImageSource): Shader {

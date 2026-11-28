@@ -10,7 +10,7 @@ import {
 } from "@heroesofcrypto/common";
 import { BufferImageSource, Container, Texture } from "pixi.js";
 import creatures from "../../heroes-of-crypto-common/src/configuration/creatures.json";
-import { RenderableUnit } from "../src/scenes/RenderableUnit";
+import { RenderableUnit, type BattlefieldUnitPreview } from "../src/scenes/RenderableUnit";
 
 type AtlasPlayback = NonNullable<ReturnType<RenderableUnit["getAnimationAtlasPlayback"]>>;
 
@@ -22,19 +22,19 @@ export interface BoardAtlasFrame {
     trim?: { x: number; y: number; width: number; height: number };
 }
 
+type BoardCanvasScale = { xCells: number; yCells: number; square: boolean };
+
 interface BoardAtlasClip {
     frames: BoardAtlasFrame[];
     holdsMs: readonly number[];
     footAnchorY: number;
     walk?: AtlasPlayback["walk"];
-    idleFraming?: {
-        xCells: number;
-        yCells: number;
-        square: boolean;
+    idleFraming?: BoardCanvasScale & {
         anchorX: number;
         foot: number;
         frameHeight: number;
     };
+    actionScale?: BoardCanvasScale;
 }
 
 const grid = new GridSettings(
@@ -123,6 +123,11 @@ export function boardAnimationReferences(
             const unit = RenderableUnit.fromBase(base, texture);
             const root = new Container();
             const clips: Record<string, BoardAtlasClip> = {};
+            const canvasScale = (pose: BattlefieldUnitPreview): BoardCanvasScale => ({
+                xCells: (Math.abs(pose.scaleX) * pose.texture.height) / grid.getCellSize(),
+                yCells: (Math.abs(pose.scaleY) * pose.texture.height) / grid.getCellSize(),
+                square: unit.getFootprintWidth() === 2 && unit.getFootprintHeight() === 2,
+            });
             try {
                 unit.setPosition(0, 1024);
                 unit.ensureVisual(root, grid, 0);
@@ -137,9 +142,7 @@ export function boardAnimationReferences(
                     clips.idle = {
                         ...clip,
                         idleFraming: {
-                            xCells: (Math.abs(resting.scaleX) * resting.texture.height) / grid.getCellSize(),
-                            yCells: (Math.abs(resting.scaleY) * resting.texture.height) / grid.getCellSize(),
-                            square: unit.getFootprintWidth() === 2 && unit.getFootprintHeight() === 2,
+                            ...canvasScale(resting),
                             anchorX: resting.anchorX,
                             foot: resting.anchorY,
                             frameHeight: resting.texture.height,
@@ -156,7 +159,16 @@ export function boardAnimationReferences(
                     if (action === "idle" || action === "walk") continue;
                     if (unit.playOneShotAnimation(action, undefined, true)) {
                         const playback = unit.getAnimationAtlasPlayback("action");
-                        if (playback) clips[action] = capture(playback);
+                        if (playback) {
+                            const clip = capture(playback);
+                            if (action.includes("attack") || action === "cast") {
+                                // Keep the browser's padded canvas at its authored size around the standing figure.
+                                unit.ensureVisual(root, grid, 0);
+                                const pose = unit.getBattlefieldPreviewAt(unit.getPosition(), grid);
+                                if (pose?.texture === playback.frames[0]) clip.actionScale = canvasScale(pose);
+                            }
+                            clips[action] = clip;
+                        }
                     }
                     unit.returnToIdleAnimation();
                 }

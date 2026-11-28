@@ -16,7 +16,7 @@ import { describe, expect, test } from "bun:test";
 import { GridConstants, GridSettings, type HoCMath } from "@heroesofcrypto/common";
 import { Container, type Graphics } from "pixi.js";
 
-import { placementZonePolygon } from "../pixi/PixiDrawablePlacement";
+import { tunedCellFillPolygon } from "./movementAreaVisual";
 import { Sandbox } from "./Sandbox";
 import { SandboxDrawer, type IPlacementDrawContext } from "./SandboxDrawer";
 
@@ -97,12 +97,13 @@ describe("free-space wash under placed units", () => {
         return { calls, polygons, footprint, keptFrame };
     };
 
-    test("pre-fight, one rounded wash per footprint is drawn over the zones and under the hover preview", () => {
+    test("pre-fight, each occupied cell is washed over the zones and under the hover preview", () => {
         const { calls, polygons, footprint, keptFrame } = drawPlacements(false);
         // The cell the player is about to click must read on top of the informational wash.
-        expect(calls).toEqual(["clear", "zones", "wash", "wash", "hover"]);
-        // A 2x1 body is one shape, not two tiles.
-        expect(polygons[0]).toEqual(placementZonePolygon(footprint, gridSettings));
+        expect(calls).toEqual(["clear", "zones", "wash", "wash", "wash", "hover"]);
+        expect(polygons.slice(0, footprint.length)).toEqual(
+            footprint.map((cell) => tunedCellFillPolygon(cell, gridSettings, 0.055)),
+        );
         // The shown zone must not detach its cached frame.
         expect(keptFrame).toBe(true);
     });

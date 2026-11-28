@@ -1,6 +1,9 @@
+import AppKit
+import Carbon.HIToolbox
 import CoreGraphics
 import Foundation
 import ImageIO
+import Metal
 
 @main
 struct SkirmishSmoke {
@@ -31,6 +34,13 @@ struct SkirmishSmoke {
         }
 
         let artwork = try BattlefieldArtwork.load(url.deletingLastPathComponent().appendingPathComponent("battlefield.json"))
+        try checkBarrelFrames(artwork)
+        try checkWindAuras(artwork)
+        try checkGriffinAura(artwork)
+        try checkWyvernAura(artwork)
+        try checkArachnaAura(artwork)
+        try checkAbominationAura(artwork)
+        try checkSmokeVolume(artwork)
         for (width, height, scale) in [(932.0, 900.0, 900.0), (465.0, 700.0, 700.0)] {
             let projection = BattlefieldProjection(data: artwork, width: width, height: height, legacySize: scale)
             for x in 0..<opening.size {
@@ -50,17 +60,30 @@ struct SkirmishSmoke {
         }
         try checkTerrain(url.deletingLastPathComponent())
         try checkSandbox(setup, stacks: fixtureStacks, resources: resources)
+        try checkAuraFields(setup, resources: resources)
         try checkLoadouts(setup, stacks: fixtureStacks, resources: resources)
+        try checkRosterPlacementHint(setup, resources: resources)
+        try checkPointerHints(data, opening: opening)
+        try checkBattleLog(setup, resources: resources)
+        try checkShotRange(setup, resources: resources)
         try checkInspectionDescriptions(opening.stacks)
         try checkCounterattacks(setup, resources: resources)
         try checkGargantuanSplash(setup, resources: resources)
+        try checkHydraForecast(setup, resources: resources)
+        try checkPetrifyingGaze(setup, resources: resources)
         try checkTurnClock()
+        try checkSandboxShortcuts()
+        try checkChakram(setup, resources: resources)
         if Bundle.main.url(forResource: "animations", withExtension: "json") != nil {
             try checkBattleMageIdle(resources)
             try checkAnimationFrames(opening.stacks)
             try checkIdleRoster(setup.creatures)
             try checkBoardFraming(opening.stacks, artwork: artwork)
             try checkProjectileAssets(url.deletingLastPathComponent())
+            try checkBowReleases(setup, resources: resources, artwork: artwork)
+            try require(BattlefieldAtlas.frame("vfx_pegasus_feather_atlas_v7.webp", columns: 2, rows: 2, index: 3) != nil &&
+                        BattlefieldAtlas.frame("vfx_griffin_tornado_silver_v2.webp", columns: 3, rows: 1, index: 2) != nil,
+                        "missing the Pegasus feather or Griffin debris atlas")
             try await checkColdDirectionalAttack()
             if Bundle.main.url(forResource: "fire_pit_dark_bowl_v1_512", withExtension: "webp") != nil {
                 try checkFireFrames()
@@ -76,8 +99,11 @@ struct SkirmishSmoke {
         try require(battle.select(squire.id), "could not select the Squire")
         let destination = Cell(x: 3, y: 7)
         try require(battle.choose(destination), "engine refused a legal deployment")
-        try require(try battle.view().stacks.first { $0.id == squire.id }?.cells == [destination], "deployment did not move the stack")
-        try require(try battle.view().moments.last?.kind == .place, "placement did not produce a presentation event")
+        let deployed = try battle.view()
+        try require(deployed.stacks.first { $0.id == squire.id }?.cells == [destination], "deployment did not move the stack")
+        try require(deployed.deploying == nil && deployed.movementLandings.coveredCells.isEmpty,
+                    "a dropped stack still showed a placement preview")
+        try require(deployed.moments.last?.kind == .place, "placement did not produce a presentation event")
         try require(battle.ready(), "could not start combat after deployment")
         try require(!battle.ready() && !battle.select(squire.id), "deployment command accepted during combat")
 
@@ -92,9 +118,14 @@ struct SkirmishSmoke {
         try require(view.playerTurn && battle.perform(.endTurn), "End turn was rejected")
         try require(try battle.view().active != view.active, "End turn left the same stack active")
         try checkSpell(data)
+        try checkBattleRoar(setup, resources: resources)
+        try checkFireWall(setup, resources: resources)
+        try checkDamageSpells(setup, resources: resources)
+        try checkStatusEffects(setup, resources: resources)
         try checkWaterShield(setup, resources: resources)
         try checkRangedMovement(data)
         try checkAttackAngles(data, artwork: artwork, resources: url.deletingLastPathComponent())
+        try checkProjectileTargeting(setup, resources: resources)
         try checkOrcProjectile(url.deletingLastPathComponent())
         try checkPikemanSkewer(url.deletingLastPathComponent())
 
@@ -187,6 +218,21 @@ struct SkirmishSmoke {
         print("Native sandbox passed the roster, deployment, hotseat controls, terrain, spellbook and actual movement, melee and ranged combat.")
     }
 
+    private static func checkBarrelFrames(_ artwork: BattlefieldArtwork) throws {
+        let viewportHeight: CGFloat = 900
+        let floorHeight = viewportHeight * artwork.heightRatio
+        let square = BattlefieldProjection(data: artwork, width: floorHeight, height: viewportHeight, legacySize: viewportHeight)
+        let wide = BattlefieldProjection(data: artwork, width: floorHeight * 1.6, height: viewportHeight, legacySize: viewportHeight)
+        for cell in [Cell(x: 0, y: 0), Cell(x: 7, y: 8), Cell(x: 15, y: 15)] {
+            let reference = square.barrelFrame(for: cell)
+            let resized = wide.barrelFrame(for: cell)
+            try require(abs(resized.height - reference.height) < 0.001 &&
+                        abs(resized.width - reference.width * 1.6) < 0.001 &&
+                        abs(resized.maxY - reference.maxY) < 0.001,
+                        "widening the board changed the barrel’s projected height or ground contact at \(cell.label)")
+        }
+    }
+
     private static func checkFightSummary(_ frames: [BattleView]) throws {
         let first = try frames.first.unwrap("missing the start of the fight")
         let last = try frames.last.unwrap("missing the end of the fight")
@@ -247,6 +293,83 @@ struct SkirmishSmoke {
         try require(projection.stackForInspection(at: empty, among: stacks) == nil, "right-clicking open floor inspected a unit")
     }
 
+    private static func checkPointerHints(_ snapshot: Data, opening: BattleView) throws {
+        var document = try (JSONSerialization.jsonObject(with: snapshot) as? [String: Any]).unwrap("invalid battle fixture")
+        var units = try (document["units"] as? [[String: Any]]).unwrap("missing combat hint units")
+        let teams = try units.map { try ($0["team"] as? Int).unwrap("missing fixture team") }
+        let effects = ["Aggr", "Terrifying Gaze", "Paralysis"]
+        for index in units.indices {
+            let enemies = units.indices.filter { teams[$0] != teams[index] }
+            var fields = try (units[index]["fields"] as? [String: Any]).unwrap("missing fixture unit fields")
+            var properties = try (fields["unitProperties"] as? [String: Any]).unwrap("missing fixture unit properties")
+            properties["target"] = units[enemies[0]]["id"]
+            properties["forbidden_target"] = units[enemies[1]]["id"]
+            properties["applied_effects"] = effects
+            properties["applied_effects_laps"] = effects.map { _ in 3 }
+            properties["applied_effects_powers"] = effects.map { _ in 20 }
+            fields["unitProperties"] = properties
+            fields["effects"] = effects.map { name in
+                ["effectProperties": ["name": name, "laps": 3, "power": 20, "stacks": 1]]
+            }
+            units[index]["fields"] = fields
+        }
+        document["units"] = units
+        let battle = try NativeBattle(snapshot: JSONSerialization.data(withJSONObject: document))
+        try require(battle.configureSandbox(anchors: opening.stacks.compactMap(\.anchor), automated: []) && battle.ready(),
+                    "could not start the combat hint fixture")
+        let view = try battle.view()
+        let actor = try view.activeStack.unwrap("missing the affected unit")
+        let enemies = view.stacks.filter { $0.team != actor.team }
+        try require(view.aggrTarget == enemies[0].id && view.terrifyingGazeTarget == enemies[1].id,
+                    "the bridge lost the exact provoker or gazer")
+        let destination = Cell(x: 8, y: 7)
+        try require(view.actionHint(at: destination, target: enemies[2], canAttackHere: false) ==
+                    "Aggr — must attack \(enemies[0].name)", "Aggr did not name the required target")
+        try require(view.actionHint(at: destination, target: enemies[1], canAttackHere: false) ==
+                    "Terrifying Gaze — can't attack \(enemies[1].name)", "Terrifying Gaze did not name its forbidden target")
+        try require(view.actionHint(at: destination, target: nil, canAttackHere: false) == "Paralyzed — can't move" &&
+                    view.actionHint(at: destination, target: enemies[0], canAttackHere: true) == nil,
+                    "Paralysis did not explain movement or obscured an allowed attack")
+        let hint = pointerHintPosition(anchor: CGPoint(x: 512, y: 395), size: CGSize(width: 210, height: 40),
+                                       viewport: CGSize(width: 520, height: 400))
+        try require(hint == CGPoint(x: 395, y: 363), "the hint clipped at the bottom or right edge")
+    }
+
+    @MainActor
+    private static func checkRosterPlacementHint(_ setup: SandboxSetup, resources: URL) throws {
+        let configurator = try SandboxLoadoutEngine(resources: resources)
+        let squire = try setup.creatures.first { $0.name == "Squire" }.unwrap("missing Squire")
+        let angel = try setup.creatures.first { $0.name == "Angel" }.unwrap("missing Angel")
+        func options(_ creature: SandboxCreature, stacks: [SandboxStack]) throws -> SandboxRosterPlacement {
+            let (engine, deployment) = try configurator.prepare(map: .normal, stacks: stacks, catalogue: setup.creatures,
+                                                                loadouts: [:], automated: [])
+            return setup.rosterPlacements(for: creature.footprint, on: try engine.view(), deployment: deployment)
+        }
+
+        let full = try options(squire, stacks: setup.sampleArmies)
+        try require(full.anchors.isEmpty && full.hint(for: squire) == "Stack limit reached. Remove a stack to place Squire.",
+                    "a full Sandbox failed to explain the stack limit")
+        let greenOnly = try options(squire, stacks: setup.sampleArmies.filter { $0.team == .opponent })
+        try require(Set(greenOnly.anchors.values) == [.player] && greenOnly.hint(for: squire) == "Only Green has room for Squire.",
+                    "the placement hint did not name the remaining team")
+        let empty = try options(angel, stacks: [])
+        try require(Set(empty.anchors.values) == [.player, .opponent] && empty.hint(for: angel) == nil,
+                    "a freely placeable creature showed a placement warning")
+
+        let board = try configurator.prepare(map: .normal, stacks: [], catalogue: setup.creatures,
+                                             loadouts: [:], automated: []).0.view()
+        let fragmented: [Team: SandboxTeamPreview] = [
+            .player: .init(team: .player, cells: [Cell(x: 1, y: 7), Cell(x: 2, y: 8)],
+                           levels: [:], capacity: 6, barrels: []),
+            .opponent: .init(team: .opponent, cells: [Cell(x: 13, y: 7), Cell(x: 14, y: 8)],
+                             levels: [:], capacity: 6, barrels: []),
+        ]
+        let blocked = setup.rosterPlacements(for: angel.footprint, on: board, deployment: fragmented)
+        try require(blocked.anchors.isEmpty &&
+                    blocked.hint(for: angel) == "No room for Angel. Clear a 2×2 space in a deployment zone.",
+                    "free but disconnected tiles were counted as space for a whole creature")
+    }
+
     @MainActor
     private static func checkLoadouts(_ setup: SandboxSetup, stacks: [SandboxStack], resources: URL) throws {
         let configurator = try SandboxLoadoutEngine(resources: resources)
@@ -305,6 +428,59 @@ struct SkirmishSmoke {
                     "rerolling the Barrels map should preserve both armies")
     }
 
+    @MainActor
+    private static func checkShotRange(_ setup: SandboxSetup, resources: URL) throws {
+        let positions: [(String, Team, Int32, Int32)] = [
+            ("Centaur", .player, 3, 6),
+            ("Elf", .opponent, 12, 10),
+            ("Arbalester", .opponent, 14, 13),
+            ("Squire", .player, 2, 9),
+        ]
+        let stacks = try positions.map { name, team, x, y in
+            let creature = try setup.creatures.first { $0.name == name }.unwrap("missing \(name) for the range fixture")
+            return SandboxStack(creature: creature.id, team: team, amount: 20, x: x, y: y)
+        }
+        let configurator = try SandboxLoadoutEngine(resources: resources)
+        let (engine, _) = try configurator.prepare(map: .normal, stacks: stacks, catalogue: setup.creatures,
+                                                   loadouts: [:], automated: [])
+        let opening = try engine.view()
+        let centaur = try opening.stacks.first { $0.name == "Centaur" }.unwrap("missing placed Centaur")
+        let elf = try opening.stacks.first { $0.name == "Elf" }.unwrap("missing placed Elf")
+        let arbalester = try opening.stacks.first { $0.name == "Arbalester" }.unwrap("missing placed Arbalester")
+        let squire = try opening.stacks.first { $0.name == "Squire" }.unwrap("missing placed Squire")
+        let frames = BattleShotRange.visible(in: opening, selectedID: centaur.id, hoveredID: elf.id)
+        try require(frames.map(\.tone) == [.neutral, .enemy] &&
+                    frames.map(\.bounds) == [CGRect(x: 0, y: 2, width: 8, height: 9), CGRect(x: 5, y: 3, width: 11, height: 13)],
+                    "shot ranges must follow each footprint and floor the Elf’s fractional distance at the cell boundary")
+        try require(BattleShotRange.visible(in: opening, selectedID: nil, hoveredID: squire.id).isEmpty,
+                    "a melee stack advertised a shooting range")
+        let narrowed = BattleShotRange(stack: centaur, size: opening.size, narrowing: 3, tone: .friendly)
+        try require(narrowed?.bounds == CGRect(x: 3, y: 3, width: 5, height: 8),
+                    "the shot range drew across cells lost to narrowing")
+        try require(BattleShotRange(stack: arbalester, size: opening.size, narrowing: 0, tone: .enemy)?.bounds ==
+                    CGRect(x: 0, y: 0, width: 16, height: 16), "Sniper did not cover the whole board")
+
+        let quiver = try configurator.options.artifacts.first { $0.name == "Farsight Quiver" }.unwrap("missing Farsight Quiver")
+        let (equipped, _) = try configurator.prepare(map: .normal, stacks: stacks, catalogue: setup.creatures,
+                                                    loadouts: [.player: SandboxLoadout(tier2: quiver.id)], automated: [])
+        let withQuiver = try equipped.view()
+        let framesWithQuiver = BattleShotRange.visible(in: withQuiver, selectedID: centaur.id, hoveredID: arbalester.id)
+        try require(framesWithQuiver.count == 1 && framesWithQuiver.first?.tone == .enemy &&
+                    framesWithQuiver.first?.bounds == CGRect(x: 0, y: 0, width: 16, height: 16),
+                    "the hovered Sniper’s range must take precedence over the selected Farsight Quiver’s identical range")
+
+        try require(engine.ready(), "could not start the range fixture")
+        var turn = try engine.view()
+        for _ in stacks where turn.activeStack?.fullDamageShotCells == nil {
+            try require(engine.perform(.endTurn), "could not reach a ranged turn")
+            turn = try engine.view()
+        }
+        let activeFrames = BattleShotRange.visible(in: turn, selectedID: nil, hoveredID: nil)
+        try require(activeFrames.map(\.tone) == [.friendly] &&
+                    activeFrames == BattleShotRange.visible(in: turn, selectedID: turn.active, hoveredID: turn.active),
+                    "the active shooter needs a single friendly frame with or without the pointer over it")
+    }
+
     private static func checkInspectionDescriptions(_ stacks: [Stack]) throws {
         for stack in stacks {
             for ability in stack.abilities {
@@ -328,6 +504,75 @@ struct SkirmishSmoke {
                                                                    power: 0, first: 27, second: 70))
         try require(sniper.description.contains("by 27%") && sniper.description.contains("by 70%"),
                     "the Sniper Augment did not display both live bonuses")
+    }
+
+    private static func checkSandboxShortcuts() throws {
+        func shortcut(_ text: String, code: Int, modifiers: NSEvent.ModifierFlags = [], repeats: Bool = false) throws -> SandboxShortcut? {
+            let event = try NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
+                                           windowNumber: 0, context: nil, characters: text, charactersIgnoringModifiers: text,
+                                           isARepeat: repeats, keyCode: UInt16(code)).unwrap("could not create a shortcut event")
+            return SandboxShortcut(event)
+        }
+        let keys: [(String, String, Int, SandboxShortcut)] = [
+            ("d", "в", kVK_ANSI_D, .d), ("s", "ы", kVK_ANSI_S, .s), ("c", "с", kVK_ANSI_C, .c),
+        ]
+        for (latin, russian, code, expected) in keys {
+            try require(try shortcut(latin, code: code) == expected && shortcut(russian, code: code) == expected &&
+                        shortcut(russian.uppercased(), code: code, modifiers: .shift) == expected,
+                        "\(latin) and \(russian) must share a physical shortcut")
+            try require(try shortcut(latin, code: code, repeats: true) == nil, "autorepeat executed a stack shortcut")
+            for modifier in [NSEvent.ModifierFlags.command, .control, .option] {
+                try require(try shortcut(latin, code: code, modifiers: modifier) == nil, "an app shortcut intercepted a system key combination")
+            }
+        }
+        try require(try shortcut("с", code: kVK_ANSI_A) == nil, "routed a shortcut by its typed character")
+    }
+
+    @MainActor
+    private static func checkChakram(_ setup: SandboxSetup, resources: URL) throws {
+        let zena = try setup.creatures.first { $0.name == "Zena" }.unwrap("missing the chakram thrower")
+        let squire = try setup.creatures.first { $0.name == "Squire" }.unwrap("missing the chakram target")
+        let thrower = SandboxStack(creature: zena.id, team: .player, amount: 50, x: 3, y: 8)
+        let targets = [8, 6, 4].map { SandboxStack(creature: squire.id, team: .opponent, amount: 50, x: 12, y: Int32($0)) }
+        let engine = try setup.makeBattle(map: .normal, stacks: [thrower] + targets, automated: [], resources: resources)
+        try require(engine.ready(), "could not start the Chakram fixture")
+        var turn = try engine.view()
+        for _ in targets where turn.activeStack?.name != zena.name {
+            try require(engine.perform(.endTurn), "could not reach Zena’s turn")
+            turn = try engine.view()
+        }
+        let shooter = try turn.activeStack.unwrap("missing Zena’s active stack")
+        let victims = turn.stacks.filter { $0.team == .opponent }.sorted { ($0.anchor?.y ?? 0) > ($1.anchor?.y ?? 0) }
+        let aim = try victims[0].anchor.unwrap("missing the primary target’s anchor")
+        let forecast = turn.attackOptions.first { $0.target == victims[0].id }?.angles.first?.range?.hits ?? []
+        try require(forecast.map(\.target) == victims.map(\.id) && forecast.allSatisfy { $0.min > 0 && $0.max >= $0.min },
+                    "the Chakram preview did not follow the engine's bounce order")
+        try require(shooter.name == zena.name && engine.choose(aim), "could not throw the Chakram")
+        let struck = try engine.view()
+        let shot = try struck.moments.first { $0.kind == .shot }.unwrap("missing Zena’s shot")
+        let flight = try (shot.chakramFlights ?? []).first.unwrap("the bridge dropped Zena’s flight")
+        try require(flight.actor == shooter.id && flight.contacts.map(\.target) == victims.map(\.id),
+                    "the Chakram lost the engine's clockwise order")
+        try require(flight.contacts[0].route.isEmpty && flight.contacts[1].route == [aim, Cell(x: 12, y: 7), Cell(x: 12, y: 6)],
+                    "the ricochet abandoned the open cell between the two targets")
+        try require(flight.contacts.allSatisfy { $0.kind == .hit && $0.delta < 0 }, "the trace lost the actual impact damage")
+        let playback = BattlePlayback(moments: struck.moments, previous: turn, next: struck)
+        let action = try playback.actions.first { $0.moment.actor == shooter.id }.unwrap("missing the throw animation")
+        let disc = try action.chakram.unwrap("the throw reverted to a straight shot")
+        try require(disc.legs.first?.from.hand == true && disc.legs.last?.to.hand == true && disc.impacts.count == victims.count,
+                    "the disc must leave and return to Zena’s hand on a single flight")
+        for (index, hit) in disc.impacts.enumerated() {
+            try require(hit.time < disc.catchTime && (index == 0 || hit.time > disc.impacts[index - 1].time),
+                        "two Chakram contacts played out of order")
+            let numbers = playback.combatCues.filter { cue in
+                guard case let .health(delta, _) = cue.kind else { return false }
+                return cue.stack.id == hit.contact.target && delta == hit.contact.delta
+            }
+            try require(numbers.count == 1 && abs(numbers[0].started.timeIntervalSince(playback.started) - hit.time) < 0.000_01,
+                        "the damage number didn’t follow the disc's contact")
+        }
+        try require(action.actionEnd > disc.catchTime && playback.duration >= action.actionEnd,
+                    "the turn ended before the catch animation")
     }
 
     @MainActor
@@ -370,6 +615,9 @@ struct SkirmishSmoke {
         try require(throwMoment.actor == attacker.id && throwMoment.aim == aim && throwMoment.splash == area.splash,
                     "the impact disagreed with the area preview")
         let nearbyIDs = Set(before.stacks.filter { $0.team == .opponent && $0.cells.contains(where: cells.contains) }.map(\.id))
+        try require(Set((area.hits ?? []).map(\.target)) == nearbyIDs &&
+                    aimed?.contains(where: { Set(($0.range?.hits ?? []).map(\.target)) == nearbyIDs }) == true,
+                    "the targeted and free-aim area forecasts lost a victim")
         let hurtIDs = Set(throwMoment.healthChanges?.filter { $0.delta < 0 }.map(\.target) ?? [])
         try require(nearbyIDs == hurtIDs, "the 3 × 3 blast missed a nearby stack or hit an outside stack")
         let playback = BattlePlayback(moments: after.moments, previous: before, next: after)
@@ -386,14 +634,92 @@ struct SkirmishSmoke {
     }
 
     @MainActor
+    private static func checkHydraForecast(_ setup: SandboxSetup, resources: URL) throws {
+        let hydra = try setup.creatures.first { $0.name == "Hydra" }.unwrap("missing Hydra")
+        let squire = try setup.creatures.first { $0.name == "Squire" }.unwrap("missing Squire")
+        let configurator = try SandboxLoadoutEngine(resources: resources)
+        let placement = SandboxAugment.placement.rawValue
+        let loadout = SandboxLoadout(augments: [placement: configurator.options.augmentLevels[placement, default: 0]])
+        let targets = [8, 9].map { SandboxStack(creature: squire.id, team: .opponent, amount: 100, x: 11, y: Int32($0)) }
+        let spinner = SandboxStack(creature: hydra.id, team: .player, amount: 9, x: 5, y: 8)
+        let (engine, _) = try configurator.prepare(map: .normal, stacks: [spinner] + targets, catalogue: setup.creatures,
+                                                  loadouts: [.player: loadout, .opponent: loadout], automated: [])
+        try require(engine.ready(), "could not start the Hydra fight")
+        var view = try engine.view()
+        for _ in 0..<12 {
+            if view.activeStack?.name == hydra.name {
+                let victims = view.stacks.filter { $0.team == .opponent }
+                if let aim = view.attackOptions.lazy.compactMap({ option in
+                    option.angles.first { $0.hits?.count == victims.count }.map { (option.target, $0) }
+                }).first {
+                    let hits = aim.1.hits ?? []
+                    try require(Set(hits.map(\.target)) == Set(victims.map(\.id)) &&
+                                hits.allSatisfy { $0.min > 0 && $0.max >= $0.min },
+                                "Lightning Spin failed to forecast both adjacent victims")
+                    try require(engine.attack(aim.0, from: aim.1), "the engine refused the previewed Lightning Spin")
+                    let result = try engine.view()
+                    let struck = result.moments.first { $0.kind == .melee }?.hurt ?? []
+                    try require(victims.allSatisfy { struck.contains($0.id) }, "Lightning Spin hit a different ring")
+                    return
+                }
+                let cells = victims.flatMap(\.cells)
+                let closer = try view.moves.min { distance(from: [$0], to: cells) < distance(from: [$1], to: cells) }
+                    .unwrap("Hydra could not approach")
+                try require(engine.choose(closer), "Hydra's approach was refused")
+            } else {
+                try require(engine.perform(.endTurn), "could not reach Hydra's activation")
+            }
+            view = try engine.view()
+        }
+        throw EngineError(message: "no reachable Lightning Spin hit both stacks")
+    }
+
+    @MainActor
+    private static func checkPetrifyingGaze(_ setup: SandboxSetup, resources: URL) throws {
+        let medusa = try setup.creatures.first { $0.name == "Medusa" }.unwrap("missing Medusa")
+        let peasant = try setup.creatures.first { $0.name == "Peasant" }.unwrap("missing Peasant")
+        let attacker = SandboxStack(creature: medusa.id, team: .player, amount: 65, x: 3, y: 8)
+        let target = SandboxStack(creature: peasant.id, team: .opponent, amount: 250, x: 12, y: 8)
+        let engine = try setup.makeBattle(map: .normal, stacks: [attacker, target], automated: [], resources: resources)
+        try require(engine.ready(), "could not start Petrifying Gaze fixture")
+        var before = try engine.view()
+        if before.activeStack?.name != medusa.name {
+            try require(engine.perform(.endTurn), "could not reach Medusa")
+            before = try engine.view()
+        }
+        let source = try before.activeStack.unwrap("missing the active Medusa")
+        let victim = try before.stacks.first(where: { $0.team == .opponent }).unwrap("missing the gaze target")
+        try require(source.name == medusa.name && engine.choose(target.anchor), "Medusa could not attack the fixture")
+        let after = try engine.view()
+        let shot = try after.moments.first(where: { $0.kind == .shot }).unwrap("missing the original shot")
+        let gaze = try (shot.gazeImpacts ?? []).first.unwrap("the engine omitted a landed gaze")
+        try require(gaze.actor == source.id && gaze.target == victim.id && gaze.damage > 0 && gaze.casualties > 0,
+                    "the gaze trace lost its source, victim, or casualties")
+        let playback = BattlePlayback(moments: after.moments, previous: before, next: after)
+        let stare = try playback.combatCues.first { $0.statusName == "Petrifying Gaze" }.unwrap("missing the stone effect")
+        let ordinaryHit = try playback.actions.first { $0.moment.actor == source.id }.unwrap("missing the shot timing")
+        let popup = try playback.combatCues.first { $0.damageTone == .petrifyingGaze }.unwrap("missing the separate gaze number")
+        try require(stare.started.timeIntervalSince(playback.started) > ordinaryHit.impact &&
+                    abs(popup.started.timeIntervalSince(stare.started) - BattleStatusEffects.overheadDuration / 2) < 0.00001,
+                    "Petrifying Gaze landed before the shot's reaction or missed the effect midpoint")
+        let numbers = playback.combatCues.compactMap { cue -> Double? in
+            guard cue.stack.id == victim.id, case let .health(delta, _) = cue.kind else { return nil }
+            return delta
+        }
+        let total = try (shot.healthChanges?.first { $0.target == victim.id }?.delta).unwrap("missing the recorded exchange")
+        try require(numbers.count == 2 && abs(numbers.reduce(0, +) - total) < 0.00001 &&
+                    playback.reactions[victim.id]?.count == 2, "the gaze repeated or replaced the shot's damage and reaction")
+    }
+
+    @MainActor
     private static func checkCounterattacks(_ setup: SandboxSetup, resources: URL) throws {
         let configurator = try SandboxLoadoutEngine(resources: resources)
         let placement = SandboxAugment.placement.rawValue
         let loadout = SandboxLoadout(augments: [placement: configurator.options.augmentLevels[placement, default: 0]])
-        for (creature, ranged) in [("Squire", false), ("Arbalester", true)] {
+        for (creature, ranged) in [("Squire", false), ("Griffin", false), ("Arbalester", true)] {
             let species = try setup.creatures.first { $0.name == creature }.unwrap("missing \(creature)")
             let stacks = [SandboxStack(creature: species.id, team: .player, amount: 70, x: 5, y: 8),
-                          SandboxStack(creature: species.id, team: .opponent, amount: 70, x: 10, y: 8)]
+                          SandboxStack(creature: species.id, team: .opponent, amount: 70, x: creature == "Griffin" ? 11 : 10, y: 8)]
             let (duel, _) = try configurator.prepare(map: .normal, stacks: stacks, catalogue: setup.creatures,
                                                      loadouts: [.player: loadout, .opponent: loadout], automated: [])
             try require(duel.ready(), "could not start the \(creature) exchange")
@@ -428,6 +754,39 @@ struct SkirmishSmoke {
             if ranged {
                 try require(attack.projectile != nil && reply.projectile != nil &&
                             reply.release.map { $0 < reply.impact } == true, "the response lost its projectile")
+                for strike in [attack, reply] {
+                    let origin = try strike.attackPosition.unwrap("missing the shot's origin")
+                    let destination = try strike.target.unwrap("missing the shot's destination")
+                    let release = try strike.release.unwrap("missing the shot's release")
+                    let flight = hypot(destination.x - origin.x, destination.y - origin.y) / 19.2
+                    try require(abs(strike.impact - release - flight) < 0.001, "Arbalester used the generic bolt speed")
+                }
+            } else {
+                try require(attack.impact == attack.moveEnd && reply.impact == attack.moveEnd,
+                            "\(creature) melee results arrived after the web's opening exchange")
+            }
+            for (strike, victim) in [(attack, target), (reply, attacker)] {
+                let contact = playback.started.addingTimeInterval(strike.impact)
+                let results = playback.combatCues.filter { cue in
+                    if case .health = cue.kind { return cue.stack.id == victim.id }
+                    return false
+                }
+                try require(results.contains { $0.started == contact && $0.silentHurt == (strike.counterattack != nil) },
+                            "\(creature) damage or its sound was out of sync with the exchange")
+                let survivor = try next.stacks.first { $0.id == victim.id }.unwrap("the exchange fixture ended prematurely")
+                try require(playback.amount(for: survivor, elapsed: strike.impact - 0.001, reducedMotion: false) == victim.amount &&
+                            playback.amount(for: survivor, elapsed: strike.impact, reducedMotion: false) == survivor.amount,
+                            "\(creature) stack numbers changed outside the damage cue")
+                if creature == "Griffin" {
+                    try require(playback.combatCues.contains {
+                        $0.stack.id == victim.id && $0.statusName == "Deep Wounds" && $0.started == contact
+                    }, "Griffin's debuff did not land with its strike")
+                    try require(!playback.statusStack(for: survivor, elapsed: strike.impact - 0.001, reducedMotion: false)
+                        .statuses.contains { $0.name == "Deep Wounds" } &&
+                        playback.statusStack(for: survivor, elapsed: strike.impact, reducedMotion: false)
+                            .statuses.contains { $0.name == "Deep Wounds" },
+                        "Griffin's status appeared separately from the damage")
+                }
             }
             let defender = try next.stacks.first { $0.id == target.id }.unwrap("the responder did not survive the test")
             let flag = playback.flagStatus(for: defender, elapsed: reply.start + 0.01,
@@ -491,8 +850,13 @@ struct SkirmishSmoke {
         var opening = clock.begin(green, remainingStacks: 6, at: now)
         try require(opening.limit == 40 && opening.remaining(at: now + .seconds(17)) == 23,
                     "the Sandbox clock did not divide the browser's lap budget")
+        try require(!opening.hasReachedHalfway(at: now + .milliseconds(19_999)) &&
+                    opening.hasReachedHalfway(at: now + .seconds(20)),
+                    "the extra-time control did not unlock at the halfway mark")
         try require(clock.extend(&opening, remainingStacks: 6) && opening.limit == 80 &&
                     !clock.extend(&opening, remainingStacks: 6), "the clock did not limit extra time to once per lap")
+        try require(opening.remaining(at: now + .seconds(17)) == 63,
+                    "requesting time restarted the clock instead of adding to the running turn")
         clock.finish(opening, at: now + .seconds(65))
         let next = clock.begin(.init(unit: 2, team: .player, lap: 1), remainingStacks: 5, at: now + .seconds(65))
         try require(next.limit == 35, "the prior turn was not charged against the team")
@@ -500,6 +864,59 @@ struct SkirmishSmoke {
         try require(other.limit == 60, "the other team should have its own clock budget")
         var newLap = clock.begin(.init(unit: 1, team: .player, lap: 2), remainingStacks: 6, at: now)
         try require(newLap.limit == 40 && clock.extend(&newLap, remainingStacks: 6), "the new lap did not reset its budget")
+    }
+
+    @MainActor
+    private static func checkAuraFields(_ setup: SandboxSetup, resources: URL) throws {
+        let fixtures: [(String, Team, Int32, Int32)] = [
+            ("Wyvern", .player, 3, 8), ("Wolf Rider", .player, 3, 6),
+            ("White Tiger", .opponent, 13, 8), ("Arachna Queen", .opponent, 13, 11),
+        ]
+        let army = try fixtures.map { name, team, x, y in
+            let creature = try setup.creatures.first { $0.name == name }.unwrap("missing \(name) for the aura fixture")
+            return SandboxStack(creature: creature.id, team: team, amount: creature.amount, x: x, y: y)
+        }
+        let configurator = try SandboxLoadoutEngine(resources: resources)
+        let loadout = SandboxLoadout(synergies: ["Might": 1])
+        let (engine, _) = try configurator.prepare(map: .normal, stacks: army, catalogue: setup.creatures,
+                                                   loadouts: [.player: loadout], automated: [])
+        let opening = try engine.view()
+        let wyvern = try opening.stacks.first { $0.name == "Wyvern" }.unwrap("missing placed Wyvern")
+        let rider = try opening.stacks.first { $0.name == "Wolf Rider" }.unwrap("missing placed Wolf Rider")
+        let tiger = try opening.stacks.first { $0.name == "White Tiger" }.unwrap("missing placed White Tiger")
+        let queen = try opening.stacks.first { $0.name == "Arachna Queen" }.unwrap("missing placed Arachna Queen")
+        let fields = BattlefieldAura.visible(in: opening, selectedID: wyvern.id, hoveredID: wyvern.id, draggedID: nil)
+        let field = try fields.first.unwrap("hovering the Wyvern lost its aura")
+        try require(fields.count == 1 && field.opacity == 0.7 && field.effect.range == 3,
+                    "Might's aura bonus or the duplicate focus guard was lost")
+        try require(field.bounds(center: BattlefieldProjection.logicalCenter(wyvern.cells)) == CGRect(x: -1, y: 5, width: 8, height: 7),
+                    "the aura was centered on the anchor instead of the full 2 × 1 footprint")
+        let square = try BattlefieldAura.visible(in: opening, selectedID: queen.id, hoveredID: nil, draggedID: nil)
+            .first.unwrap("inspecting the Arachna Queen lost its aura")
+        try require(square.bounds(center: BattlefieldProjection.logicalCenter(queen.cells)) == CGRect(x: 10, y: 8, width: 6, height: 6),
+                    "the aura lost the Arachna Queen's 2 × 2 footprint")
+        try require(BattlefieldAura.visible(in: opening, selectedID: wyvern.id, hoveredID: rider.id, draggedID: wyvern.id).isEmpty,
+                    "dragging showed a stationary aura or Might gave an aura to a blessing carrier")
+        try require(BattlefieldAura.visible(in: opening, selectedID: nil, hoveredID: tiger.id, draggedID: nil).first?.revealed == false,
+                    "the distant army revealed the White Tiger")
+
+        try require(engine.ready(), "could not start the aura fixture")
+        var turn = try engine.view()
+        for _ in army where turn.active != wyvern.id {
+            try require(engine.perform(.endTurn), "could not reach the Wyvern's turn")
+            turn = try engine.view()
+        }
+        let active = BattlefieldAura.visible(in: turn, selectedID: nil, hoveredID: nil, draggedID: nil)
+        try require(active.count == 1 && active.first?.owner.id == wyvern.id && active.first?.opacity == 0.5,
+                    "the active unit lost its aura without pointer focus")
+        try require(engine.choose(Cell(x: 9, y: 8)), "could not fly the Wyvern into the White Tiger's aura")
+        let moved = try engine.view()
+        let playback = BattlePlayback(moments: moved.moments, previous: turn, next: moved)
+        let flight = try playback.actions.first { $0.moment.actor == wyvern.id }.unwrap("missing the Wyvern's flight")
+        try require(playback.isMoving(wyvern, at: flight.start) && !playback.isMoving(wyvern, at: flight.moveEnd),
+                    "the floor aura should clear during movement and return at the landing")
+        try require(BattlefieldAura.visible(in: moved, selectedID: nil, hoveredID: tiger.id, draggedID: nil)
+            .contains { $0.owner.id == tiger.id && $0.revealed }, "the White Tiger stayed disguised with an enemy in range")
     }
 
     static func checkSandbox(_ setup: SandboxSetup, stacks: [SandboxStack], resources: URL) throws {
@@ -512,6 +929,17 @@ struct SkirmishSmoke {
                     SandboxCursorMode.resolve(at: dropCell, in: emptyView, placing: true) == .standard &&
                     SandboxCursorMode.resolve(at: dropCell, in: emptyView, placing: true, canPlace: true) == .interactive,
                     "the placement pointer did not follow the legal footprint")
+        let expectedAuras: [String: BattleAura] = [
+            "White Tiger": BattleAura(name: "Disguise Aura", range: 3, positive: true),
+            "Pegasus": BattleAura(name: "Pegasus Might Aura", range: 2, positive: true),
+            "Peasant": BattleAura(name: "Absorb Penalties Aura", range: 2, positive: true),
+            "Valkyrie": BattleAura(name: "War Anger Aura", range: 2, positive: false),
+            "Griffin": BattleAura(name: "Range Null Field Aura", range: 2, positive: false),
+            "Abomination": BattleAura(name: "Flesh Shield Aura", range: 2, positive: true),
+            "Arachna Queen": BattleAura(name: "Web Aura", range: 2, positive: false),
+            "Dryad": BattleAura(name: "Guiding Winds Aura", range: 2, positive: true),
+            "Wyvern": BattleAura(name: "Venom Cloud Aura", range: 2, positive: true),
+        ]
         for creature in setup.creatures {
             let row = SandboxStack(creature: creature.id, team: .opponent, amount: creature.amount, x: 13, y: 8)
             do {
@@ -520,6 +948,9 @@ struct SkirmishSmoke {
                 let stack = try view.stacks.first.unwrap("missing catalogue stack")
                 try require(stack.name == creature.name && stack.team == .opponent && stack.amount == creature.amount &&
                             stack.cells.count == Int(creature.width * creature.height), "lost creature stats")
+                if let expected = expectedAuras[creature.name] {
+                    try require(stack.auras?.contains(expected) == true, "lost the emitted aura's name, range or target side")
+                }
                 let preview = try setup.rosterPreview(for: creature, resources: resources)
                 try require(preview.name == stack.name && preview.faction == stack.faction &&
                             preview.amount == stack.amount && preview.maxHP == stack.maxHP &&
@@ -600,10 +1031,12 @@ struct SkirmishSmoke {
         let anchor = try battle.movementLandings.anchor(covering: drop).unwrap("missing the Wolf's hovered drop")
         try require(anchor == Cell(x: drop.x, y: drop.y + 1), "the lower tile did not win when both vertical placements fit")
         try require(!sandbox.choose(Cell(x: initial.x, y: 1)), "a tall stack could deploy outside the zone")
-        try require(battle.stacks.contains(stack) && sandbox.choose(anchor), "tall stack could not be placed by its lower cell")
+        try require(try sandbox.view() == battle, "an invalid drop changed the board or cleared the selection")
+        try require(sandbox.choose(anchor), "tall stack could not be placed by its lower cell")
         battle = try sandbox.view()
         try require(battle.stacks.first { $0.id == stack.id }?.cells == shape.cells(at: anchor),
                     "deployment changed the tall footprint")
+        try require(battle.deploying == nil, "vertical deployment retained selection")
         try require(sandbox.ready(), "battle rejected a valid tall footprint")
         battle = try sandbox.view()
         for _ in opening where battle.active != stack.id {
@@ -681,10 +1114,28 @@ struct SkirmishSmoke {
             let idle = CreatureAnimation.timing(for: creature.name, action: .idle, direction: nil)
             try require(idle?.duration.isFinite == true && (idle?.duration ?? 0) > 0, "missing the idle timeline for \(creature.name)")
         }
+        for name in ["Elf", "Troll"] {
+            let timing = try CreatureAnimation.timing(for: name, action: .idle, direction: nil)
+                .unwrap("missing the \(name) idle loop")
+            for (time, isNeutral) in [(timing.duration - 1.01, false), (timing.duration - 0.99, true),
+                                      (timing.duration - 0.01, true), (timing.duration + 0.001, true)] {
+                let pose = CreaturePose(action: .idle, time: time)
+                let frame = try CreatureAnimation.frame(name, pose: pose).unwrap("missing the \(name) idle cel")
+                try require((frame.index == 0) == isNeutral, "\(name) did not hold its standing pose for the final second")
+            }
+        }
         let first = try CreatureAnimation.frame("Nightmare", pose: CreaturePose(action: .idle, time: 0)).unwrap("missing Nightmare's idle body")
         let later = try CreatureAnimation.frame("Nightmare", pose: CreaturePose(action: .idle, time: 0.4)).unwrap("lost Nightmare's idle body")
         try require(first.index == 0 && later.index == 0 && framePixels(first.image) == framePixels(later.image),
                     "Nightmare must animate its flames over the registered standing body")
+        let elf = try CreatureAnimation.frame("Elf", pose: CreaturePose(action: .idle, time: 0)).unwrap("missing Elf's neutral cel")
+        let clothA = ElfIdleAppearance.image(elf.image, time: 0.6, idleAge: 4)
+        let clothB = ElfIdleAppearance.image(elf.image, time: 1.8, idleAge: 4)
+        try require(clothA !== elf.image && framePixels(clothA) != framePixels(clothB),
+                    "Elf's cape stopped moving with the held body cel")
+        let planted = CGRect(x: clothA.width / 2, y: 0, width: clothA.width / 2, height: clothA.height)
+        let firstBody = try clothA.cropping(to: planted).flatMap(framePixels).unwrap("missing Elf's bow and boots")
+        try require(firstBody == clothB.cropping(to: planted).flatMap(framePixels), "cape wind moved the Elf's bow or boots")
         let efreet = try CreatureAnimation.frame("Efreet", pose: CreaturePose(action: .idle, time: 0)).unwrap("missing Efreet's lab idle")
         try require(abs(efreet.heightScale - (0.9 * 703 / 416)) < 0.001 &&
                     abs(efreet.widthRatio * efreet.heightScale - (0.9 * 529 / 386)) < 0.001,
@@ -721,6 +1172,35 @@ struct SkirmishSmoke {
         }
         try require(footOffsets.max()! - footOffsets.min()! < 0.015, "Wolf switched to a different floor anchor")
         try require(attack.heightScale > 1.30, "Wolf shrank to fit the wider attack canvas")
+        for (creature, expectedScale) in [("Battle Mage", CGFloat(1152.0 / 768)), ("Griffin", 1024.0 / 768)] {
+            let standing = try CreatureAnimation.frame(creature, pose: CreaturePose(action: .idle, time: 0))
+                .unwrap("missing \(creature)'s standing frame")
+            let directions: [String?] = [nil, "up", "down"]
+            var poses = directions.map { CreaturePose(action: .meleeAttack, time: 0, verticalAttack: $0) }
+            if creature == "Battle Mage" { poses.append(CreaturePose(action: .cast, time: 0)) }
+            for pose in poses {
+                let frame = try CreatureAnimation.frame(creature, pose: pose)
+                    .unwrap("missing \(creature)'s \(pose.action.rawValue) frame")
+                let widthScale = frame.heightScale * frame.widthRatio * (frame.trim.map { $0.width / $0.height } ?? 1)
+                let standingWidth = standing.heightScale * standing.widthRatio *
+                    (standing.trim.map { $0.width / $0.height } ?? 1)
+                try require(abs(frame.heightScale / standing.heightScale - expectedScale) < 0.001 &&
+                            abs(widthScale / standingWidth - expectedScale) < 0.001,
+                            "\(creature) shrank to fit its padded \(pose.action.rawValue) canvas")
+            }
+        }
+        let pegasusIdle = try CreatureAnimation.frame("Pegasus", pose: CreaturePose(action: .idle, time: 0))
+            .unwrap("missing Pegasus's standing pose")
+        let pegasusFlight = try CreatureAnimation.frame("Pegasus", pose: CreaturePose(action: .walk, time: 0))
+            .unwrap("missing Pegasus's takeoff pose")
+        // The flight cel embeds the standing pose at 538 × 538 within a 1024 × 1024 canvas.
+        let flightFigure = pegasusFlight.heightScale * 538 / 1024
+        try require(abs(flightFigure - pegasusIdle.heightScale) < 0.001 &&
+                    abs(flightFigure * pegasusFlight.widthRatio - pegasusIdle.heightScale * pegasusIdle.widthRatio) < 0.001,
+                    "Pegasus changed size between standing and flying")
+        try require(abs(pegasusFlight.anchorX - 579.0 / 1024) < 0.001 &&
+                    abs(pegasusFlight.foot - (390 + 538 * pegasusIdle.foot) / 1024) < 0.001,
+                    "Pegasus shifted inside its flight canvas")
         for time in [0.0, 1.32, 26.94] {
             try require(CreatureAnimation.frame("Arbalester", pose: CreaturePose(action: .idle, time: time))?.image.width == 384,
                         "Arbalester idle used the reduced sheet or lost a page")
@@ -809,6 +1289,138 @@ struct SkirmishSmoke {
     }
 
     @MainActor
+    private static func checkWindAuras(_ artwork: BattlefieldArtwork) throws {
+        guard MTLCreateSystemDefaultDevice() != nil else { return }
+        let projection = BattlefieldProjection(data: artwork, width: 932, height: 900, legacySize: 900)
+        let area = CGRect(x: 0, y: 6, width: 5, height: 5)
+        let board = CGRect(x: 0, y: 0, width: 16, height: 16)
+        let narrowed = board.insetBy(dx: 2, dy: 2)
+        var previousFrame: Data?
+        for (name, inward) in [("Dryad", false), ("Peasant", true)] {
+            let first = try BattlefieldWindAura.image(area: area, board: board, projection: projection, time: 1.23,
+                                                      opacity: 0.7, scale: 2, inward: inward).unwrap("\(name)'s aura did not render")
+            let next = try BattlefieldWindAura.image(area: area, board: board, projection: projection, time: 2.17,
+                                                     opacity: 0.7, scale: 2, inward: inward).unwrap("missing \(name)'s next aura frame")
+            let clipped = try BattlefieldWindAura.image(area: area, board: narrowed, projection: projection, time: 1.23,
+                                                        opacity: 0.7, scale: 2, inward: inward).unwrap("missing \(name)'s narrowed aura")
+            let frame = try framePixels(first.image).unwrap("\(name)'s aura rendered transparent")
+            let nextFrame = try framePixels(next.image).unwrap("\(name)'s next aura frame rendered transparent")
+            try require(first.bounds == next.bounds && frame != nextFrame,
+                        "\(name)'s waves stopped moving or shifted their range")
+            try require(clipped.bounds.width < first.bounds.width && clipped.bounds.maxX == first.bounds.maxX,
+                        "narrowing shifted the far edge of \(name)'s aura")
+            try require(frame != previousFrame, "the inward and outward wind auras look the same")
+            previousFrame = frame
+        }
+    }
+
+    @MainActor
+    private static func checkGriffinAura(_ artwork: BattlefieldArtwork) throws {
+        guard MTLCreateSystemDefaultDevice() != nil else { return }
+        let projection = BattlefieldProjection(data: artwork, width: 932, height: 900, legacySize: 900)
+        let board = CGRect(x: 0, y: 0, width: 16, height: 16)
+        let center = CGPoint(x: 8, y: 8.5)
+        func storm(_ age: TimeInterval, range: CGFloat = 2, facing: CGFloat = 1, center location: CGPoint? = nil,
+                   board limits: CGRect? = nil) throws -> BattlefieldGriffinAura.Frame {
+            try BattlefieldGriffinAura.frame(center: location ?? center, footprint: .wide, range: range, facing: facing,
+                                             board: limits ?? board,
+                                             projection: projection, age: age, opacity: 0.7, scale: 2)
+                .unwrap("Griffin's tornado shader did not render")
+        }
+        let first = try storm(1.23)
+        let next = try storm(2.17)
+        let mirrored = try storm(1.23, facing: -1)
+        let narrowed = try storm(1.23, center: CGPoint(x: 2.5, y: 8.5), board: board.insetBy(dx: 2, dy: 2))
+        let still = try storm(0)
+        let raw = try (still.back.image.dataProvider?.data).unwrap("missing Griffin's fade-in frame") as Data
+        try require(raw.allSatisfy { $0 == 0 }, "Griffin's aura did not fade in from transparent")
+        try require(first.back.bounds.midY < first.front.bounds.midY &&
+                    framePixels(first.front.image) != framePixels(next.front.image) &&
+                    framePixels(first.back.image) != framePixels(next.back.image),
+                    "Griffin's front and rear tornado layers stopped animating")
+        try require(mirrored.eye.boundingBox.midX > first.eye.boundingBox.midX &&
+                    first.eye.contains(projection.point(x: center.x, y: center.y)),
+                    "Griffin's clear center did not follow its facing")
+        for range in [CGFloat(2), 3] {
+            let frame = try storm(1.23, range: range)
+            let depth = range + 0.5
+            let farEdge = projection.point(x: center.x, y: center.y + depth).y
+            let nearEdge = projection.point(x: center.x, y: center.y - depth).y
+            try require(abs(frame.back.bounds.minY - farEdge) <= 1 && abs(frame.front.bounds.maxY - nearEdge) <= 1,
+                        "Griffin's tornado extended past its aura rows")
+            for offset in [-depth, depth] {
+                try require(!frame.clip.contains(projection.point(x: center.x, y: center.y + offset * 1.01)),
+                            "Griffin's clip included a row outside the aura")
+            }
+        }
+        try require(!narrowed.clip.contains(projection.point(x: 1.9, y: 8.5)) &&
+                    narrowed.clip.contains(projection.point(x: 2.1, y: 8.5)),
+                    "Griffin's tornado did not clip to the narrowed board")
+    }
+
+    @MainActor
+    private static func checkWyvernAura(_ artwork: BattlefieldArtwork) throws {
+        guard MTLCreateSystemDefaultDevice() != nil else { return }
+        let projection = BattlefieldProjection(data: artwork, width: 932, height: 900, legacySize: 900)
+        let board = CGRect(x: 0, y: 0, width: 16, height: 16)
+        let area = CGRect(x: 5, y: 5.5, width: 6, height: 5)
+        let start = Date(timeIntervalSinceReferenceDate: 1)
+        let motion = BattlefieldWyvernAura.Motion(center: CGPoint(x: area.midX, y: area.midY), at: start)
+        func cloud(_ seconds: TimeInterval, area: CGRect, facing: CGFloat = 1,
+                   clip: CGRect? = nil) throws -> BattlefieldWyvernAura.Frame {
+            try BattlefieldWyvernAura.frame(area: area, board: clip ?? board, facing: facing, projection: projection,
+                                            now: start.addingTimeInterval(seconds), motion: motion, opacity: 0.7, scale: 2)
+                .unwrap("Wyvern's poison shaders did not render")
+        }
+        let first = try cloud(0, area: area)
+        let next = try cloud(0.14, area: area.offsetBy(dx: 0.25, dy: 0))
+        let wake = try cloud(0.28, area: area.offsetBy(dx: 0.25, dy: 0))
+        let pixels = try (wake.floor.last?.image.dataProvider?.data).unwrap("missing Wyvern's wake pixels") as Data
+        try require(first.floor.count == 1 && next.floor.count == 2 && wake.floor.count == 2 && pixels.contains { $0 > 0 },
+                    "Wyvern's moving mist did not leave a visible wake")
+        try require(framePixels(first.floor[0].image) != framePixels(wake.floor[0].image) &&
+                    framePixels(first.front.image) != framePixels(wake.front.image),
+                    "Wyvern's floor and body mist stopped animating")
+        let edge = try cloud(0.32, area: area.offsetBy(dx: -5.5, dy: 0), facing: -1, clip: board.insetBy(dx: 2, dy: 2))
+        try require(edge.floor.count == 1 && !edge.clip.contains(projection.point(x: 1.9, y: 8)),
+                    "Wyvern carried a wake across a teleport or beyond the narrowed board")
+    }
+
+    @MainActor
+    private static func checkArachnaAura(_ artwork: BattlefieldArtwork) throws {
+        guard MTLCreateSystemDefaultDevice() != nil else { return }
+        let projection = BattlefieldProjection(data: artwork, width: 932, height: 900, legacySize: 900)
+        let board = CGRect(x: 0, y: 0, width: 16, height: 16)
+        let area = CGRect(x: 5, y: 5, width: 6, height: 6)
+        func web(_ age: TimeInterval, area: CGRect, board: CGRect) throws -> (image: CGImage, bounds: CGRect) {
+            try BattlefieldArachnaAura.image(area: area, board: board, projection: projection,
+                                             age: age, opacity: 0.7, scale: 1).unwrap("Arachna's silk and spiders did not render")
+        }
+        func coverage(_ image: CGImage) throws -> Int {
+            let pixels = try (image.dataProvider?.data).unwrap("missing Arachna's pixels") as Data
+            return stride(from: 3, to: pixels.count, by: 4).reduce(0) { $0 + Int(pixels[$1]) }
+        }
+        let hidden = try web(0, area: area, board: board)
+        let revealed = try web(0.47, area: area, board: board)
+        let first = try web(1.23, area: area, board: board)
+        let next = try web(2.17, area: area, board: board)
+        let hiddenAlpha = try coverage(hidden.image)
+        let revealAlpha = try coverage(revealed.image)
+        let fullAlpha = try coverage(first.image)
+        try require(hiddenAlpha == 0 && revealAlpha > 0 && fullAlpha > revealAlpha,
+                    "Arachna's web did not reveal from its center")
+        try require(first.bounds == next.bounds && framePixels(first.image) != framePixels(next.image),
+                    "Arachna's silk and spiders stopped animating")
+        let nearEdge = area.offsetBy(dx: -5, dy: 0.5)
+        let full = try web(1.23, area: nearEdge, board: board)
+        let clipped = try web(1.23, area: nearEdge, board: board.insetBy(dx: 2, dy: 2))
+        let edgeAlpha = try coverage(full.image)
+        let clipAlpha = try coverage(clipped.image)
+        try require(clipped.bounds.width < full.bounds.width && clipAlpha < edgeAlpha,
+                    "Arachna's web did not clip to the narrowed board")
+    }
+
+    @MainActor
     static func checkBoardFraming(_ stacks: [Stack], artwork: BattlefieldArtwork) throws {
         let projection = BattlefieldProjection(data: artwork, width: 932, height: 900, legacySize: 900)
         for stack in stacks {
@@ -823,6 +1435,17 @@ struct SkirmishSmoke {
                 try require(abs(lower.height - height) < 0.0001, "the Wolf lost the browser's per-creature scale")
             }
         }
+        let champion = try CreatureAnimation.frame("Champion", pose: CreaturePose(action: .idle, time: 0))
+            .unwrap("missing Champion's standing pose")
+        let presentation = CreatureAnimation.boardPresentation("Champion", footprint: .square, position: CGPoint(x: 5, y: 8),
+                                                               projection: projection, facing: 1)
+        let flagHeight: CGFloat = 14
+        let flag = CreatureAnimation.flagPosition(for: "Champion", presentation: presentation, projection: projection,
+                                                  facing: 1, height: flagHeight)
+        let helmetY = presentation.ground.y - presentation.height * champion.heightScale * (champion.foot - 248.0 / 1024)
+        let gap = helmetY - (flag.y + flagHeight / 2)
+        try require(abs(gap - max(2, projection.spriteCellSize * 0.04)) < 0.001,
+                    "Champion's stack-count flag did not sit above the helmet")
     }
 
     @MainActor
@@ -908,7 +1531,7 @@ struct SkirmishSmoke {
         try require(view.activeStack?.name == "Healer", "the Healer did not take a turn")
         let blessing = try view.spells.first { $0.name == "Blessing" }.unwrap("the Healer’s book lost Blessing")
         try require(blessing.available && blessing.aim == .unit, "wrong availability or aim for Blessing")
-        try require(battle.prepare(blessing.id), "could not arm Blessing")
+        try require(battle.chooseSpell(blessing.id), "could not arm Blessing")
         view = try battle.view()
         try require(view.preparedSpell == blessing.id && view.moves.isEmpty && view.attacks.isEmpty, "spell left standard moves active")
         let enemy = try view.stacks.first { $0.team == .opponent }?.cells.first.unwrap("missing enemy aim point")
@@ -936,6 +1559,89 @@ struct SkirmishSmoke {
             return false
         }
         try require(blessingPops.count == 1, "the cast should show one Blessing popup over its target")
+    }
+
+    @MainActor
+    private static func checkBattleRoar(_ setup: SandboxSetup, resources: URL) throws {
+        let behemoth = try setup.creatures.first { $0.name == "Behemoth" }.unwrap("missing Behemoth")
+        let squire = try setup.creatures.first { $0.name == "Squire" }.unwrap("missing Squire")
+        let battle = try setup.makeBattle(map: .normal, stacks: [
+            SandboxStack(creature: behemoth.id, team: .player, amount: behemoth.amount, x: 3, y: 7),
+            SandboxStack(creature: squire.id, team: .player, amount: squire.amount, x: 3, y: 9),
+            SandboxStack(creature: squire.id, team: .opponent, amount: squire.amount, x: 13, y: 9),
+        ], automated: [], resources: resources)
+        try require(battle.ready(), "could not start the Battle Roar test")
+        var before = try battle.view()
+        for _ in 0..<2 where before.activeStack?.name != behemoth.name {
+            try require(battle.perform(.endTurn), "could not reach Behemoth's turn")
+            before = try battle.view()
+        }
+        let roar = try before.spells.first { $0.name == "Battle Roar" }.unwrap("Behemoth lost Battle Roar")
+        let ordered = before.turnOrder.map(\.id)
+        try require(ordered.first == before.active && ordered.count == Set(ordered).count,
+                    "the active creature was missing from the first queue slot or appeared twice")
+        try require(roar.available && roar.aim == .army && battle.chooseSpell(roar.id), "the card did not cast Battle Roar")
+        let cast = try battle.view()
+        try require(cast.preparedSpell == nil && cast.active != before.active &&
+                    cast.revision == before.revision + 1 && cast.moments.first?.spell == "Battle Roar",
+                    "Battle Roar should consume a single turn immediately")
+        let buffed = Set(cast.stacks.filter { $0.statuses.contains { $0.name == "Battle Roar" && $0.kind == .buff } }.map(\.id))
+        try require(buffed == Set(cast.stacks.filter { $0.team == .player }.map(\.id)), "Battle Roar buffed the wrong army")
+    }
+
+    @MainActor
+    private static func checkFireWall(_ setup: SandboxSetup, resources: URL) throws {
+        let caster = try setup.creatures.first { $0.name == "Nightmare" }.unwrap("missing Nightmare")
+        let defender = try setup.creatures.first { $0.name == "Squire" }.unwrap("missing Squire")
+        let center = Cell(x: 3, y: 8)
+        let army = [SandboxStack(creature: caster.id, team: .player, amount: caster.amount, x: center.x, y: center.y),
+                    SandboxStack(creature: defender.id, team: .opponent, amount: defender.amount, x: 13, y: 9)]
+        for (turns, step) in [(Int32(1), Int32(0)), (1, -1), (0, 1), (1, 1)].enumerated() {
+            let battle = try setup.makeBattle(map: .normal, stacks: army, automated: [], resources: resources)
+            try require(battle.ready(), "could not start the Fire Wall duel")
+            var view = try battle.view()
+            if view.activeStack?.name != caster.name {
+                try require(battle.perform(.endTurn), "could not advance to Nightmare's turn")
+                view = try battle.view()
+            }
+            let spell = try view.spells.first { $0.name == "Fire Wall" }.unwrap("Nightmare lost Fire Wall")
+            try require(!battle.rotateFireWall() && battle.chooseSpell(spell.id), "could not arm Fire Wall")
+            for _ in 0..<turns { try require(battle.rotateFireWall(), "could not rotate Fire Wall") }
+            let armed = try battle.view()
+            let preview = try (armed.fireWallAims ?? []).first { $0.anchor == center }
+                .unwrap("the occupied anchor should still aim Fire Wall")
+            let footprint = (Int32(-2)..<Int32(2)).map { Cell(x: center.x + $0 * step.0, y: center.y + $0 * step.1) }
+            let blocked = Set(armed.stacks.flatMap(\.cells) + armed.stones + armed.holes)
+            try require(preview.footprint == footprint && !preview.lit.isEmpty && preview.lit == footprint.filter { !blocked.contains($0) } &&
+                        !preview.lit.contains(center), "the aiming preview drew the wrong orientation or lit an occupied tile")
+            try require(battle.choose(center), "Zig refused the previewed Fire Wall")
+            let cast = try battle.view()
+            try require(cast.fireWallAims == nil && cast.preparedSpell == nil && cast.fireCells == preview.lit,
+                        "the wall did not light the previewed cells")
+            let playback = BattlePlayback(moments: cast.moments, previous: armed, next: cast)
+            let impact = playback.started.addingTimeInterval(playback.impactTime)
+            let flame = try playback.fireTransitions[preview.lit[0]].unwrap("the cast had no ignition cue")
+            try require(flame.ignites && flame.started == impact && flame.opacity(at: impact) == 0 &&
+                        flame.opacity(at: impact.addingTimeInterval(0.33)) == 1, "Fire Wall did not ignite at the cast contact")
+            try require(!battle.rotateFireWall() && battle.perform(.endTurn), "the wall blocked the next turn")
+            let following = try battle.view()
+            try require(following.fireCells == cast.fireCells, "the flames disappeared on the next turn")
+            if turns == 0 {
+                var previous = following
+                for _ in 0..<8 where previous.fireCells?.isEmpty == false {
+                    try require(battle.perform(.endTurn), "could not reach the lap that extinguishes the wall")
+                    let next = try battle.view()
+                    if next.fireCells?.isEmpty == true {
+                        let ending = BattlePlayback(moments: next.moments, previous: previous, next: next)
+                        let burnout = try ending.fireTransitions[preview.lit[0]].unwrap("missing Fire Wall burnout")
+                        try require(!burnout.ignites && burnout.opacity(at: burnout.started) == 1 &&
+                                    burnout.opacity(at: burnout.endsAt) == 0, "Fire Wall did not fade on expiration")
+                    }
+                    previous = next
+                }
+                try require(previous.fireCells?.isEmpty == true, "the wall outlasted its engine spell duration")
+            }
+        }
     }
 
     @MainActor
@@ -1003,6 +1709,46 @@ struct SkirmishSmoke {
                 let second = try projectile.image(at: atlas.secondsPerFrame * 1.01, inBackground: false)
                     .unwrap("could not read the next frame of \(projectile.resource)")
                 try require(framePixels(first) != framePixels(second), "\(name) lost its animated projectile")
+            }
+        }
+    }
+
+    @MainActor
+    private static func checkBowReleases(_ setup: SandboxSetup, resources: URL, artwork: BattlefieldArtwork) throws {
+        let fixtures: [(String, Int, CGSize, [(String?, CGPoint, CGFloat)])] = [
+            ("Dryad", 3, CGSize(width: 768, height: 768), [
+                (nil, CGPoint(x: 465.63, y: 224.16), 297.46),
+                ("up", CGPoint(x: 505.585, y: 183.47), 339.825625),
+                ("down", CGPoint(x: 491.6, y: 253.09), 317.797342),
+            ]),
+            ("Elf", 10, CGSize(width: 1664, height: 1152), [
+                (nil, CGPoint(x: 1005.845922, y: 418.197796), 350),
+                ("up", CGPoint(x: 953.212798, y: 399.118784), 350),
+                ("down", CGPoint(x: 1021.896009, y: 531.968296), 350),
+            ]),
+        ]
+        let projection = BattlefieldProjection(data: artwork, width: 932, height: 900, legacySize: 900)
+        for (name, index, canvas, aim) in fixtures {
+            let creature = try setup.creatures.first { $0.name == name }.unwrap("missing \(name)")
+            let stack = try setup.rosterPreview(for: creature, resources: resources)
+            for (direction, pin, length) in aim {
+                let release = try (CreatureAnimation.timing(for: name, action: .attack, direction: direction)?.release)
+                    .unwrap("missing \(name)'s release timing")
+                let pose = CreaturePose(action: .attack, time: release + 0.000_001, verticalAttack: direction)
+                let frame = try CreatureAnimation.frame(name, pose: pose).unwrap("missing \(name)'s release cel")
+                try require(frame.index == index, "\(name) released before the bowstring moved")
+                for (position, facing) in [(CGPoint(x: 3.5, y: 6.5), 1.0), (CGPoint(x: 12.5, y: 10.5), -1.0)] {
+                    let flight = try CreatureAnimation.bowRelease(for: stack, at: position, direction: direction,
+                        facing: facing, projection: projection).unwrap("missing \(name)'s authored bow anchor")
+                    let body = CreatureAnimation.boardPresentation(stack, position: position, projection: projection, facing: facing)
+                    let height = body.height * frame.heightScale
+                    let width = height * CGFloat(frame.image.width) / CGFloat(frame.image.height) * body.widthScale * frame.widthRatio
+                    let x = body.ground.x + facing * width * (pin.x / canvas.width - frame.anchorX)
+                    let y = body.ground.y + height * (pin.y / canvas.height - frame.foot)
+                    try require(hypot(flight.point.x - x, flight.point.y - y) < 0.25 &&
+                                abs(flight.length - length * width / canvas.width) < 0.25,
+                                "\(name)'s arrow failed to line up with its \(direction ?? "straight") release cel")
+                }
             }
         }
     }
@@ -1131,15 +1877,35 @@ struct SkirmishSmoke {
             let hit = try projection.hit(at: projection.point(x: x, y: y)).unwrap("attack pointer fell outside the board")
             return try BattleAttackPreview.resolve(hit, in: battle).unwrap("pointer did not resolve an attack angle")
         }
+        func bodyAim(at target: Int, in battle: BattleView) throws -> BattleAttackPreview {
+            let stack = try battle.stacks.first { $0.id == target }.unwrap("missing aim target")
+            let center = BattlefieldProjection.logicalCenter(stack.cells)
+            let body = CreatureAnimation.boardPresentation(stack, position: center, projection: projection,
+                                                           facing: stack.team == .player ? 1 : -1)
+            let point = CGPoint(x: body.ground.x, y: body.ground.y - body.height * 0.75)
+            let floor = projection.hit(at: point)
+            try require(floor.map { !stack.cells.contains($0.cell) } ?? true, "body aim must be outside the unit's base tiles")
+            let sprite = projection.stackForInspection(at: point, among: battle.stacks)
+            return try BattleAttackPreview.resolve(at: point, floor: floor, over: sprite, projection: projection, in: battle)
+                .unwrap("hovering the visible creature above its tiles missed the attack")
+        }
         let above = try aim(x: 12.15, y: 8.85, in: view)
         let below = try aim(x: 12.15, y: 8.15, in: view)
         try require(above.target == below.target && above.angle.cell == Cell(x: 11, y: 9) && below.angle.cell == Cell(x: 11, y: 7),
                     "two corners on the same enemy did not choose their corresponding diagonal landings")
+        try require(above.angle.hit?.target == above.target && (above.angle.hit?.max ?? 0) > 0,
+                    "the melee landing omitted the target's damage forecast")
         try require(SandboxCursorMode.resolve(at: above.targetCell, aim: above, in: view) == .melee(.downRight) &&
                     SandboxCursorMode.resolve(at: below.targetCell, aim: below, in: view) == .melee(.upRight),
                     "the sword cursor did not follow the chosen approaches")
         try require(SandboxCursorMode.resolve(at: above.targetCell, aim: above, in: view, animating: true) == .standard,
                     "the attack cursor persisted during playback")
+        let bodyMelee = try bodyAim(at: above.target, in: view)
+        if case .melee = SandboxCursorMode.resolve(at: nil, aim: bodyMelee, in: view) {
+            try require(bodyMelee.target == above.target, "the sword pointed at a different creature than the one hovered")
+        } else {
+            throw EngineError(message: "hovering the creature's body missed the sword cursor")
+        }
         try require(!melee.attack(above.target, from: BattleAttackAngle(cell: Cell(x: 0, y: 0), side: nil)) &&
                     (try melee.view()) == view, "a refused attack angle changed the battle")
         try require(melee.attack(above.target, from: above.angle), "engine refused the previewed attack angle")
@@ -1153,14 +1919,21 @@ struct SkirmishSmoke {
             try require(ranged.perform(.endTurn), "could not reach the shooter")
             shooter = try advanceToPlayer(ranged)
         }
-        let target = try shooter.attackOptions.first { $0.angles.count > 1 }.unwrap("ranged target did not offer distinct edges")
-        let edge = target.angles[1]
+        let target = try shooter.attackOptions.first { $0.angles.count > 1 && $0.angles[0].range?.clean == true }
+            .unwrap("ranged target did not offer distinct edges")
+        let edge = target.angles[0]
         let side = try edge.side.unwrap("ranged option had no edge")
         let end = side.point(on: edge.cell)
-        let center = BattlefieldProjection.logicalCenter([edge.cell])
-        let preview = try aim(x: end.x * 0.9 + center.x * 0.1, y: end.y * 0.9 + center.y * 0.1, in: shooter)
+        let alternate = target.angles[1]
+        let otherEnd = try alternate.side.unwrap("alternate shot had no edge").point(on: alternate.cell)
+        let center = BattlefieldProjection.logicalCenter([alternate.cell])
+        let preview = try aim(x: otherEnd.x * 0.9 + center.x * 0.1, y: otherEnd.y * 0.9 + center.y * 0.1, in: shooter)
         try require(SandboxCursorMode.resolve(at: edge.cell, aim: preview, in: shooter) == .ranged,
                     "a legal shot missed the ranged cursor")
+        let bodyShot = try bodyAim(at: target.target, in: shooter)
+        try require(bodyShot.target == target.target && bodyShot.angle == edge &&
+                    SandboxCursorMode.resolve(at: nil, aim: bodyShot, in: shooter) == .ranged,
+                    "hovering the creature's body did not show the bow for the shot that will fire")
         try require(SandboxCursorMode.resolve(at: shooter.activeStack?.cells.first, in: shooter) == .interactive,
                     "inspecting a friendly stack showed an attack cursor")
         try require(preview.target == target.target && preview.angle == edge && ranged.attack(preview.target, from: preview.angle),
@@ -1171,6 +1944,96 @@ struct SkirmishSmoke {
         let playback = BattlePlayback(moments: afterShot.moments, previous: shooter, next: afterShot)
         try require(playback.actions.first { $0.moment.kind == .shot }?.target == end,
                     "the projectile did not follow the previewed angle")
+    }
+
+    @MainActor
+    private static func checkProjectileTargeting(_ setup: SandboxSetup, resources: URL) throws {
+        let cannon = try setup.creatures.first { $0.name == "Tsar Cannon" }.unwrap("missing Tsar Cannon")
+        let elf = try setup.creatures.first { $0.name == "Elf" }.unwrap("missing Elf")
+        let medusa = try setup.creatures.first { $0.name == "Medusa" }.unwrap("missing Medusa")
+        let mage = try setup.creatures.first { $0.name == "Battle Mage" }.unwrap("missing Battle Mage")
+        let fireballMage = try setup.creatures.first { $0.name == "Wandering Mage" }.unwrap("missing Wandering Mage")
+        let peasant = try setup.creatures.first { $0.name == "Peasant" }.unwrap("missing Peasant")
+        let screen = SandboxStack(creature: peasant.id, team: .opponent, amount: peasant.amount, x: 12, y: 8)
+        let rear = SandboxStack(creature: peasant.id, team: .opponent, amount: peasant.amount, x: 14, y: 8)
+
+        func start(_ creature: SandboxCreature, extra: [SandboxStack] = []) throws -> (NativeBattle, BattleView) {
+            let shooter = SandboxStack(creature: creature.id, team: .player, amount: creature.amount, x: 3, y: 8)
+            let engine = try setup.makeBattle(map: .normal, stacks: [shooter, screen, rear] + extra, automated: [], resources: resources)
+            try require(engine.ready(), "could not start the projectile fixture")
+            var view = try engine.view()
+            for _ in 0..<6 where view.activeStack?.name != creature.name {
+                try require(engine.perform(.endTurn), "could not reach the projectile unit")
+                view = try engine.view()
+            }
+            try require(view.activeStack?.name == creature.name, "the projectile unit did not become active")
+            return (engine, view)
+        }
+
+        let (ranged, before) = try start(cannon)
+        let enemyIDs = try [screen.anchor, rear.anchor].map { anchor in
+            try before.stacks.first { $0.anchor == anchor }.unwrap("missing target along the line").id
+        }
+        let aim = CGPoint(x: 10.9, y: 8.55)
+        let ray = try ranged.previewThrough(aim).unwrap("Through Shot did not offer an empty-tile ray")
+        try require(before.canAimThrough == true && before.moves.isEmpty && ray.valid && ray.hits.map(\.target) == enemyIDs &&
+                    abs(ray.end.x - 16) < 0.01, "the free ray missed a screened stack or stopped before the board edge")
+        try require(ranged.previewThrough(CGPoint(x: -1, y: 0)) == nil && !ranged.fireThrough(CGPoint(x: -1, y: 0)),
+                    "Through Shot accepted a pointer outside the grid")
+        try require(ranged.fireThrough(aim), "the previewed Through Shot was refused")
+        let shot = try ranged.view().moments.first { $0.kind == .shot }.unwrap("the free shot was not recorded")
+        try require(shot.projectileEnd == ray.end && shot.target == enemyIDs[0], "the free shot changed its previewed ray")
+
+        let (doubleShot, screened) = try start(elf)
+        let rearID = try screened.stacks.first { $0.anchor == rear.anchor }.unwrap("missing the screened shot target").id
+        let frontID = try screened.stacks.first { $0.anchor == screen.anchor }.unwrap("missing the intercepting stack").id
+        let edge = try screened.attackOptions.first { $0.target == rearID }?.angles.first
+            .unwrap("Double Shot could not aim past the screen")
+        try require(edge?.range?.primary == frontID && edge?.range?.clean == false, "the shot preview missed the intercepting stack")
+        try require(edge.map { doubleShot.attack(rearID, from: $0) } == true, "the previewed screened shot was refused")
+        let interception = try doubleShot.view().moments.first { $0.kind == .shot }.unwrap("the screened shot was not recorded")
+        try require(interception.target == frontID && interception.projectileEnd?.x == CGFloat(screen.x),
+                    "the first volley flew past its previewed interceptor")
+
+        let (_, gazeTurn) = try start(medusa)
+        let gazeHit = try gazeTurn.attackOptions.flatMap(\.angles).compactMap { $0.range?.hit }.first
+            .unwrap("Medusa did not project her shot")
+        let gaze = try gazeHit.gaze.unwrap("Medusa's shot omitted the Petrifying Gaze forecast")
+        try require(gaze.min == gazeHit.min && gaze.max == gazeHit.max && gaze.procChance > 0 &&
+                    gaze.percentageMax > 0 && !gaze.multipleHits && !gaze.immune,
+                    "Petrifying Gaze did not use the first shot's damage and the target's resistance")
+
+        let (magic, casting) = try start(mage)
+        let fire = try casting.spells.first { $0.name == "Fire Strike" && $0.available }.unwrap("missing an available Fire Strike")
+        try require(magic.chooseSpell(fire.id), "Fire Strike could not be armed")
+        let armed = try magic.view()
+        let aimed = try armed.stacks.first { $0.anchor == rear.anchor }.unwrap("missing aimed caster victim")
+        let blocker = try armed.stacks.first { $0.anchor == screen.anchor }.unwrap("missing screening victim")
+        let spell = try armed.spellTargets?.first { $0.target == aimed.id }.unwrap("the screened spell was not aimable")
+        try require(spell?.end != nil && spell?.primary == blocker.id && spell?.damage ?? 0 > 0,
+                    "the spell preview missed the intercepting stack")
+        try require(magic.choose(rear.anchor), "the previewed intercepted spell was refused")
+        let landed = try magic.view()
+        let cast = try landed.moments.first { $0.kind == .spell }.unwrap("the spell was not recorded")
+        try require(cast.target == blocker.id && cast.projectileEnd == spell?.end && cast.hurt?.contains(blocker.id) == true,
+                    "spell release and hover identified different victims")
+        let timing = BattlePlayback(moments: landed.moments, previous: armed, next: landed)
+        let delivery = try (timing.actions.first?.damageCast).unwrap("Fire Strike lost its cast sequence")
+        try require(delivery.release.map { $0 > delivery.start && $0 < delivery.impact } == true &&
+                    timing.reactions[blocker.id]?.first?.start == delivery.impact, "Fire Strike damaged the target before its projectile arrived")
+
+        let neighbor = SandboxStack(creature: peasant.id, team: .opponent, amount: peasant.amount, x: 12, y: 9)
+        let (blast, beforeBlast) = try start(fireballMage, extra: [neighbor])
+        let fireball = try beforeBlast.spells.first { $0.name == "Fireball" && $0.available }.unwrap("missing an available Fireball")
+        try require(blast.chooseSpell(fireball.id), "Fireball could not be armed")
+        let armedBlast = try blast.view()
+        let blastTarget = try armedBlast.stacks.first { $0.anchor == rear.anchor }.unwrap("missing Fireball's aim target")
+        let splashTarget = try armedBlast.stacks.first { $0.anchor == neighbor.anchor }.unwrap("missing Fireball's splash target")
+        let blastAim = armedBlast.spellTargets?.first { $0.target == blastTarget.id }
+        try require(blastAim?.splash == screen.anchor && blastAim?.secondary.contains { $0.target == splashTarget.id && $0.damage > 0 } == true,
+                    "the Fireball preview missed a stack next to the intercepted impact")
+        try require(blast.choose(rear.anchor) && (try blast.view()).moments.contains { $0.hurt?.contains(splashTarget.id) == true },
+                    "the Fireball blast failed to hit its previewed splash target")
     }
 
     static func distance(from: [Cell], to: [Cell]) -> Int {
@@ -1184,7 +2047,7 @@ struct SkirmishSmoke {
     }
 }
 
-private extension Optional {
+extension Optional {
     func unwrap(_ message: String) throws -> Wrapped {
         guard let self else { throw EngineError(message: message) }
         return self

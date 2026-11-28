@@ -34,6 +34,7 @@ export function cannonContactCenter(from: HoCMath.XY, contact: HoCMath.XY, diame
 
 export const CANNON_EXPLOSION_DURATIONS = Array.from({ length: 16 }, (_, i) => 20 + 4 * i);
 export const CANNON_FLIGHT_SPEED_MULTIPLIER = 1.25 * 1.6 * 1.15;
+export const CANNON_BALL_FLIGHT_SPEED = 16 * CANNON_FLIGHT_SPEED_MULTIPLIER;
 export const CANNON_EXPLOSION_SPEED_MULTIPLIER = 1.38 * 1.6 * 1.22;
 export const CANNON_EXPLOSION_RADIUS_SCALE = 0.75;
 export const CANNON_BALL_SIZE_MULTIPLIER = 1.1;

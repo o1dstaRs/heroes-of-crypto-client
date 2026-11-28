@@ -7,6 +7,8 @@ export interface AtlasPingPongTiming {
     cols: number;
     rows: number;
     cycleMs: number;
+    forwardMs: number;
+    holdMs: number;
     /**
      * Ping-pong frame index (0..frameCount-1) for a given ABSOLUTE timestamp in ms.
      *
@@ -50,5 +52,5 @@ export function buildAtlasPingPongTiming(meta: AtlasMeta): AtlasPingPongTiming {
         return 0;
     };
 
-    return { cols, rows, frameCount, cycleMs, frameForElapsed };
+    return { cols, rows, frameCount, cycleMs, forwardMs, holdMs, frameForElapsed };
 }

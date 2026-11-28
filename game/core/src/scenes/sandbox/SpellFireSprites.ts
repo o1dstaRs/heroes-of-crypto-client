@@ -97,17 +97,26 @@ export class SpellFireSprites {
                 console.error("Fire spell atlas failed to load", kind, error);
             }));
     }
-    public async ring(target: Footprint, area: Footprint, hollow = false): Promise<void> {
+    public async ring(target: Footprint, area: Footprint, hollow = false, startTime?: number): Promise<void> {
         if (!valid(target) || !valid(area)) return;
-        await this.spawn(hollow ? "hollow" : "ring", [{ footprint: copy(area), target: copy(target), delay: 0 }]);
+        await this.spawn(
+            hollow ? "hollow" : "ring",
+            [{ footprint: copy(area), target: copy(target), delay: 0 }],
+            startTime,
+        );
     }
-    public async meteors(cells: readonly Footprint[]): Promise<void> {
+    public async meteors(cells: readonly Footprint[], startTime?: number): Promise<void> {
         await this.spawn(
             "meteor",
             meteorImpactPlan(cells).map((impact) => ({ ...impact, target: impact.footprint })),
+            startTime,
         );
     }
-    private async spawn(kind: Kind, plans: Pick<Cast, "footprint" | "target" | "delay">[]): Promise<void> {
+    private async spawn(
+        kind: Kind,
+        plans: Pick<Cast, "footprint" | "target" | "delay">[],
+        startTime?: number,
+    ): Promise<void> {
         if (!plans.length) return;
         const generation = this.generation;
         this.pending++;
@@ -116,7 +125,7 @@ export class SpellFireSprites {
         this.pending--;
         const frames = this.frames[kind];
         if (!frames) return;
-        const startedAt = this.now();
+        const startedAt = startTime ?? this.now();
         for (const plan of plans) {
             const container = new Container();
             container.scale.y = -1;
@@ -126,7 +135,7 @@ export class SpellFireSprites {
             this.attach(container, 5520);
             this.casts.push({ ...plan, kind, container, sprite, startedAt });
         }
-        this.update();
+        if (startTime === undefined) this.update();
     }
     public update(): void {
         const now = this.now();

@@ -45,8 +45,16 @@ import {
     resolveLeftSidebarPortraitTuning,
     type LeftSidebarPortraitTuning,
 } from "../leftSidebarPortraitTuning";
-import { resolveLeftSidebarPortraitArt } from "../leftSidebarPortraitArt";
-import { resolveLeftSidebarPortraitAnimation, sidebarPortraitFirstFrame } from "../leftSidebarPortraitAnimation";
+import {
+    LEFT_SIDEBAR_ART_SCALE,
+    LEFT_SIDEBAR_ART_SCALE_X,
+    resolveLeftSidebarPortraitArt,
+} from "../leftSidebarPortraitArt";
+import {
+    leftSidebarPortraitPlayback,
+    resolveLeftSidebarPortraitAnimation,
+    sidebarPortraitFirstFrame,
+} from "../leftSidebarPortraitAnimation";
 import { resolveIntegratedArbalesterPortrait } from "../integratedArbalesterPortrait";
 import { UNIT_NAME_TO_ID } from "../unit_ui_constants";
 import Toggler from "../Toggler";
@@ -69,7 +77,7 @@ import { playPagedSidebarAtlas } from "./pagedSidebarAtlasCanvas";
 import { stonePlateSx } from "./stonePlateStyles";
 import { hocDisplayFontFamily } from "../hocTheme";
 import { selectedUnitNamePlaqueBackground } from "./namePlaqueColor";
-import { personalArmyCssColor } from "../../scenes/personalArmyTint";
+import { getTeamFlagBackground } from "../TeamAmountFlag";
 import { PremiumUnitInspectionContext, PremiumUnitQuestionButton } from "../premium/PremiumUnitInspection";
 import { UnitSpells, unitSpellEntries } from "./UnitSpells";
 import { CreatureNameFlag } from "./CreatureNameFlag";
@@ -81,7 +89,6 @@ interface IAbilityStackProps {
 
 const FACTION_SYNERGY_IDS = [1, 2] as const;
 const FACTION_SYNERGY_LEVELS = [1, 2, 3] as const;
-const LEFT_SIDEBAR_ART_SCALE = 1.08;
 const FACTION_SYNERGY_LEVEL_TO_UNITS: Record<number, number> = {
     1: 2,
     2: 4,
@@ -377,20 +384,10 @@ const StackPowerOverlay: React.FC<{ stackPower: number; teamType: TeamType; isAu
     isAura,
 }) => {
     if (stackPower <= 0) return null;
-    // The team colours here are the same two the shared flag helper names, so a personal army colour is
-    // taken from it rather than re-derived — the alternative is pips that stay green in this one panel
-    // while every other surface follows the player's choice, for their own army and the repainted enemy
-    // alike. The neutral case keeps its own paler value: this list draws unowned rows differently from the
-    // flags on purpose.
-    const isLeft = teamType === TeamVals.LEFT;
-    const personalColor = personalArmyCssColor(teamType);
     const activeColor =
-        personalColor ??
-        (isLeft
-            ? "rgba(0, 210, 0, 1)"
-            : teamType === TeamVals.RIGHT
-              ? "rgba(255, 0, 0, 1)"
-              : "rgba(255, 255, 255, 0.85)");
+        teamType === TeamVals.LEFT || teamType === TeamVals.RIGHT
+            ? getTeamFlagBackground(teamType)
+            : "rgba(255, 255, 255, 0.85)";
     const emptyColor = "rgba(34, 34, 34, 0.7)";
 
     return (
@@ -1443,7 +1440,7 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
         artOffsetX: portraitOffsetX,
         artOffsetY: portraitOffsetY,
     } = sidebarPortraitTuning;
-    const portraitArtScaleX = 0.96 * (sidebarPortraitArt.artScaleX ?? 1);
+    const portraitArtScaleX = LEFT_SIDEBAR_ART_SCALE_X * (sidebarPortraitArt.artScaleX ?? 1);
     const portraitSource = portraitAnimationConfig
         ? sidebarPortraitFirstFrame(portraitAnimationConfig).src
         : sidebarPortraitArt.source;
@@ -1453,7 +1450,7 @@ const SelectedUnitPortrait = React.memo(function SelectedUnitPortrait({
     const portraitAtlasSource = portraitAnimationConfig?.src;
     const portraitAtlasMeta = portraitAnimationConfig?.meta;
     const portraitPages = portraitAnimationConfig?.pages;
-    const portraitPlayback = ["Arbalester", "Squire", "Blacksmith"].includes(portraitAlt) ? "loop" : "ping-pong";
+    const portraitPlayback = leftSidebarPortraitPlayback(portraitAlt);
     // Live stat/impact changes keep the complete mounted portrait intact. Only its actual source,
     // authored framing, animation, or responsive size needs to reconcile this image-heavy subtree.
     const sidebarPortrait = React.useMemo(

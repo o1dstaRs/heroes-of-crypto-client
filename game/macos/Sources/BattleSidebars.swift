@@ -16,8 +16,8 @@ struct SidebarLayout {
     var leftInset: CGFloat { min(13, max(6, (width * 0.0245).rounded())) }
     var combatTop: CGFloat { ((min(24, max(12, (height * 0.022).rounded())) - 4) / 2).rounded() + 4 }
     var combatHeight: CGFloat { controlSize * 6 + 40 }
-    var portraitHeight: CGFloat { min(430, (width - 2 * leftInset) * 1.36, height * 0.37) }
-    var queueHeight: CGFloat { min(112, height * 0.14) }
+    var portraitWidth: CGFloat { width - 2 * leftInset }
+    @MainActor var portraitHeight: CGFloat { min(portraitWidth / SidebarPortraits.aspect, height * 0.53) }
 }
 
 struct LeftBattleSidebar: View {
@@ -27,12 +27,16 @@ struct LeftBattleSidebar: View {
     @State private var inspection: (name: String, bitmap: CGImage)?
 
     var body: some View {
-        let focus = model.inspected ?? battle.active
+        let playback = model.sidebarPlayback
+        let displayedTurn = playback?.battle ?? battle
+        let focus = model.inspected ?? displayedTurn.active
         let rosterPreview = model.rosterInspectionStack
-        let preloadedNames = Array(Set(battle.stacks.map(\.name)).sorted().prefix(6))
+        let preloadedNames = Array(Set(battle.stacks.map(\.name)).sorted().prefix(2))
         VStack(spacing: 0) {
-            if let stack = rosterPreview ?? battle.stacks.first(where: { $0.id == focus }) {
-                portrait(stack, fromRoster: rosterPreview != nil)
+            if let stack = rosterPreview ?? displayedTurn.stacks.first(where: { $0.id == focus })
+                ?? battle.stacks.first(where: { $0.id == focus }) {
+                portrait(stack, fromRoster: rosterPreview != nil,
+                         animated: rosterPreview == nil || rosterPreview?.name == model.pendingCreature?.name)
                     .frame(height: layout.portraitHeight)
                 ScrollView {
                     BattleUnitDetails(stack: stack, width: layout.width)
@@ -44,7 +48,14 @@ struct LeftBattleSidebar: View {
                 Spacer(minLength: 0)
             }
             if battle.started {
-                if battle.active != nil { turnFooter }
+                if let active = displayedTurn.activeStack {
+                    let window = playback == nil ? model.turnWindow : playback?.window
+                    BattleTurnFooter(active: active, queue: displayedTurn.turnOrder, lap: displayedTurn.lap,
+                                     humanTurn: displayedTurn.playerTurn, window: window,
+                                     pausedAt: playback?.pausedAt, width: layout.portraitWidth,
+                                     requestTime: model.canRequestTime ? { model.requestTime(for: window?.key) } : nil,
+                                     inspect: model.select)
+                }
             } else {
                 SandboxStartControls(model: model)
             }
@@ -55,19 +66,24 @@ struct LeftBattleSidebar: View {
         .task(id: preloadedNames) {
             for name in preloadedNames {
                 if Task.isCancelled { break }
-                _ = await BattleResources.loadInspectorPortrait(for: name, priority: .utility)
+                if let page = SidebarPortraits.artwork(for: name)?.animation?.pages.first {
+                    SidebarPortraits.warm(page.resource)
+                } else {
+                    _ = await BattleResources.loadInspectorPortrait(for: name, priority: .utility)
+                }
             }
         }
     }
 
-    private func portrait(_ stack: Stack, fromRoster: Bool) -> some View {
-        let width = layout.width - 2 * layout.leftInset
+    private func portrait(_ stack: Stack, fromRoster: Bool, animated: Bool) -> some View {
+        let width = layout.portraitWidth
         let flagWidth = width * 0.94
         let alive = CGFloat(stack.amount) / CGFloat(max(1, stack.amount + stack.losses))
         let plaqueColor = fromRoster ? BattlePalette.bronze : BattlePalette.cloth(stack.team)
         let bitmap = inspection?.name == stack.name ? inspection?.bitmap : BattleResources.inspectorPortrait(for: stack.name)
         return ZStack(alignment: .bottom) {
-            CreaturePortrait(name: stack.name, team: fromRoster ? nil : stack.team, inspector: true, inspectionArt: bitmap)
+            CreaturePortrait(name: stack.name, team: fromRoster ? nil : stack.team, inspector: true,
+                             inspectionArt: bitmap, sidebarPlayback: animated)
                 .frame(width: width, height: layout.portraitHeight)
             VStack(spacing: 0) {
                 Text(stack.name.uppercased())
@@ -98,6 +114,7 @@ struct LeftBattleSidebar: View {
         }
         .clipped()
         .task(id: stack.name) {
+            guard SidebarPortraits.artwork(for: stack.name)?.animation == nil else { return }
             let image = await BattleResources.loadInspectorPortrait(for: stack.name)
             if !Task.isCancelled { inspection = image.map { (stack.name, $0) } }
         }
@@ -143,125 +160,24 @@ struct LeftBattleSidebar: View {
                                    startPoint: .top, endPoint: .bottom))
     }
 
-    private var turnFooter: some View {
-        let order = [battle.active].compactMap { $0 } + battle.queue
-        return VStack(spacing: battle.playerTurn ? 24 : 8) {
-            VStack(spacing: 9) {
-                Text(turnTitle)
-                    .font(BattleResources.display(14))
-                    .foregroundStyle(battle.playerTurn ? BattlePalette.opponent : BattlePalette.sidebarTitle)
-                    .accessibilityIdentifier("TurnStatus")
-                HStack(spacing: 6) {
-                    VStack(spacing: 0) {
-                        Text("LAP").font(BattleResources.display(8)).tracking(0.7)
-                            .foregroundStyle(BattlePalette.gold)
-                        Text(battle.lap, format: .number).font(BattleResources.display(17))
-                    }
-                    .frame(width: 40, height: 40)
-                    .background(BattlePalette.bronze.opacity(0.25), in: Circle())
-                    .overlay { Circle().strokeBorder(BattlePalette.gold, lineWidth: 2) }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("Lap \(battle.lap)")
-                    if let active = battle.activeStack {
-                        VStack(spacing: 4) {
-                            Text(active.name)
-                                .font(BattleResources.display(11)).tracking(0.5)
-                                .foregroundStyle(BattlePalette.team(active.team))
-                                .lineLimit(1).minimumScaleFactor(0.7)
-                                .frame(maxWidth: .infinity)
-                            if let window = model.turnWindow {
-                                clock(window)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(.vertical, 5)
-            .padding(.horizontal, 5)
-            .frame(height: battle.playerTurn ? 90 : 72, alignment: .top)
-            .background(BattlePalette.backdrop.opacity(0.85), in: RoundedRectangle(cornerRadius: 6))
-            .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(BattlePalette.bronze.opacity(0.4)) }
-
-            ScrollView(.horizontal) {
-                HStack(alignment: .center, spacing: 10) {
-                    ForEach(Array(order.enumerated()), id: \.offset) { index, id in
-                        if let stack = battle.stacks.first(where: { $0.id == id }) {
-                            StackPortraitButton(stack: stack, width: (index == 0 ? 1.09 : 1) * min(74, layout.width / 3.4),
-                                                height: min(88, layout.queueHeight - 16), selected: index == 0, showsPower: true) {
-                                model.select(stack)
-                            }
-                        }
-                    }
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-            }
-            .defaultScrollAnchor(.leading)
-            .id(battle.active)
-            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-            .frame(height: layout.queueHeight, alignment: .top)
-            .background {
-                GeometryReader { metrics in
-                    if let background = BattleResources.image("ui_up_next_smoky_chains_bg_85pct_v5") {
-                        Image(nsImage: background).resizable().scaledToFill()
-                            .frame(width: metrics.size.width, height: metrics.size.height).clipped()
-                    } else {
-                        RoundedRectangle(cornerRadius: 5).fill(.black.opacity(0.31))
-                    }
-                }
-            }
-            .accessibilityLabel("Turn queue")
-        }
-        .padding(.bottom, 8)
-    }
-
-    private var turnTitle: String {
-        guard let team = battle.activeStack?.team else { return "Battle" }
-        if battle.automatedTurn { return "\(team.title) AI" }
-        return model.automatedTeams.count == 1 ? "Your turn" : "\(team.title)’s turn"
-    }
-
-    private func clock(_ window: SandboxTurnClock.Window) -> some View {
-        TimelineView(.periodic(from: .now, by: 0.25)) { _ in
-            let seconds = window.remaining(at: ContinuousClock.now)
-            let fraction = window.limit > 0 ? seconds / window.limit : 0
-            let tone = seconds <= 5 ? BattlePalette.opponent : BattlePalette.gold
-            HStack(spacing: 4) {
-                GeometryReader { meter in
-                    Capsule().fill(.black.opacity(0.58))
-                        .overlay(alignment: .leading) {
-                            Capsule().fill(tone.gradient).frame(width: meter.size.width * fraction)
-                        }
-                        .overlay { Capsule().strokeBorder(BattlePalette.bronze) }
-                }
-                .frame(height: 9)
-                .accessibilityHidden(true)
-                Text(Int(ceil(seconds)), format: .number)
-                    .font(BattleResources.display(11)).monospacedDigit()
-                    .accessibilityLabel("\(Int(ceil(seconds))) seconds remaining")
-                if model.canRequestTime {
-                    Button(action: model.requestTime) {
-                        Image(systemName: "plus").font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(BattlePalette.gold)
-                            .frame(width: 17, height: 17)
-                            .background(.black.opacity(0.45), in: Circle())
-                            .overlay { Circle().strokeBorder(BattlePalette.bronze) }
-                    }
-                    .buttonStyle(BattleButtonStyle())
-                    .accessibilityLabel("Request additional time")
-                    .help("Request additional time")
-                }
-            }
-        }
-    }
 }
 
 struct RightBattleSidebar: View {
     let model: SkirmishModel
     let battle: BattleView
     let layout: SidebarLayout
+    let canPlaceRosterCreature: Bool
+    let shortcutsEnabled: Bool
     let openRanked: () -> Void
     let closeSandbox: () -> Void
+    @State private var splitCount = 1
+
+    private var splitAmount: Binding<Int> {
+        Binding {
+            let amount = model.selectedDeploymentStack?.amount ?? 1
+            return min(max(1, amount - 1), max(1, splitCount))
+        } set: { splitCount = $0 }
+    }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -282,7 +198,8 @@ struct RightBattleSidebar: View {
                 .padding(.top, layout.combatTop)
                 .padding(.bottom, 114)
             } else {
-                SandboxPlacementSidebar(model: model, battle: battle, compact: layout.height <= 800)
+                SandboxPlacementSidebar(model: model, battle: battle, compact: layout.height <= 800,
+                                        canPlaceRosterCreature: canPlaceRosterCreature, splitAmount: splitAmount)
                     .padding(.horizontal, layout.sideInset)
                     .padding(.top, 24)
                     .padding(.bottom, 116)
@@ -313,6 +230,30 @@ struct RightBattleSidebar: View {
         }
         .foregroundStyle(BattlePalette.parchment)
         .frame(maxHeight: .infinity)
+        .onChange(of: battle.deploying) { splitCount = 1 }
+        .background {
+            if shortcutsEnabled {
+                SandboxKeyboardShortcuts(perform: performShortcut).accessibilityHidden(true)
+            }
+        }
+    }
+
+    private func performShortcut(_ shortcut: SandboxShortcut) -> Bool {
+        if battle.started {
+            guard shortcut == .d, battle.playerTurn, !model.isAnimating else { return false }
+            model.perform(.defend)
+            return true
+        }
+        guard model.pendingCreature == nil, model.placingBarrel == nil,
+              let stack = model.selectedDeploymentStack else { return false }
+        switch shortcut {
+        case .d: model.removeSelectedStack()
+        case .s:
+            guard stack.amount > 1 else { return false }
+            model.duplicateSelectedStack(split: splitAmount.wrappedValue)
+        case .c: model.duplicateSelectedStack()
+        }
+        return true
     }
 
     private var controls: some View {
@@ -321,7 +262,6 @@ struct RightBattleSidebar: View {
             medallion("hourglass", label: "Wait", symbol: "hourglass", disabled: !battle.canWait) { model.perform(.wait) }
                 .keyboardShortcut("w", modifiers: [])
             medallion("luck", label: "Defend", symbol: "shield", disabled: false) { model.perform(.defend) }
-                .keyboardShortcut("d", modifiers: [])
             medallion("next", label: "End turn", symbol: "forward.end", disabled: false) { model.perform(.endTurn) }
                 .keyboardShortcut("e", modifiers: [])
             medallion("ai", label: "Autoplay AI", symbol: "brain.head.profile", disabled: battle.winner != nil || battle.stalled,
@@ -399,7 +339,8 @@ struct RightBattleSidebar: View {
                     .accessibilityAddTraits(.isHeader)
             }
             .frame(height: 47, alignment: .bottom)
-            divider
+            Rectangle().fill(BattlePalette.bronze.opacity(0.55)).frame(height: 1)
+                .accessibilityHidden(true)
             ScrollView {
                 VStack(spacing: 8) {
                     ForEach(battle.damage) { row in
@@ -438,80 +379,28 @@ struct RightBattleSidebar: View {
     }
 
     private var battleLog: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 6) {
-                Text("BATTLE LOG").font(BattleResources.display(14)).tracking(1.5)
-                    .accessibilityAddTraits(.isHeader)
-                Button {
-                    let clipboard = NSPasteboard.general
-                    clipboard.clearContents()
-                    clipboard.setString(model.log.map(\.text).joined(separator: "\n"), forType: .string)
-                } label: {
-                    Image(systemName: "doc.on.doc")
-                        .font(.system(size: 9))
-                        .frame(width: 17, height: 17)
-                        .overlay { RoundedRectangle(cornerRadius: 3).strokeBorder(BattlePalette.bronze) }
-                }
-                .buttonStyle(BattleButtonStyle())
-                .disabled(model.log.isEmpty)
-                .accessibilityLabel("Copy battle log")
-                .help("Copy battle log")
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 25)
-            divider
-            if let active = battle.activeStack {
-                (Text(active.name.uppercased()).foregroundStyle(BattlePalette.team(active.team)) +
-                 Text(" — LAP \(battle.lap)"))
-                    .font(BattleResources.display(10.5))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 8)
-                divider
-            }
+        VStack(spacing: 4) {
             if let spell = battle.spell {
                 spellTargeting(spell)
             }
             if let problem = model.problem {
                 Text(problem).font(.caption).foregroundStyle(BattlePalette.opponent)
             }
-            ScrollViewReader { scroll in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 7) {
-                        ForEach(Array(model.log.enumerated()), id: \.offset) { index, event in
-                            (Text(event.title.uppercased()).foregroundStyle(event.team.map(BattlePalette.team) ?? BattlePalette.gold) +
-                             Text(event.detail.isEmpty ? "" : " " + event.detail.uppercased()))
-                                .font(BattleResources.display(9.5))
-                                .id(index)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(8)
-                    .background(BattlePalette.bronze.opacity(0.16))
-                }
-                .scrollBounceBehavior(.basedOnSize)
-                .onChange(of: battle.revision) {
-                    if !model.log.isEmpty { scroll.scrollTo(model.log.count - 1, anchor: .bottom) }
-                }
-            }
-            .frame(maxHeight: .infinity)
+            BattleLogPane(lines: model.log)
+                .frame(minHeight: 168, maxHeight: .infinity)
+                .padding(.trailing, -15.72)
+                .accessibilityIdentifier("BattleLog")
         }
-        .foregroundStyle(BattlePalette.gold)
-        .padding(10)
         .frame(maxHeight: .infinity, alignment: .top)
-        .background { SidebarFrame() }
-        .accessibilityIdentifier("BattleLog")
-    }
-
-    private var divider: some View {
-        Rectangle().fill(BattlePalette.bronze.opacity(0.55)).frame(height: 1)
-            .accessibilityHidden(true)
     }
 
     private func spellTargeting(_ spell: BattleSpell) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(spell.name).font(BattleResources.display(14)).foregroundStyle(BattlePalette.spell)
-            if spell.aim == .army {
-                Button("Cast \(spell.name)", action: model.cast).disabled(!battle.canCast)
+            if battle.fireWallAims != nil {
+                Text(battle.spellCells.isEmpty ? "No legal targets." : "Aim at a tile. Press Shift to rotate.").font(.caption)
+                Button("Rotate", action: model.rotateFireWall)
+                    .accessibilityLabel("Rotate Fire Wall")
             } else {
                 Text(battle.spellCells.isEmpty ? "No legal targets." : "Choose a highlighted target.").font(.caption)
             }
@@ -566,15 +455,18 @@ struct BattleSystemControls: View {
 
 struct BattleCloseButton: View {
     let label: String
+    var side: CGFloat = 32
+    var shortcut: KeyboardShortcut? = nil
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             SidebarIcon(asset: "ui_control_close_oxblood_bronze_v2", symbol: "xmark")
-                .frame(width: 32, height: 32)
+                .frame(width: side, height: side)
                 .contentShape(Rectangle())
         }
         .buttonStyle(BattleButtonStyle())
+        .keyboardShortcut(shortcut)
         .accessibilityLabel(label)
         .help(label)
     }
@@ -711,12 +603,16 @@ struct CreaturePortrait: View {
     var team: Team? = nil
     var inspector = false
     var inspectionArt: CGImage? = nil
+    var sidebarPlayback: Bool? = nil
 
     var body: some View {
         let key = BattleResources.creature(name)
         let portrait = BattleResources.portraits[name]
         let card = BattleResources.image("\(key)_portrait")
         let art = inspectionArt.map { Image(decorative: $0, scale: 1) } ?? card.map { Image(nsImage: $0) }
+        let sidebar = sidebarPlayback == nil ? nil : SidebarPortraits.artwork(for: name)
+        let mirror: CGFloat = portrait?.mirrored == true ? -1 : 1
+        let facing = team.map { ($0 == .player ? 1 : -1) * (portrait?.authoredFacing ?? 1) } ?? 1
         return GeometryReader { geometry in
             let size = geometry.size
             ZStack {
@@ -738,19 +634,27 @@ struct CreaturePortrait: View {
                         .frame(width: size.width, height: size.height)
                         .scaleEffect(1.2).blur(radius: 14).brightness(-0.32).saturation(0.78)
                 }
-                if let art {
+                if let sidebar, let clip = sidebar.animation, let sidebarPlayback {
+                    SidebarAnimatedPortrait(clip: clip, playing: sidebarPlayback, fallback: art)
+                        .frame(width: size.width * sidebar.scale * sidebar.scaleX,
+                               height: size.height * sidebar.scale)
+                        .scaleEffect(x: mirror * facing, y: 1)
+                        .offset(x: sidebar.offsetX * size.width / 100 * mirror,
+                                y: sidebar.offsetY * size.height / 100)
+                        .id(name)
+                } else if let art {
                     let standalone = inspectionArt != nil
                     let framing = portrait?.framing
-                    let mirror: CGFloat = portrait?.mirrored == true ? -1 : 1
-                    let framingScale = standalone ? 1 : framing?.scale ?? 1
-                    let facing = team.map { ($0 == .player ? 1 : -1) * (portrait?.authoredFacing ?? 1) } ?? 1
-                    let offsetX = standalone ? 0 : (framing?.offsetX ?? 0) * size.width / 100 * mirror * facing
-                    let offsetY = standalone ? 0 : (framing?.offsetY ?? 0) * size.height / 100
+                    let framingScale = (standalone ? 1 : framing?.scale ?? 1) * (sidebar?.scale ?? 1)
+                    let insetX = sidebar?.scaleX ?? (inspector ? 0.96 : 1)
+                    let offsetX = ((standalone ? 0 : framing?.offsetX ?? 0) * facing + (sidebar?.offsetX ?? 0))
+                        * size.width / 100 * mirror
+                    let offsetY = ((standalone ? 0 : framing?.offsetY ?? 0) + (sidebar?.offsetY ?? 0)) * size.height / 100
                     art.resizable().interpolation(.high)
                         .aspectRatio(contentMode: standalone || framing?.fit == "contain" ? .fit : .fill)
                         .frame(width: size.width, height: size.height)
                         .clipped()
-                        .scaleEffect(x: framingScale * mirror * facing * (inspector ? 0.96 : 1), y: framingScale)
+                        .scaleEffect(x: framingScale * mirror * facing * insetX, y: framingScale)
                         .offset(x: offsetX, y: offsetY)
                 } else {
                     Text(String(name.prefix(1))).font(BattleResources.display(size.width * 0.44))
@@ -769,23 +673,22 @@ struct StackPortraitButton: View {
     let width: CGFloat
     let height: CGFloat
     let selected: Bool
-    let showsPower: Bool
     let action: () -> Void
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: showsPower ? 0 : 5)
+        let shape = Rectangle()
         Button(action: action) {
             CreaturePortrait(name: stack.name, team: stack.team)
                 .frame(width: width, height: height)
                 .overlay(alignment: .topTrailing) {
                     Text(stack.amount, format: .number)
-                        .font(.system(size: showsPower ? 10 : 8, weight: .semibold).monospacedDigit())
+                        .font(.system(size: min(11, width * 0.19), weight: .semibold).monospacedDigit())
                         .foregroundStyle(BattlePalette.parchment)
                         .padding(.horizontal, 3).padding(.vertical, 1)
                         .background(BattlePalette.cloth(stack.team))
                 }
                 .overlay(alignment: .bottom) {
-                    if showsPower {
+                    if stack.stackPower > 0 {
                         HStack(spacing: 2) {
                             ForEach(0..<5) { index in
                                 RoundedRectangle(cornerRadius: 1)
@@ -797,15 +700,23 @@ struct StackPortraitButton: View {
                         .padding(.bottom, 4)
                     }
                 }
+                .overlay(alignment: .topLeading) {
+                    if stack.skipping == true || stack.waiting {
+                        SidebarIcon(asset: stack.skipping == true ? "stop" : "hourglass",
+                                    symbol: stack.skipping == true ? "pause.circle.fill" : "hourglass")
+                            .frame(width: max(12, width * 0.28), height: max(12, width * 0.28))
+                            .accessibilityHidden(true)
+                    }
+                }
                 .clipShape(shape)
-                .overlay { shape.strokeBorder(selected ? BattlePalette.gold : BattlePalette.cloth(stack.team)) }
-                .shadow(color: selected ? BattlePalette.gold.opacity(0.27) : .clear, radius: 5)
+                .overlay { if selected { shape.strokeBorder(BattlePalette.gold.opacity(0.93)) } }
+                .shadow(color: selected ? BattlePalette.gold.opacity(0.46) : .clear, radius: 5)
                 .contentShape(shape)
         }
         .buttonStyle(BattleButtonStyle())
         .help("Inspect \(stack.name)")
         .accessibilityLabel("Inspect \(stack.name)")
-        .accessibilityValue("\(stack.amount) creatures")
+        .accessibilityValue("\(stack.amount) creatures\(stack.skipping == true ? ", skipping" : stack.waiting ? ", waiting" : "")")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

@@ -2,6 +2,20 @@ import CoreGraphics
 import Foundation
 
 @MainActor
+enum BattleAimArtwork {
+    static let arrowhead = "shot_trajectory_orc_bronze_arrowhead_distant_match_v8.webp"
+    static let fletching = "shot_trajectory_orc_bronze_fletching_distant_match_v8.webp"
+    static let casing = "shot_trajectory_hammered_bronze_casing_sprite_v4.webp"
+    static let helix = "magic_aim_dual_helix_default_atlas.webp"
+
+    static func prewarm(ranged: Bool) {
+        for resource in ranged ? [arrowhead, fletching, casing] : [helix] {
+            BattlefieldAtlas.prefetch(resource, combat: true)
+        }
+    }
+}
+
+@MainActor
 struct BattleProjectile: Decodable {
     struct Atlas: Decodable {
         let columns: Int
@@ -17,6 +31,12 @@ struct BattleProjectile: Decodable {
     struct Anchor: Decodable {
         let x: CGFloat
         let y: CGFloat
+    }
+
+    struct ChakramOrigin: Decodable {
+        let x: CGFloat
+        let y: CGFloat
+        let diameter: CGFloat
     }
 
     struct Impact: Decodable {
@@ -54,9 +74,13 @@ struct BattleProjectile: Decodable {
     let spin: Double?
     let arcCells: CGFloat?
     let releaseFrame: Int?
+    let authoredRelease: Bool?
+    let cellsPerSecond: CGFloat?
+    let piercingSpeedMultiplier: CGFloat?
     let atlas: Atlas?
     let anchor: Anchor?
     let impact: Impact?
+    let chakramOrigins: [String: ChakramOrigin]?
 
     private static let catalogue: Catalogue? = {
         guard let url = Bundle.main.url(forResource: "projectiles", withExtension: "json"),

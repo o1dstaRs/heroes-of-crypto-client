@@ -12,6 +12,8 @@ export interface CombatExchangeStrike {
     missed?: boolean;
 }
 
+export const MELEE_EXCHANGE_MIN_HOLD_MS = 220;
+
 /**
  * INTENDED COMBAT TIMING: the opening blow and its recorded response share one presentation group.
  * Never serialize them, including lethal exchanges. Later blows wait for the entire opening group

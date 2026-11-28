@@ -112,6 +112,10 @@ export function battleRoarAppliedUnitIds(events: readonly GameEvent[] | undefine
  */
 export const isMoraleEffectName = (name: string): boolean => name === "Morale" || name === "Dismorale";
 
+export function isPassiveEffectName(name: string): boolean {
+    return isAuraEffectName(name) || NON_ANIMATABLE_PASSIVE_EFFECT_NAMES.has(name);
+}
+
 /**
  * Build the set of animatable effect names from a raw list — drops empties, aura effects, passive
  * "team mark" effects (Pegasus Light), and the lap-scoped Morale/Dismorale system effects (those animate
@@ -122,9 +126,8 @@ export function animatableEffectNames(names: Iterable<string>): Set<string> {
     for (const name of names) {
         if (
             name &&
-            !isAuraEffectName(name) &&
+            !isPassiveEffectName(name) &&
             !isMoraleEffectName(name) &&
-            !NON_ANIMATABLE_PASSIVE_EFFECT_NAMES.has(name) &&
             !ogreSpellFlagKind(name) &&
             !satyrSpellFlagKind(name) &&
             !EVENT_DRIVEN_EFFECT_NAMES.has(name)

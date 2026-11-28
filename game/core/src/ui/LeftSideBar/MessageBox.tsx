@@ -731,8 +731,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
         messageBoxTitle = "Fight finished";
         messageBoxText = "Refresh the page to start a new one";
     } else {
-        // The reserve control is removed after use, so nothing here decides whether it exists — only the
-        // panel's colour tracks the clock.
+        // The panel colour tracks the clock independently of the extra-time control.
         if (messageBoxProgressValue <= 45 && !countdown) {
             messageBoxColor = "neutral";
         } else if (messageBoxProgressValue <= 80 && !countdown) {
@@ -881,7 +880,7 @@ export const MessageBox = ({ gameStarted, windowSize }: { gameStarted: boolean; 
                             </Box>
                         }
                         footer={
-                            !cannotAct && visibleState.canRequestAdditionalTime ? (
+                            !cannotAct && visibleState.canRequestAdditionalTime && timerProgressValue >= 50 ? (
                                 <Button
                                     aria-label="More time"
                                     onClick={() => manager.RequestTime(visibleState.teamTypeTurn)}

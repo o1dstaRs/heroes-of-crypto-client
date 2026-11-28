@@ -2,14 +2,6 @@ import AppKit
 import Foundation
 import Observation
 
-struct BattleLogEntry {
-    let title: String
-    let detail: String
-    let team: Team?
-
-    var text: String { detail.isEmpty ? title : "\(title) \(detail)" }
-}
-
 @MainActor
 @Observable
 final class SkirmishModel {
@@ -17,10 +9,11 @@ final class SkirmishModel {
     private(set) var problem: String?
     private(set) var spellbookOpen = false
     private(set) var effectsEnabled = true
-    private(set) var log: [BattleLogEntry] = []
+    private(set) var log: [String] = []
     private(set) var inspected: Int?
     private(set) var playback = BattlePlayback()
     private(set) var isAnimating = false
+    private(set) var sidebarPlayback: SidebarPlayback?
     private(set) var fightSummary: BattleFightSummary?
     private(set) var isReplaying = false
     private var resultsPresented = false
@@ -41,7 +34,6 @@ final class SkirmishModel {
     @ObservationIgnored private var rosterPreviews: [Int: Stack] = [:]
     @ObservationIgnored private var loadoutEngine: SandboxLoadoutEngine?
     @ObservationIgnored private var opening: [SandboxStack] = []
-    @ObservationIgnored private var loadedOpening = false
     @ObservationIgnored private var engine: NativeBattle?
     @ObservationIgnored private var opponentTask: Task<Void, Never>?
     @ObservationIgnored private var appliedAutoplay = false
@@ -49,7 +41,8 @@ final class SkirmishModel {
     @ObservationIgnored private var animationTask: Task<Void, Never>?
     @ObservationIgnored private var recordedFight: [BattleView] = []
     @ObservationIgnored private var replayTask: Task<Void, Never>?
-    @ObservationIgnored private var finalLog: [BattleLogEntry] = []
+    @ObservationIgnored private var finalLog: [String] = []
+    @ObservationIgnored private var recordedLog: [Int: [String]] = [:]
     @ObservationIgnored private var turnTimeoutTask: Task<Void, Never>?
     @ObservationIgnored private var turnClock = SandboxTurnClock()
     @ObservationIgnored private var consecutiveTimeouts = 0
@@ -62,33 +55,76 @@ final class SkirmishModel {
         case arrival
     }
 
+    struct SidebarPlayback {
+        let battle: BattleView
+        let window: SandboxTurnClock.Window?
+        let pausedAt: ContinuousClock.Instant
+    }
+
+    private struct OpeningConfiguration {
+        let setup: SandboxSetup
+        let loadouts: SandboxLoadoutEngine
+
+        init(resources: URL) throws {
+            setup = try SandboxSetup(resources: resources)
+            loadouts = try SandboxLoadoutEngine(resources: resources)
+        }
+
+        static func load(resources: URL) async throws -> sending Self {
+            try await withCheckedThrowingContinuation { continuation in
+                // The JS context and catalogue have no other owners after this handoff.
+                DispatchQueue.global(qos: .userInitiated).async {
+                    continuation.resume(with: Result { try Self(resources: resources) })
+                }
+            }
+        }
+    }
+
+    func openSandbox() async {
+        do {
+            if loadoutEngine == nil {
+                let configuration = try await OpeningConfiguration.load(resources: sandboxResources())
+                try Task.checkCancellation()
+                if loadoutEngine == nil { install(configuration) }
+            }
+            if battle == nil { restart() }
+        } catch {
+            if !Task.isCancelled && battle == nil { problem = error.localizedDescription }
+        }
+    }
+
     func restart() {
         do {
-            if !loadedOpening {
-                guard let resources = Bundle.main.resourceURL else { throw EngineError(message: "Missing sandbox resources.") }
-                guard BattleResources.image("board-0") != nil, !BattleResources.portraits.isEmpty,
-                      Bundle.main.url(forResource: "animations", withExtension: "json") != nil,
-                      Bundle.main.url(forResource: "creature-framing", withExtension: "json") != nil else {
-                    throw EngineError(message: "This copy of Heroes of Crypto is missing the Sandbox artwork.")
-                }
-                let setup = try SandboxSetup(resources: resources)
-                let loadoutEngine = try SandboxLoadoutEngine(resources: resources)
-                self.setup = setup
-                self.loadoutEngine = loadoutEngine
-                loadoutOptions = loadoutEngine.options
-                catalogue = setup.creatures
-                loadedOpening = true
-            }
+            if loadoutEngine == nil { install(try OpeningConfiguration(resources: sandboxResources())) }
             replaceSandbox(opening)
         } catch {
             problem = error.localizedDescription
         }
     }
 
+    private func sandboxResources() throws -> URL {
+        let bundle = Bundle.main
+        guard let resources = bundle.resourceURL else { throw EngineError(message: "Missing sandbox resources.") }
+        guard bundle.url(forResource: "board-0", withExtension: "webp") != nil, !BattleResources.portraits.isEmpty,
+              bundle.url(forResource: "animations", withExtension: "json") != nil,
+              bundle.url(forResource: "creature-framing", withExtension: "json") != nil else {
+            throw EngineError(message: "This copy of Heroes of Crypto is missing the Sandbox artwork.")
+        }
+        return resources
+    }
+
+    private func install(_ configuration: OpeningConfiguration) {
+        setup = configuration.setup
+        loadoutEngine = configuration.loadouts
+        loadoutOptions = configuration.loadouts.options
+        catalogue = configuration.setup.creatures
+    }
+
     func closeSandbox() {
         opponentTask?.cancel()
         opponentTask = nil
         animationTask?.cancel()
+        sidebarPlayback = nil
         sound.stopMovement()
         clearFightRecording()
         engine = nil
@@ -143,11 +179,11 @@ final class SkirmishModel {
         rosterPreviews[creature.id] = try? setup.rosterPreview(for: creature, resources: resources)
     }
 
-    func selectRosterCreature(_ creature: SandboxCreature, toggle: Bool = true) {
+    func selectRosterCreature(_ creature: SandboxCreature) {
         guard battle?.started == false else { return }
         placingBarrel = nil
         prepareRosterPreview(for: creature)
-        pendingCreature = toggle && pendingCreature?.id == creature.id ? nil : creature
+        pendingCreature = pendingCreature?.id == creature.id ? nil : creature
         if pendingCreature != nil {
             inspected = nil
             CreatureAnimation.prewarm(creature.name, action: .idle)
@@ -155,18 +191,9 @@ final class SkirmishModel {
         problem = nil
     }
 
-    var pendingPlacements: [Cell: Team] {
-        guard let creature = pendingCreature else { return [:] }
-        return placements(for: creature)
-    }
-
-    private func placements(for creature: SandboxCreature) -> [Cell: Team] {
-        guard let setup, let view = battle, !view.started, !isAnimating else { return [:] }
-        return Dictionary(uniqueKeysWithValues: [Team.player, .opponent].flatMap { team -> [(Cell, Team)] in
-            if let preview = teamPreview[team], view.stacks.filter({ $0.team == team }).count >= preview.capacity { return [] }
-            return setup.availableAnchors(for: creature.footprint, team: team, on: view,
-                                          zone: teamPreview[team]?.cells).map { ($0, team) }
-        })
+    func rosterPlacements(for creature: SandboxCreature) -> SandboxRosterPlacement? {
+        guard let setup, let view = battle, !view.started, !isAnimating else { return nil }
+        return setup.rosterPlacements(for: creature.footprint, on: view, deployment: teamPreview)
     }
 
     var canStart: Bool {
@@ -294,7 +321,7 @@ final class SkirmishModel {
         resultsPresented = false
         isReplaying = true
         finalLog = log
-        log = []
+        log = recordedLog[first.revision] ?? []
         inspected = nil
         battle = first
         playback = BattlePlayback()
@@ -320,6 +347,7 @@ final class SkirmishModel {
         animationTask = nil
         battle = last
         playback = BattlePlayback()
+        sidebarPlayback = nil
         log = finalLog
         finalLog = []
         isAnimating = false
@@ -331,6 +359,7 @@ final class SkirmishModel {
         replayTask?.cancel()
         replayTask = nil
         recordedFight = []
+        recordedLog = [:]
         finalLog = []
         fightSummary = nil
         isReplaying = false
@@ -339,12 +368,16 @@ final class SkirmishModel {
 
     @discardableResult
     func placeRosterCreature(_ creatureId: Int, covering cell: Cell) -> Bool {
-        guard let creature = catalogue.first(where: { $0.id == creatureId }) else { return false }
-        let placements = placements(for: creature)
+        guard let creature = catalogue.first(where: { $0.id == creatureId }),
+              let placements = rosterPlacements(for: creature)?.anchors else { return false }
+        if placements.isEmpty {
+            if pendingCreature?.id != creatureId { selectRosterCreature(creature) }
+            return false
+        }
         let landings = FootprintLandings(footprint: creature.footprint, anchors: Set(placements.keys))
         guard let anchor = landings.anchor(covering: cell), let team = placements[anchor] else { return false }
         let stack = SandboxStack(creature: creature.id, team: team, amount: creature.amount, x: anchor.x, y: anchor.y)
-        return replaceSandbox(opening + [stack], selection: opening.count)
+        return replaceSandbox(opening + [stack])
     }
 
     func changeAmount(_ amount: Int) {
@@ -408,7 +441,10 @@ final class SkirmishModel {
     private func replaceSandbox(_ stacks: [SandboxStack], map: BattlefieldMap? = nil,
                                 selection: Int? = nil, loadouts: [Team: SandboxLoadout]? = nil, reroll: UInt32? = nil) -> Bool {
         guard let loadoutEngine else { return false }
-        guard stacks.count <= 32 else { problem = "The battlefield supports up to 32 stacks."; return false }
+        guard stacks.count <= SandboxSetup.maximumStacks else {
+            problem = "The battlefield supports up to \(SandboxSetup.maximumStacks) stacks."
+            return false
+        }
         let chosenMap = map ?? self.map
         var choices = loadouts ?? self.loadouts
         let boardSeed = chosenMap == .barrels ? reroll ?? barrelSeed : nil
@@ -431,6 +467,7 @@ final class SkirmishModel {
             hoveredRosterCreature = nil
             log = []
             playback = BattlePlayback()
+            sidebarPlayback = nil
             isAnimating = false
             battle = view
             inspected = view.deploying
@@ -475,17 +512,30 @@ final class SkirmishModel {
             guard let anchor = battle.movementLandings.anchor(covering: cell), anchor != battle.movingStack?.anchor else { return }
             destination = anchor
         }
+        let placementIndex = editingIndex
         let accepted = engine.choose(destination)
-        update(accepted, manualAction: battle.started)
-        if accepted, !battle.started, let index = editingIndex, let anchor = selectedDeploymentStack?.anchor {
-            opening[index].x = anchor.x
-            opening[index].y = anchor.y
+        if accepted, let index = placementIndex {
+            opening[index].x = destination.x
+            opening[index].y = destination.y
+            inspected = nil
         }
+        update(accepted, manualAction: battle.started)
     }
 
     func attack(_ target: Int, from angle: BattleAttackAngle) {
         guard let engine, !isAnimating, !isReplaying, battle?.playerTurn == true else { return }
         update(engine.attack(target, from: angle), manualAction: true)
+    }
+
+    func previewThrough(_ point: CGPoint) -> BattleThroughAim? {
+        guard !isAnimating, !isReplaying, battle?.canAimThrough == true else { return nil }
+        return engine?.previewThrough(point)
+    }
+
+    func fireThrough(_ point: CGPoint) {
+        guard let engine, !isAnimating, !isReplaying, battle?.canAimThrough == true,
+              engine.previewThrough(point)?.valid == true else { return }
+        update(engine.fireThrough(point), manualAction: true)
     }
 
     func select(_ stack: Stack) {
@@ -511,6 +561,7 @@ final class SkirmishModel {
         placingBarrel = nil
         hoveredRosterCreature = nil
         inspected = nil
+        loadoutEngine?.beginBattleLog(stacks: battle?.stacks ?? [])
         update(engine.ready())
     }
 
@@ -520,22 +571,47 @@ final class SkirmishModel {
     }
 
     func toggleSpellbook() {
-        guard let engine, let battle, !isAnimating, !isReplaying, battle.playerTurn, !battle.spells.isEmpty else { return }
-        spellbookOpen.toggle()
-        if effectsEnabled { sound.play(spellbookOpen ? "spellbook_open" : "spellbook_close") }
-        if !spellbookOpen && battle.preparedSpell != nil { update(engine.prepare(nil)) }
+        if spellbookOpen {
+            closeSpellbook()
+            return
+        }
+        guard engine != nil, let battle, !isAnimating, !isReplaying, battle.playerTurn, !battle.spells.isEmpty else { return }
+        spellbookOpen = true
+        if effectsEnabled { sound.play("spellbook_open") }
     }
 
-    func prepare(_ spell: BattleSpell) {
-        guard let engine, battle?.playerTurn == true, !isAnimating else { return }
-        update(engine.prepare(spell.id))
-        if battle?.preparedSpell == spell.id { spellbookOpen = false }
+    func closeSpellbook() {
+        guard spellbookOpen else { return }
+        spellbookOpen = false
+        if effectsEnabled { sound.play("spellbook_close") }
+        if let engine, battle?.preparedSpell != nil { update(engine.chooseSpell(nil)) }
+    }
+
+    func chooseSpell(_ spell: BattleSpell) {
+        guard let engine, battle?.playerTurn == true, spellbookOpen, !isAnimating, !isReplaying else { return }
+        let accepted = engine.chooseSpell(spell.id)
+        if accepted {
+            spellbookOpen = false
+            if spell.aim != .army, let caster = battle?.activeStack {
+                append("\(caster.name) prepares \(spell.name) - pick a target", team: caster.team)
+                if spell.name == "Fire Wall" { append("Hold Shift to rotate the wall") }
+            }
+        }
+        update(accepted, manualAction: spell.aim == .army)
     }
 
     func cancelSpell() {
-        guard let engine else { return }
-        if spellbookOpen { toggleSpellbook() }
-        else if battle?.preparedSpell != nil { update(engine.prepare(nil)) }
+        if spellbookOpen { closeSpellbook() }
+        else if let engine, battle?.preparedSpell != nil {
+            let accepted = engine.chooseSpell(nil)
+            if accepted { append("Spell cancelled") }
+            update(accepted)
+        }
+    }
+
+    func rotateFireWall() {
+        guard let engine, let battle, battle.playerTurn, battle.fireWallAims != nil, !isAnimating, !isReplaying else { return }
+        update(engine.rotateFireWall())
     }
 
     func cancelSelection() {
@@ -543,11 +619,6 @@ final class SkirmishModel {
         if placingBarrel != nil { cancelBarrelPlacement() }
         else if pendingCreature != nil { pendingCreature = nil }
         else { cancelSpell() }
-    }
-
-    func cast() {
-        guard let engine, battle?.playerTurn == true, !isAnimating else { return }
-        update(engine.cast(), manualAction: true)
     }
 
     func toggleEffects() {
@@ -595,12 +666,15 @@ final class SkirmishModel {
     }
 
     var canRequestTime: Bool {
-        guard let battle, let turnWindow, battle.playerTurn, !isAnimating else { return false }
-        return turnClock.extensionTime(for: turnWindow.key.team, remainingStacks: battle.activeTeamStacksToAct) > 0
+        guard let battle, let active = battle.activeStack, let window = turnWindow,
+              battle.playerTurn, !isAnimating, !isReplaying,
+              window.key == .init(unit: active.id, team: active.team, lap: battle.lap) else { return false }
+        return turnClock.extensionTime(for: window.key.team, remainingStacks: battle.activeTeamStacksToAct) > 0
     }
 
-    func requestTime() {
+    func requestTime(for expectedTurn: SandboxTurnClock.Key? = nil) {
         guard canRequestTime, let battle, var window = turnWindow,
+              expectedTurn == nil || expectedTurn == window.key,
               turnClock.extend(&window, remainingStacks: battle.activeTeamStacksToAct) else { return }
         turnWindow = window
         append(battle.activeStack?.name ?? window.key.team.title, "requested additional time.", team: window.key.team)
@@ -642,7 +716,8 @@ final class SkirmishModel {
             do { try await ContinuousClock().sleep(until: turnWindow.deadline) }
             catch { return }
             await self?.animationTask?.value
-            guard !Task.isCancelled, let self, self.turnWindow?.key == turnWindow.key else { return }
+            guard !Task.isCancelled, let self, self.turnWindow?.key == turnWindow.key,
+                  self.turnWindow?.deadline == turnWindow.deadline else { return }
             expireTurn()
         }
     }
@@ -669,23 +744,41 @@ final class SkirmishModel {
     }
 
     private func report(_ next: BattleView, previous: BattleView) {
-        playback = BattlePlayback(moments: next.moments, previous: previous, next: next,
-                                  idleResumes: playback.idleResumes, priorResponseFeedback: playback.responseFeedback)
-        let animated = playback.duration > 0 && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        var cues: [(TimeInterval, SoundCue)] = []
-        if !previous.started && next.started {
-            append("Fight started!")
-            for stack in next.stacks {
-                if let cell = stack.cells.first { append(stack.name, "deployed at \(cell.label).", team: stack.team) }
+        if next.started {
+            if isReplaying {
+                appendLog(recordedLog[next.revision] ?? [])
+            } else if let engine {
+                let steps = engine.logSteps()
+                let entries = loadoutEngine?.battleLog(for: engine, steps: steps) ?? BattleLog.fallback(
+                    previous: previous, next: next,
+                    journal: steps.flatMap { try? JSONDecoder().decode(BattleLog.Journal.self, from: Data($0.utf8)) }
+                )
+                recordedLog[next.revision] = entries
+                appendLog(entries)
             }
         }
-        if previous.lap != next.lap { append("Lap \(next.lap) started") }
+        playback = BattlePlayback(moments: next.moments, previous: previous, next: next,
+                                  idleResumes: playback.idleResumes, priorResponseFeedback: playback.responseFeedback,
+                                  priorFireTransitions: playback.fireTransitions, priorCombatCues: playback.combatCues,
+                                  priorCovenantBreaks: playback.covenantBreaks, priorCovenantAbsorbs: playback.covenantAbsorbs,
+                                  replay: isReplaying)
+        for cue in playback.combatCues where cue.endsAt > playback.started {
+            if let clip = cue.statusClip {
+                BattlefieldAtlas.prefetch(clip.resource, maxDimension: clip.pixelLimit, combat: true)
+            }
+        }
+        let animated = playback.duration > 0 && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        if animated, previous.started, previous.activeStack != nil {
+            sidebarPlayback = SidebarPlayback(battle: previous, window: turnWindow, pausedAt: .now)
+        } else {
+            sidebarPlayback = nil
+        }
+        var cues: [(TimeInterval, SoundCue)] = []
         for action in playback.actions {
             let moment = action.moment
             guard let actor = previous.stacks.first(where: { $0.id == moment.actor }) else { continue }
             action.projectile?.prewarm()
             if let pose = action.pose { CreatureAnimation.prewarm(actor.name, action: pose, direction: action.direction) }
-            let target = previous.stacks.first { $0.id == moment.target }?.name
             let soundKey = actor.name.lowercased().replacingOccurrences(of: " ", with: "-")
             if action.moveEnd > action.start {
                 cues.append((action.start, .moving("\(soundKey)_move", until: action.moveEnd)))
@@ -694,33 +787,32 @@ final class SkirmishModel {
             switch moment.kind {
             case .place:
                 cues.append((action.start, .effect("place_unit")))
-            case .move:
-                append(actor.name, "moves.", team: actor.team)
             case .melee, .shot:
-                let verb = action.counterattack == nil ? "attacks" : "counterattacks"
-                append(actor.name, target.map { "\(verb) \($0)." } ?? "\(verb).", team: actor.team)
-                cues.append((action.release ?? action.moveEnd, .effect("\(soundKey)_attack")))
+                if action.counterattack == nil {
+                    cues.append((action.release ?? action.moveEnd, .effect("\(soundKey)_attack")))
+                }
             case .obstacle:
-                append(actor.name, "strikes an obstacle.", team: actor.team)
                 cues.append((action.release ?? action.moveEnd, .effect("\(soundKey)_attack")))
             case .spell:
-                if let spell = moment.spell { append(actor.name, "casts \(spell).", team: actor.team) }
-                if moment.spell == "Heal" || moment.spell == "Mass Heal" { cues.append((action.impact, .effect("heal"))) }
-            case .wait: append(actor.name, "waits.", team: actor.team)
-            case .defend: append(actor.name, "defends.", team: actor.team)
-            case .endTurn: break
+                if let spell = moment.spell {
+                    if let key = BattleSound.castKey(for: spell, caster: actor.name) {
+                        cues.append((action.start, .effect(key)))
+                    }
+                    if spell == "Heal" || spell == "Mass Heal" { cues.append((action.impact, .effect("heal"))) }
+                    if spell == "Summon Wolves" { cues.append((action.impact, .effect("summon"))) }
+                }
+            case .move, .wait, .defend, .endTurn: break
             }
         }
         for stack in previous.stacks {
-            let remaining = next.stacks.first { $0.id == stack.id }?.amount ?? 0
-            if remaining < stack.amount {
-                append(stack.name, "loses \(stack.amount - remaining).", team: stack.team)
+            for action in Set((playback.reactions[stack.id] ?? []).map(\.action)) {
+                CreatureAnimation.prewarm(stack.name, action: action)
             }
-            if let reaction = playback.reactions[stack.id] {
-                CreatureAnimation.prewarm(stack.name, action: remaining > 0 ? .hit : .death)
-                let key = stack.name.lowercased().replacingOccurrences(of: " ", with: "-")
-                cues.append((reaction.start, .effect("\(key)_hurt")))
-            }
+        }
+        for cue in playback.combatCues where cue.started >= playback.started && !cue.silentHurt {
+            guard case let .health(delta, _) = cue.kind, delta < -0.001 else { continue }
+            let key = cue.stack.name.lowercased().replacingOccurrences(of: " ", with: "-")
+            cues.append((cue.started.timeIntervalSince(playback.started), .effect("\(key)_hurt")))
         }
         for shield in playback.waterShieldBreaks {
             cues.append((shield.started.timeIntervalSince(playback.started), .effect("water_shield_dissolve")))
@@ -748,6 +840,8 @@ final class SkirmishModel {
                         }
                     }
                     try await clock.sleep(until: start + .seconds(duration))
+                    guard !Task.isCancelled else { return }
+                    self?.sidebarPlayback = nil
                     self?.isAnimating = false
                 } catch {}
             }
@@ -759,8 +853,13 @@ final class SkirmishModel {
     }
 
     private func append(_ title: String, _ detail: String = "", team: Team? = nil) {
-        log.append(BattleLogEntry(title: title, detail: detail, team: team))
-        if log.count > 32 { log.removeFirst(log.count - 32) }
+        appendLog([BattleLog.line(detail.isEmpty ? title : "\(title) \(detail)", team: team)])
+    }
+
+    private func appendLog(_ lines: [String]) {
+        guard !lines.isEmpty else { return }
+        log.append(contentsOf: lines)
+        if log.count > BattleLog.limit { log.removeFirst(log.count - BattleLog.limit) }
     }
 
     private func queueOpponent(forced: Bool = false) {

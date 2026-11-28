@@ -2,6 +2,7 @@ import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { animationAtlases } from "../../core/src/generated/animation_atlases";
+import { usesAuthoredRangedRelease } from "../../core/src/pixi/creatureAnimationSettings";
 import {
     GARGANTUAN_IMPACT_AREA_CELLS,
     GARGANTUAN_IMPACT_DURATIONS,
@@ -10,12 +11,18 @@ import {
 } from "../../core/src/scenes/GargantuanStoneImpact";
 import { MONK_ORB_RELEASE_FRAME } from "../../core/src/scenes/MonkRangedAnimationFrames";
 import {
+    ARBALESTER_BOLT_SPEED_MULTIPLIER,
     BEHOLDER_SHOT_RELEASE_FRAME,
+    CANNON_PIERCING_FLIGHT_MULTIPLIER,
     CENTAUR_SPEAR_RELEASE_FRAME,
+    CHAKRAM_FLIGHT_SPEED,
+    ORC_AXE_FLIGHT_SPEED,
     ORC_AXE_RELEASE_FRAME,
+    RANGED_FLIGHT_SPEED,
     RANGED_PROJECTILE_TEXTURE_KEYS as ART,
 } from "../../core/src/scenes/sandbox/rangedProjectileAssets";
 import {
+    CANNON_BALL_FLIGHT_SPEED,
     CANNON_FLIGHT_BALL_ANCHOR,
     CANNON_FLIGHT_BALL_DIAMETER,
     CANNON_FLIGHT_FRAME_SIZE,
@@ -29,8 +36,12 @@ interface Projectile {
     spin?: number;
     arcCells?: number;
     releaseFrame?: number;
+    authoredRelease?: boolean;
+    cellsPerSecond?: number;
+    piercingSpeedMultiplier?: number;
     atlas?: { columns: number; rows: number; frames: number; secondsPerFrame: number };
     anchor?: { x: number; y: number };
+    chakramOrigins?: Record<string, { x: number; y: number; diameter: number }>;
     animationSource?: string;
     impact?: {
         resource: string;
@@ -58,9 +69,37 @@ const rockImpact = {
     paintedFraction: GARGANTUAN_IMPACT_PAINTED_EXTENT / GARGANTUAN_IMPACT_FRAME_SIZE,
     footprint: GARGANTUAN_IMPACT_AREA_CELLS,
 };
-const fallback = dart(ART.bolt, 0.82);
+const chakramBounce = {
+    resource: "zena_chakram_burst_v17.webp",
+    columns: 4,
+    rows: 2,
+    durations: Array<number>(8).fill(0.0125),
+    paintedFraction: 1,
+    footprint: 0,
+};
+const chakramOrigins = Object.fromEntries(
+    (["attack", "attack_up", "attack_down"] as const).map((clip) => {
+        const frame = animationAtlases["Zena Lab"][clip];
+        return [
+            clip,
+            {
+                x: frame.projectileOrigin.x / frame.frameWidth,
+                y: frame.projectileOrigin.y / frame.frameHeight,
+                diameter: frame.projectileLength / frame.frameWidth,
+            },
+        ];
+    }),
+);
+const fallback: Projectile = {
+    ...dart(ART.bolt, 0.82),
+    authoredRelease: false,
+    cellsPerSecond: RANGED_FLIGHT_SPEED / 4,
+};
 const shooters: Record<string, Projectile> = {
-    Arbalester: dart(ART.arbalester, 0.84),
+    Arbalester: {
+        ...dart(ART.arbalester, 0.84),
+        cellsPerSecond: (RANGED_FLIGHT_SPEED * ARBALESTER_BOLT_SPEED_MULTIPLIER) / 4,
+    },
     Beholder: dart(ART.beholder, 0.944, BEHOLDER_SHOT_RELEASE_FRAME),
     Centaur: dart(ART.centaur, 1.13, CENTAUR_SPEAR_RELEASE_FRAME),
     Cyclops: { resource: `${ART.cyclops}.webp`, widthCells: 0.72, spin: 4, arcCells: 0.4 },
@@ -78,18 +117,23 @@ const shooters: Record<string, Projectile> = {
         animationSource: "medusa_lab_projectile",
     },
     Monk: { resource: `${ART.monk}.webp`, widthCells: 0.496, releaseFrame: MONK_ORB_RELEASE_FRAME },
-    Orc: { ...dart(ART.orc, 1.1, ORC_AXE_RELEASE_FRAME), spin: 12 },
+    Orc: { ...dart(ART.orc, 1.1, ORC_AXE_RELEASE_FRAME), spin: 12, cellsPerSecond: ORC_AXE_FLIGHT_SPEED / 4 },
     "Tsar Cannon": {
         ...dart(ART.tsarCannon, CANNON_FLIGHT_FRAME_SIZE / CANNON_FLIGHT_BALL_DIAMETER, CANNON_SHOT_RELEASE_FRAME),
         atlas: { columns: 4, rows: 4, frames: 16, secondsPerFrame: 0.04 },
         anchor: CANNON_FLIGHT_BALL_ANCHOR,
         animationSource: "vfx_tsar_cannon_flight_v21",
+        cellsPerSecond: CANNON_BALL_FLIGHT_SPEED / 4,
+        piercingSpeedMultiplier: CANNON_PIERCING_FLIGHT_MULTIPLIER,
     },
     Zena: {
         resource: `${ART.zena}.webp`,
         widthCells: 0.68,
         spin: 22.5,
         atlas: { columns: 4, rows: 2, frames: 8, secondsPerFrame: 0.05 },
+        chakramOrigins,
+        impact: chakramBounce,
+        cellsPerSecond: CHAKRAM_FLIGHT_SPEED / 4,
     },
 };
 
@@ -109,6 +153,17 @@ export function bundleProjectiles(output: string): void {
             copyFileSync(source, join(atlases, resource));
         }
         copyFileSync(join(images, rockImpact.resource), join(atlases, rockImpact.resource));
+        copyFileSync(join(images, chakramBounce.resource), join(atlases, chakramBounce.resource));
     }
-    writeFileSync(join(output, "projectiles.json"), JSON.stringify({ fallback, shooters }));
+    const withTiming = Object.fromEntries(
+        Object.entries(shooters).map(([name, projectile]) => [
+            name,
+            {
+                ...projectile,
+                cellsPerSecond: projectile.cellsPerSecond ?? RANGED_FLIGHT_SPEED / 4,
+                authoredRelease: name === "Tsar Cannon" || usesAuthoredRangedRelease(name),
+            },
+        ]),
+    );
+    writeFileSync(join(output, "projectiles.json"), JSON.stringify({ fallback, shooters: withTiming }));
 }

@@ -1,6 +1,13 @@
 import { CyclopsStoneFracture } from "./CyclopsStoneFracture";
 import { readCyclopsImpactMode, type CyclopsImpactMode } from "./CyclopsFracturePhysics";
-import { RANGED_PROJECTILE_TEXTURE_KEYS as ART } from "./rangedProjectileAssets";
+import {
+    ARBALESTER_BOLT_SPEED_MULTIPLIER,
+    CANNON_PIERCING_FLIGHT_MULTIPLIER,
+    CHAKRAM_FLIGHT_SPEED,
+    ORC_AXE_FLIGHT_SPEED,
+    RANGED_FLIGHT_SPEED,
+    RANGED_PROJECTILE_TEXTURE_KEYS as ART,
+} from "./rangedProjectileAssets";
 import { Assets, Container, Graphics, Matrix, Rectangle, Sprite, Texture } from "pixi.js";
 import { GridSettings, HoCMath } from "@heroesofcrypto/common";
 import { images } from "../../generated/image_imports";
@@ -11,10 +18,10 @@ import {
     cannonContactCenter,
     cannonExplosionFrame,
     cannonFlightFrame,
+    CANNON_BALL_FLIGHT_SPEED,
     CANNON_FLIGHT_FRAME_SIZE,
     CANNON_FLIGHT_BALL_DIAMETER,
     CANNON_FLIGHT_BALL_ANCHOR,
-    CANNON_FLIGHT_SPEED_MULTIPLIER,
     CANNON_EXPLOSION_SPEED_MULTIPLIER,
     CANNON_EXPLOSION_RADIUS_SCALE,
 } from "../TsarCannonImpact";
@@ -192,13 +199,6 @@ interface ICannonExplosion {
 
 // --- Tuning ---
 const PROJECTILE_Z = 1950; // above the units container (z=1000), below floating numbers (z=2000)
-// speed = cellSize * factor. Unit walking uses ~16 (=4 cells/real-sec); projectiles fly ~4x that.
-const PROJECTILE_SPEED_FACTOR = 64; // ~16 cells/real-second — snappy
-// The chakram flies slower than a bolt on purpose: its whole show is the ricochet path, and at bolt
-// speed the eye can't follow which victim it curls to next. Slow enough to track, fast enough to cut.
-const CHAKRAM_SPEED_FACTOR = 42; // ~10.5 cells/real-second
-/** The Arbalester's heavy bolt is loosed 20% faster than an ordinary shot. */
-const ARBALESTER_BOLT_SPEED_MULTIPLIER = 1.2;
 const BIG_RADIUS_FACTOR = 0.32; // cannonball radius relative to cell
 const BIG_ARC_FACTOR = 0.4; // cannonball lob height relative to cell
 const BOLT_LEN_FACTOR = 0.55; // default bolt length relative to cell
@@ -532,18 +532,16 @@ export class RangedProjectiles {
                 speed:
                     cell *
                     (opts.labIronCannonball
-                        ? 16 * CANNON_FLIGHT_SPEED_MULTIPLIER
-                        : opts.medusaArmSerpent
-                          ? PROJECTILE_SPEED_FACTOR
-                          : opts.dryadArrow
-                            ? PROJECTILE_SPEED_FACTOR
-                            : opts.orcAxe
-                              ? 52.2
-                              : opts.chakram
-                                ? CHAKRAM_SPEED_FACTOR
-                                : PROJECTILE_SPEED_FACTOR) *
+                        ? CANNON_BALL_FLIGHT_SPEED
+                        : opts.medusaArmSerpent || opts.dryadArrow
+                          ? RANGED_FLIGHT_SPEED
+                          : opts.orcAxe
+                            ? ORC_AXE_FLIGHT_SPEED
+                            : opts.chakram
+                              ? CHAKRAM_FLIGHT_SPEED
+                              : RANGED_FLIGHT_SPEED) *
                     // Through Shot is 20% faster; distance progress keeps all pierced impacts with the projectile.
-                    (opts.cannonPiercing ? 1.2 : 1) *
+                    (opts.cannonPiercing ? CANNON_PIERCING_FLIGHT_MULTIPLIER : 1) *
                     (opts.arbalesterBolt ? ARBALESTER_BOLT_SPEED_MULTIPLIER : 1),
                 big: opts.big,
                 arc: opts.big ? cell * BIG_ARC_FACTOR : 0,

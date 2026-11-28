@@ -3,12 +3,7 @@ import { Container, Graphics, Mesh, MeshGeometry, Texture, type Shader } from "p
 import { projectBattlefieldPoint, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
 import { createPegasusWindShader, createPegasusFeatherShader } from "./PegasusFloorAuraShader";
 import { createPegasusPowerCore, pegasusCoreProjection } from "./PegasusPowerCore";
-import {
-    griffinTornadoShape,
-    griffinTornadoBounds,
-    GRIFFIN_TORNADO_VISUAL_SCALE,
-    GRIFFIN_TORNADO_VERTICAL_SCALE,
-} from "./GriffinTornadoAura";
+import { griffinTornadoShape, griffinTornadoBounds, GRIFFIN_TORNADO_VISUAL_SCALE } from "./GriffinTornadoAura";
 
 // Four detailed feather cutouts; all movement and gold lighting remain engine-driven.
 export const PEGASUS_WINGED_SWORD_AURA_KEY = "vfx_pegasus_feather_atlas_v7";
@@ -18,13 +13,16 @@ const TAU = Math.PI * 2;
 type Footprint = { width: number; height: number };
 
 // Compress only painted depth: preserve the upper edge and lift the lower edge to the red mark.
+const PEGASUS_BASE_DEPTH_SCALE = 1.25;
+const PEGASUS_BASE_VERTICAL_OFFSET = -0.37;
 export const PEGASUS_ART_DEPTH_SCALE = 0.86;
 export function pegasusAuraShape(footprint: Footprint, range: number, cell: number, facing: -1 | 1 = 1) {
     const base = griffinTornadoShape(footprint, range, cell, facing);
+    const depth = (range + footprint.height / 2) * cell * PEGASUS_BASE_DEPTH_SCALE;
     return {
         ...base,
-        ry: base.ry * PEGASUS_ART_DEPTH_SCALE,
-        offsetY: base.offsetY + base.ry * (1 - PEGASUS_ART_DEPTH_SCALE),
+        ry: depth * PEGASUS_ART_DEPTH_SCALE,
+        offsetY: PEGASUS_BASE_VERTICAL_OFFSET * cell + depth * (1 - PEGASUS_ART_DEPTH_SCALE),
     };
 }
 
@@ -217,7 +215,7 @@ export function drawPegasusWingedSwordAura(
         gs,
         narrowing,
         GRIFFIN_TORNADO_VISUAL_SCALE,
-        GRIFFIN_TORNADO_VERTICAL_SCALE * PEGASUS_ART_DEPTH_SCALE,
+        PEGASUS_BASE_DEPTH_SCALE * PEGASUS_ART_DEPTH_SCALE,
     );
     const layout = [center.x, center.y, footprint.width, footprint.height, range, cell, facing, ...bounds].join(":");
     const age = Math.max(0, now - storm.started);

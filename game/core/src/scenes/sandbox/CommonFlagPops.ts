@@ -58,7 +58,7 @@ export type FlagPopKind =
     | "unicorn_retaliation"
     | "unicorn_blindness"
     | "multi_attack";
-const definitions = {
+export const commonFlagPopArt = {
     blacksmith_double_punch: {
         url: images.vfx_blacksmith_double_punch_pop_atlas,
         meta: animationAtlases["Vfx Blacksmith Double Punch"].pop,
@@ -156,12 +156,38 @@ const definitions = {
     },
 };
 const authoredDurations = new Map<FlagPopKind, number>(
-    Object.entries(definitions).map(([kind, { meta }]) => [
+    Object.entries(commonFlagPopArt).map(([kind, { meta }]) => [
         kind as FlagPopKind,
         meta.frameDurationsMs!.reduce((sum, ms) => sum + ms, 0),
     ]),
 );
 const atlasLeases = new Map<FlagPopKind, number>();
+const fadingFlags: ReadonlySet<FlagPopKind> = new Set([
+    "hamstring",
+    "stun",
+    "blind_fury",
+    "leather_armor",
+    "miner",
+    "madness",
+    "bitter_experience",
+    "lucky_strike",
+]);
+const restartingFlags: ReadonlySet<FlagPopKind> = new Set([
+    "small_specie",
+    "multi_attack",
+    "penetrating_bite",
+    "backstab",
+    "piercing_spear",
+    "blind_fury",
+    "leather_armor",
+    "miner",
+    "madness",
+    "bitter_experience",
+    "lucky_strike",
+]);
+const isCraftOrLifeFlag = (kind: FlagPopKind): boolean => kind.startsWith("blacksmith_") || kind.startsWith("life_");
+export const commonFlagFades = (kind: FlagPopKind): boolean => fadingFlags.has(kind) || isCraftOrLifeFlag(kind);
+export const commonFlagRestarts = (kind: FlagPopKind): boolean => restartingFlags.has(kind) || isCraftOrLifeFlag(kind);
 
 /** Share atlas ownership with shader variants using the same painted source. */
 export function retainFlagAtlas(kind: FlagPopKind): void {
@@ -174,7 +200,7 @@ export function releaseFlagAtlas(kind: FlagPopKind): void {
     queueMicrotask(() => {
         if (atlasLeases.get(kind) !== 0) return;
         atlasLeases.delete(kind);
-        void Assets.unload(definitions[kind].url).catch(() => undefined);
+        void Assets.unload(commonFlagPopArt[kind].url).catch(() => undefined);
     });
 }
 
@@ -182,7 +208,7 @@ export function releaseFlagAtlas(kind: FlagPopKind): void {
 export function commonFlagFrameAt(kind: FlagPopKind, elapsedMs: number): number | undefined {
     if (elapsedMs >= 1000 - 1e-7) return undefined;
     let end = 0;
-    for (const [frame, duration] of definitions[kind].meta.frameDurationsMs!.entries()) {
+    for (const [frame, duration] of commonFlagPopArt[kind].meta.frameDurationsMs!.entries()) {
         end += duration;
         if (Math.max(0, elapsedMs) < end) return frame;
     }
@@ -224,7 +250,7 @@ export class CommonFlagPops {
             retainFlagAtlas(this.kind);
         }
         const generation = this.generation;
-        const { url: atlasUrl, meta } = definitions[this.kind];
+        const { url: atlasUrl, meta } = commonFlagPopArt[this.kind];
         this.load = Assets.load<Texture>(atlasUrl).then(
             (atlas) => {
                 if (generation !== this.generation) return undefined;
@@ -256,20 +282,7 @@ export class CommonFlagPops {
         cellSize: number,
         follow?: () => Anchor | undefined,
     ): Promise<void> {
-        const restartable =
-            this.kind === "small_specie" ||
-            this.kind === "multi_attack" ||
-            this.kind === "penetrating_bite" ||
-            this.kind === "backstab" ||
-            this.kind === "piercing_spear" ||
-            this.kind === "blind_fury" ||
-            this.kind === "leather_armor" ||
-            this.kind === "miner" ||
-            this.kind === "madness" ||
-            this.kind === "bitter_experience" ||
-            this.kind === "lucky_strike" ||
-            this.kind.startsWith("blacksmith_") ||
-            this.kind.startsWith("life_");
+        const restartable = commonFlagRestarts(this.kind);
         const existing = this.pops.find((pop) => pop.unitId === unitId);
         if (existing) {
             // Another strike or buff refresh can land while the preceding pop is dissolving.
@@ -336,25 +349,14 @@ export class CommonFlagPops {
                 continue;
             }
             if (pop.sprite instanceof InterpolatedFlagCel) {
-                const durations = definitions[this.kind].meta.frameDurationsMs!;
+                const durations = commonFlagPopArt[this.kind].meta.frameDurationsMs!;
                 let start = 0;
                 for (let f = 0; f < frame; f++) start += durations[f];
                 pop.sprite.setCel(frame, (elapsed - start) / durations[frame]);
             } else {
                 pop.sprite.texture = this.frames![frame];
             }
-            if (
-                this.kind === "hamstring" ||
-                this.kind === "stun" ||
-                this.kind === "blind_fury" ||
-                this.kind === "leather_armor" ||
-                this.kind === "miner" ||
-                this.kind === "madness" ||
-                this.kind === "bitter_experience" ||
-                this.kind === "lucky_strike" ||
-                this.kind.startsWith("blacksmith_") ||
-                this.kind.startsWith("life_")
-            ) {
+            if (commonFlagFades(this.kind)) {
                 const phase = ageMs / OVERHEAD_EFFECT_DURATION_MS;
                 pop.sprite.alpha = Math.max(
                     0,

@@ -48,9 +48,13 @@ export const visibleAuraRanges = (
 import { HoverManager } from "./HoverManager";
 import { PlacementManager } from "./PlacementManager";
 import { RenderableUnit } from "./RenderableUnit";
-import { placementZonePolygon } from "@/pixi/PixiDrawablePlacement";
 import { projectedPolyline, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
-import { drawMovementArea, drawMovementAreaCalibration, ENEMY_MOVEMENT_HIGHLIGHT_COLOR } from "./movementAreaVisual";
+import {
+    drawMovementArea,
+    drawMovementAreaCalibration,
+    drawUnitFootprint,
+    ENEMY_MOVEMENT_HIGHLIGHT_COLOR,
+} from "./movementAreaVisual";
 import { drawMovementPathPreview } from "./movementPathPreview";
 export { movementFillAlphaForPhase } from "./movementAreaVisual";
 
@@ -765,12 +769,9 @@ export class SandboxDrawer {
         gs: GridSettings | undefined,
     ): void {
         if (!footprints?.length || !gs) return;
-        const size = gs.getCellSize();
+        const width = Math.max(1, gs.getCellSize() * 0.02);
         for (const cells of footprints) {
-            if (!cells.length) continue;
-            g.poly(placementZonePolygon(cells, gs))
-                .fill({ color: 0xffffff, alpha: 0.14 })
-                .stroke({ width: Math.max(1, size * 0.02), color: 0xffffff, alpha: 0.4 });
+            drawUnitFootprint(g, cells, gs, { width, color: 0xffe2a0, alpha: 0.44 }, { color: 0xffc85a, alpha: 0.14 });
         }
     }
     private static drawAuraAndAttackRanges(
@@ -1246,12 +1247,10 @@ export class SandboxDrawer {
         gs: GridSettings | undefined,
     ): void {
         if (!footprints?.length || !gs) return;
-        const size = gs.getCellSize();
+        const width = Math.max(1, gs.getCellSize() * 0.025);
         for (const { cells, color, stackPower } of footprints) {
             if (!cells.length) continue;
-            g.poly(placementZonePolygon(cells, gs))
-                .fill({ color, alpha: 0.18 })
-                .stroke({ width: Math.max(1, size * 0.025), color, alpha: 0.55 });
+            drawUnitFootprint(g, cells, gs, { width, color, alpha: 0.55 }, { color, alpha: 0.18 });
             SandboxDrawer.drawStackPowerPips(g, cells, gs, color, stackPower);
         }
     }

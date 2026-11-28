@@ -1,20 +1,16 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
-struct RosterCreatureDrag: Codable, Transferable {
-    let id: Int
-
-    static let contentType = UTType(exportedAs: "io.heroesofcrypto.skirmish.roster-creature", conformingTo: .data)
-
-    static var transferRepresentation: some TransferRepresentation {
-        CodableRepresentation(contentType: contentType)
-    }
+struct RosterCreatureDrag {
+    let creature: SandboxCreature
+    let location: CGPoint
 }
 
 struct BattlefieldRoster: View {
     let model: SkirmishModel
     let boardWidth: CGFloat
     let viewportHeight: CGFloat
+    let drag: GestureState<RosterCreatureDrag?>
+    let drop: (SandboxCreature, CGPoint) -> Void
     @State private var level = 1
 
     var body: some View {
@@ -61,7 +57,7 @@ struct BattlefieldRoster: View {
             if model.rosterOpen {
                 LazyVGrid(columns: Array(repeating: GridItem(.fixed(width), spacing: gap), count: columns), spacing: gap) {
                     ForEach(creatures) { creature in
-                        let selected = model.pendingCreature?.id == creature.id
+                        let selected = (drag.wrappedValue?.creature.id ?? model.pendingCreature?.id) == creature.id
                         Button { model.selectRosterCreature(creature) } label: {
                             CreaturePortrait(name: creature.name)
                                 .frame(width: width, height: height)
@@ -75,13 +71,13 @@ struct BattlefieldRoster: View {
                         }
                         .buttonStyle(BattleButtonStyle())
                         .onHover { model.hoverRosterCreature(creature, hovering: $0) }
-                        .draggable(dragItem(for: creature)) {
-                            CreaturePortrait(name: creature.name)
-                                .frame(width: width, height: height)
-                                .clipShape(.rect(cornerRadius: 5))
-                        }
+                        .simultaneousGesture(DragGesture(minimumDistance: 4, coordinateSpace: .named("battlefield"))
+                            .updating(drag) { value, state, _ in
+                                state = RosterCreatureDrag(creature: creature, location: value.location)
+                            }
+                            .onEnded { value in drop(creature, value.location) })
                         .accessibilityLabel("Place \(creature.name)")
-                        .accessibilityHint("Choose an open tile in either deployment zone")
+                        .accessibilityHint("Choose an open tile in a deployment zone")
                         .accessibilityAddTraits(selected ? .isSelected : [])
                         .help("\(creature.name) · \(creature.faction.title) · \(creature.footprint.label)")
                     }
@@ -96,11 +92,6 @@ struct BattlefieldRoster: View {
         .fixedSize()
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Creature roster")
-    }
-
-    private func dragItem(for creature: SandboxCreature) -> RosterCreatureDrag {
-        model.selectRosterCreature(creature, toggle: false)
-        return RosterCreatureDrag(id: creature.id)
     }
 }
 
@@ -147,12 +138,13 @@ struct SandboxStackEditor: View {
     let model: SkirmishModel
     let stack: Stack
     @State private var draftAmount: String
-    @State private var splitCount = 1
+    @Binding private var splitAmount: Int
 
-    init(model: SkirmishModel, stack: Stack) {
+    init(model: SkirmishModel, stack: Stack, splitAmount: Binding<Int>) {
         self.model = model
         self.stack = stack
         _draftAmount = State(initialValue: String(stack.amount))
+        _splitAmount = splitAmount
     }
 
     var body: some View {
@@ -174,6 +166,7 @@ struct SandboxStackEditor: View {
             .overlay { Rectangle().strokeBorder(BattlePalette.bronze.opacity(0.7)).allowsHitTesting(false) }
             HStack(spacing: 6) {
                 BattlePlate("CLONE", height: 28, tint: nil) { model.duplicateSelectedStack() }
+                    .help("Clone the selected stack (C)")
                 BattlePlate("ACCEPT", height: 28, tint: BattlePalette.color(0x693012), action: applyAmount)
                     .disabled(validAmount == nil || validAmount == stack.amount)
                     .opacity(validAmount == nil || validAmount == stack.amount ? 0.58 : 1)
@@ -182,11 +175,12 @@ struct SandboxStackEditor: View {
             if stack.amount > 1 { splitSlider }
             HStack(spacing: 6) {
                 BattlePlate("SPLIT", height: 28, tint: nil) { model.duplicateSelectedStack(split: splitAmount) }
-                    .keyboardShortcut("s", modifiers: [])
+                    .help("Split the selected stack (S)")
                     .disabled(stack.amount < 2)
                     .opacity(stack.amount < 2 ? 0.58 : 1)
                 BattlePlate("DELETE", height: 28, tint: BattlePalette.color(0x5c0a0a), action: model.removeSelectedStack)
                     .keyboardShortcut(.delete, modifiers: [])
+                    .help("Delete the selected stack (D)")
             }
         }
         .font(.caption)
@@ -217,8 +211,6 @@ struct SandboxStackEditor: View {
         .buttonStyle(BattleButtonStyle())
         .accessibilityLabel(delta > 0 ? "Increase stack size" : "Decrease stack size")
     }
-
-    private var splitAmount: Int { min(max(1, stack.amount - 1), max(1, splitCount)) }
 
     private var footprintMenu: some View {
         HStack {
@@ -252,8 +244,7 @@ struct SandboxStackEditor: View {
     private var splitSlider: some View {
         VStack(spacing: 3) {
             HStack {
-                TextField("Split amount", value: Binding(get: { splitAmount }, set: { splitCount = $0 }),
-                          format: .number.grouping(.never))
+                TextField("Split amount", value: $splitAmount, format: .number.grouping(.never))
                     .multilineTextAlignment(.center)
                     .frame(width: 50)
                 Spacer(minLength: 0)
@@ -261,7 +252,7 @@ struct SandboxStackEditor: View {
                     .accessibilityLabel("Remaining stack size \(stack.amount - splitAmount)")
             }
             .font(BattleResources.display(12))
-            Slider(value: Binding(get: { Double(splitAmount) }, set: { splitCount = Int($0.rounded()) }),
+            Slider(value: Binding(get: { Double(splitAmount) }, set: { splitAmount = Int($0.rounded()) }),
                    in: 1...Double(max(2, stack.amount - 1))) { Text("Split amount") }
                 .labelsHidden()
                 .tint(BattlePalette.color(0xb66b42))

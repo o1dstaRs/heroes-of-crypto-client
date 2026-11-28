@@ -47,6 +47,7 @@ import { UpNextOverlay } from "./UpNextOverlay";
 import { FightFinishedOverlay } from "./FightFinishedOverlay";
 import { AiControlBadge, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
+import { SandboxPlacementHint } from "./SandboxPlacementHint";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { PlayRankedBadge } from "./PlayRankedBadge";
 import { InviteFriendBadge } from "./InviteFriendBadge";
@@ -55,7 +56,6 @@ import { LiveMatchBanner } from "./LiveMatchBanner";
 import { useCurrentLobby } from "./social/CurrentLobbyContext";
 import { LoadingFullscreenToggle } from "./LoadingFullscreenToggle";
 import { MatchupOverlay, type MatchupPlayer } from "./MatchupOverlay";
-import { useGameCursor } from "./cursor/useGameCursor";
 import { IWindowSize } from "../scenes/VisibleState";
 import StainedGlassWindow from "./PickAndBan";
 import { AugmentStepPreview } from "./AugmentStepPreview";
@@ -367,10 +367,6 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
         navigate("/play", { replace: true });
     }, [navigate]);
 
-    // Themed in-game cursor (applied globally via document.body.style.cursor). Mounted at the app
-    // root so the cursor covers the whole screen, not just the battle canvas.
-    useGameCursor();
-
     useEffect(() => {
         // The fight matchup preview represents the post-start battlefield. Giving that visual-only route a
         // transport makes the sandbox hide its placement roster exactly as the real ranked scene does.
@@ -455,6 +451,7 @@ const Heroes: React.FC<{ windowSize: IWindowSize; gameActionTransport?: SceneGam
                     {!isLoading && !gameActionTransport && !showFightMatchupPreview && <PremiumSandboxGuidance />}
                     {!isLoading && started && aiToggleOn && <AiControlBadge left={aiBadgeLeft(windowSize)} />}
                     {!isLoading && started && <NextLapHazardBadge />}
+                    {!isLoading && !started && !replayPlaybackActive && <SandboxPlacementHint />}
                     {!isLoading && replayPlaybackActive && (
                         // Sandbox: leaving the replay drops back to the regular (fresh) sandbox screen.
                         <ExitReplayBadge left={aiBadgeLeft(windowSize)} onExit={() => window.location.reload()} />

@@ -3,6 +3,16 @@ import type { HoCMath } from "@heroesofcrypto/common";
 import { createChargeNoise } from "./NomadChargeDustShader";
 import { createSmokeCloudShader } from "./SmokeCloudShader";
 
+export const SMOKE_CLOUD_VISUALS = {
+    timeScale: 4,
+    maxTimeStep: 0.1,
+    reveal: 0.55,
+    fade: 0.75,
+    lastLap: 0.62,
+    lift: 0.12,
+    radius: 1.02,
+};
+
 /** Authoritative terrain: lifespan and ranged blocking remain entirely engine-owned. */
 export interface ISmokeCloudCell {
     x: number;
@@ -37,8 +47,9 @@ export class SmokeCloudLayer {
     public update(dt: number, cells: readonly ISmokeCloudCell[], cellSize: number, toWorld: ToWorld): void {
         if (this.disposed || (!cells.length && !this.clouds.size)) return;
         if (!Number.isFinite(dt) || !Number.isFinite(cellSize) || cellSize <= 0) return;
-        const seconds = Math.max(0, dt * 4);
-        this.time += Math.min(seconds, 0.1);
+        const style = SMOKE_CLOUD_VISUALS;
+        const seconds = Math.max(0, dt * style.timeScale);
+        this.time += Math.min(seconds, style.maxTimeStep);
         for (const cloud of this.clouds.values()) cloud.alive = false;
         for (const cell of cells) {
             if (![cell.x, cell.y, cell.l].every(Number.isFinite)) continue;
@@ -70,7 +81,10 @@ export class SmokeCloudLayer {
             cloud.lapsRemaining = cell.l;
         }
         for (const [key, cloud] of this.clouds) {
-            cloud.presence = Math.max(0, Math.min(1, cloud.presence + seconds * (cloud.alive ? 1 / 0.55 : -1 / 0.75)));
+            cloud.presence = Math.max(
+                0,
+                Math.min(1, cloud.presence + seconds * (cloud.alive ? 1 / style.reveal : -1 / style.fade)),
+            );
             if (!cloud.alive && cloud.presence <= 0) {
                 cloud.node.destroy();
                 cloud.shader.destroy();
@@ -80,13 +94,13 @@ export class SmokeCloudLayer {
             const p = cloud.presence;
             cloud.shader.resources.smoke.uniforms.uTime = this.time;
             cloud.shader.resources.smoke.uniforms.uPresence =
-                p * p * (3 - 2 * p) * (cloud.lapsRemaining <= 1 ? 0.62 : 1);
+                p * p * (3 - 2 * p) * (cloud.lapsRemaining <= 1 ? style.lastLap : 1);
         }
     }
     private project(cloud: Cloud, world: HoCMath.XY & { cellSize?: number }, cellSize: number): void {
         const size = world.cellSize ?? cellSize;
-        cloud.node.position.set(world.x, world.y + size * 0.12);
-        cloud.node.scale.set(size * 1.02, size * 1.02);
+        cloud.node.position.set(world.x, world.y + size * SMOKE_CLOUD_VISUALS.lift);
+        cloud.node.scale.set(size * SMOKE_CLOUD_VISUALS.radius, size * SMOKE_CLOUD_VISUALS.radius);
         cloud.projectionCellSize = cellSize;
     }
     private dispose(): void {

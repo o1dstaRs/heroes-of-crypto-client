@@ -6,37 +6,29 @@ uniform mat3 uProjectionMatrix,uWorldTransformMatrix,uTransformMatrix;
 uniform vec4 uWorldColorAlpha,uColor;
 void main(){vUV=aUV;vColor=uColor*uWorldColorAlpha;gl_Position=vec4((uProjectionMatrix*uWorldTransformMatrix*uTransformMatrix*vec3(aPosition,1.)).xy,0.,1.);}`;
 
-const rim = `#version 300 es
-precision highp float;
-in vec2 vUV;in vec4 vColor;out vec4 finalColor;
-uniform float uTime,uPerimeter,uAspect,uInward;
-void main(){
+export const dryadWindRimMaterial = `
  float y=vUV.y,aa=max(fwidth(y),.012);
  float line=1.-smoothstep(.018,.018+aa,abs(y));
  float halo=exp(-abs(y)*8.);
  float phase=6.2831853*(vUV.x/uPerimeter-uTime/3.2);
  float crest=pow(.5+.5*cos(phase),18.);
  float braid=sin(vUV.x*10.-uTime*3.)*.13;
- float thread=exp(-pow((y-braid)/max(.035,aa),2.));
+ float strand=exp(-pow((y-braid)/max(.035,aa),2.));
  float secondary=exp(-pow((y+braid)/max(.025,aa),2.));
- float a=(line*.70+halo*.14+thread*(.18+.32*crest)+secondary*.12);
+ float a=(line*.70+halo*.14+strand*(.18+.32*crest)+secondary*.12);
  a=clamp(a,0.,.86)*(1.-smoothstep(.65,1.,abs(y)));
  vec3 color=mix(vec3(.16,.58,.48),vec3(.97,.76,.32),clamp(line*.6+crest*.7,0.,1.));
  color+=vec3(.15,.16,.09)*crest*line;
  if(uInward>.5){
   // Ink-dark border with a subdued violet edge; no change to the range ribbon.
-  color=mix(vec3(.025,.018,.038),vec3(.38,.27,.45),clamp(line*.32+thread*.55+crest*.35,0.,1.));
-  a=clamp(line*.82+halo*.34+thread*.28+secondary*.16,0.,.94)
+  color=mix(vec3(.025,.018,.038),vec3(.38,.27,.45),clamp(line*.32+strand*.55+crest*.35,0.,1.));
+  a=clamp(line*.82+halo*.34+strand*.28+secondary*.16,0.,.94)
     *(1.-smoothstep(.65,1.,abs(y)));
  }
- finalColor=vec4(color*a,a)*vColor;
-}`;
+ return vec4(color*a,a);
+`;
 
-const field = `#version 300 es
-precision highp float;
-in vec2 vUV;in vec4 vColor;out vec4 finalColor;
-uniform float uTime,uPerimeter,uAspect,uInward;
-void main(){
+export const dryadWindFieldMaterial = `
  vec2 p=(vUV-.5)*2.;p.x*=uAspect;
  float radius=length(p), angle=atan(p.y,p.x);
  float coverage=1.-smoothstep(.89,1.,max(abs(vUV.x-.5),abs(vUV.y-.5))*2.);
@@ -49,11 +41,11 @@ void main(){
   float d=radius-r;
   float aa=max(fwidth(radius),.006);
   float veil=exp(-pow((d+mix(.025,-.025,uInward))/.065,2.));
-  float thread=exp(-pow(d/max(.009,aa),2.));
+  float strand=exp(-pow(d/max(.009,aa),2.));
   float sweep=.67+.33*sin(angle*3.-uTime*1.7+float(i)*2.);
   float fade=smoothstep(0.,.17,phase)*(1.-smoothstep(.65,1.,phase));
-  light+=(veil*.17+thread*.43)*fade*sweep;
-  core+=thread*fade*sweep;
+  light+=(veil*.17+strand*.43)*fade*sweep;
+  core+=strand*fade*sweep;
  }
  float a=clamp(light,0.,.56)*coverage*smoothstep(.10,.26,radius);
  vec3 color=mix(vec3(.18,.65,.57),vec3(1.,.81,.40),clamp(core*.8,0.,1.));
@@ -65,7 +57,10 @@ void main(){
   float lanes=(atan(q.y,q.x)+3.14159265)*3.81971863;
   lanes+=(1.-edge)*1.3+sin(edge*7.-uTime*.8)*.10;
   float lane=floor(lanes),crossLane=fract(lanes)-.5;
-  float seed=fract(sin(lane*127.1)*43758.5453);
+  // Give each lane the same phase on WebGL and Metal.
+  uint laneKey=uint(lane+1.)*747796405u+2891336453u;
+  uint shuffled=((laneKey>>((laneKey>>28u)+4u))^laneKey)*277803737u;
+  float seed=float((shuffled^(shuffled>>22u))>>8u)/16777216.;
   float phase=fract(uTime/1.85+seed);
   float head=.98-phase*.56;
   float along=edge-head;
@@ -83,8 +78,21 @@ void main(){
   vec3 waveColor=mix(vec3(.025,.018,.038),vec3(.32,.23,.39),clamp(core*.65,0.,1.));
   color=(waveColor*darkWave+vec3(.16,.095,.22)*ink+vec3(.55,.40,.64)*edgeLight)/max(a,.001);
  }
- finalColor=vec4(color*a,a)*vColor;
-}`;
+ return vec4(color*a,a);
+`;
+
+function fragment(material: string): string {
+    return `#version 300 es
+precision highp float;
+precision highp int;
+in vec2 vUV;in vec4 vColor;out vec4 finalColor;
+uniform float uTime,uPerimeter,uAspect,uInward;
+vec4 windColor(){${material}}
+void main(){finalColor=windColor()*vColor;}`;
+}
+
+const field = fragment(dryadWindFieldMaterial);
+const rim = fragment(dryadWindRimMaterial);
 
 /** Two local analytic materials, premultiplied output; no textures or screen filters. */
 export function createDryadWindShader(perimeter: number, aspect: number, isField: boolean): Shader {

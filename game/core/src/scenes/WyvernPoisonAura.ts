@@ -29,6 +29,43 @@ const PLUMES = 8;
 const VENTS = 4;
 const WAKE_CAPACITY = 6;
 
+function plumeArt(index: number) {
+    const angle = (index / PLUMES) * Math.PI * 2 + 0.24;
+    const radius = 0.68 + 0.13 * Math.sin(index * 2.3);
+    const vent = index >= PLUMES;
+    const source = index - PLUMES;
+    return {
+        vent,
+        front: vent ? source >= 2 : Math.sin(angle) < -0.24,
+        x: vent ? 0.16 + (source % 2) * 0.29 : Math.cos(angle) * radius,
+        y: vent ? (source < 2 ? 0.1 : -0.19) : Math.sin(angle) * radius,
+        width: (vent ? 1.1 : 1.42) * (1 + 0.16 * Math.sin(index * 2.7)),
+        height: (vent ? 0.48 : 0.39) * (1 + 0.15 * Math.cos(index * 1.8)),
+        opacity: vent ? 0.48 : 0.53,
+        seed: index * 3.71 + 4.3,
+    };
+}
+
+export const WYVERN_POISON_ART = {
+    plumes: Array.from({ length: PLUMES + VENTS }, (_, i) => plumeArt(i)),
+    padding: 1.22,
+    initialTime: 6.4,
+    fullOpacity: 0.5,
+    sourceX: 0.3,
+    sourceY: -0.05,
+    cacheMilliseconds: 5000,
+    wake: {
+        capacity: WAKE_CAPACITY,
+        duration: 1.8,
+        halfSize: 0.7,
+        seedStep: 7.31,
+        maxGapMilliseconds: 200,
+        minIntervalMilliseconds: 90,
+        minDistance: 0.18,
+        teleportDistance: 2,
+    },
+};
+
 /** Give the mist room to feather out past its footprint. */
 export function wyvernPoisonProjection(
     center: Point,
@@ -37,7 +74,7 @@ export function wyvernPoisonProjection(
     gs: GridSettings,
     narrowing = 0,
 ) {
-    const padding = 1.22;
+    const padding = WYVERN_POISON_ART.padding;
     const artworkFootprint = {
         width: (range * 2 + footprint.width) * padding - range * 2,
         height: (range * 2 + footprint.height) * padding - range * 2,
@@ -79,24 +116,16 @@ export function wyvernPoisonPlumePositions(
     facing: -1 | 1 = 1,
 ) {
     const cell = gs.getCellSize();
-    const a = (i / PLUMES) * Math.PI * 2 + 0.24;
-    const r = 0.68 + 0.13 * Math.sin(i * 2.3);
-    const vent = i >= PLUMES;
-    const source = i - PLUMES;
+    const art = WYVERN_POISON_ART.plumes[i] ?? plumeArt(i);
     const base = projectBattlefieldPoint(
-        vent
-            ? {
-                  x: center.x + facing * (0.16 + (source % 2) * 0.29) * cell,
-                  y: center.y + (source < 2 ? 0.1 : -0.19) * cell,
-              }
-            : {
-                  x: center.x + Math.cos(a) * (range + footprint.width / 2) * cell * r,
-                  y: center.y + Math.sin(a) * (range + footprint.height / 2) * cell * r,
-              },
+        {
+            x: center.x + art.x * cell * (art.vent ? facing : range + footprint.width / 2),
+            y: center.y + art.y * cell * (art.vent ? 1 : range + footprint.height / 2),
+        },
         gs,
     );
-    const span = cell * (vent ? 1.1 : 1.42) * (1 + 0.16 * Math.sin(i * 2.7));
-    const height = cell * (vent ? 0.48 : 0.39) * (1 + 0.15 * Math.cos(i * 1.8));
+    const span = cell * art.width;
+    const height = cell * art.height;
     return new Float32Array([
         base.x - span / 2,
         base.y,
@@ -120,7 +149,12 @@ export function resetWyvernPoisonAuras(container?: Container, now = performance.
     const entries = owners.get(container);
     if (!entries) return;
     for (const [key, aura] of entries) {
-        if (aura.floor.destroyed || aura.back.destroyed || aura.front.destroyed || now - aura.seen > 5000) {
+        if (
+            aura.floor.destroyed ||
+            aura.back.destroyed ||
+            aura.front.destroyed ||
+            now - aura.seen > WYVERN_POISON_ART.cacheMilliseconds
+        ) {
             dispose(aura);
             entries.delete(key);
         } else {
@@ -173,19 +207,17 @@ export function drawWyvernPoisonAura(
         );
         ground.mask = masks[0];
         floor.addChild(ground);
-        const plumes = Array.from({ length: PLUMES + VENTS }, (_, i) => {
-            const mesh = makeMesh("air", quad(), i * 3.71 + 4.3);
-            const vent = i >= PLUMES;
-            mesh.alpha = vent ? 0.48 : 0.53;
-            mesh.shader!.resources.poison.uniforms.uVent = vent ? 1 : 0;
-            if (vent) mesh.label = "wyvern-poison-vent";
-            const isFront = vent ? i >= PLUMES + 2 : Math.sin((i / PLUMES) * Math.PI * 2 + 0.24) < -0.24;
-            mesh.mask = masks[isFront ? 2 : 1];
-            (isFront ? front : back).addChild(mesh);
+        const plumes = WYVERN_POISON_ART.plumes.map((art) => {
+            const mesh = makeMesh("air", quad(), art.seed);
+            mesh.alpha = art.opacity;
+            mesh.shader!.resources.poison.uniforms.uVent = art.vent ? 1 : 0;
+            if (art.vent) mesh.label = "wyvern-poison-vent";
+            mesh.mask = masks[art.front ? 2 : 1];
+            (art.front ? front : back).addChild(mesh);
             return mesh;
         });
         const wake = Array.from({ length: WAKE_CAPACITY }, (_, i) => {
-            const mesh = makeMesh("trail", quad(), i * 7.31);
+            const mesh = makeMesh("trail", quad(), i * WYVERN_POISON_ART.wake.seedStep);
             mesh.visible = false;
             mesh.mask = masks[0];
             floor.addChild(mesh);
@@ -254,8 +286,8 @@ export function drawWyvernPoisonAura(
         );
         for (const mask of aura.masks) mask.clear().poly(board).fill(0xffffff);
         const source = aura.ground.shader!.resources.poison.uniforms.uSource as Float32Array;
-        source[0] = (facing * 0.3) / (range + footprint.width / 2);
-        source[1] = -0.05 / (range + footprint.height / 2);
+        source[0] = (facing * WYVERN_POISON_ART.sourceX) / (range + footprint.width / 2);
+        source[1] = WYVERN_POISON_ART.sourceY / (range + footprint.height / 2);
         source[2] = 1 / (range + footprint.width / 2);
         source[3] = 1 / (range + footprint.height / 2);
         for (let i = 0; i < PLUMES + VENTS; i++) {
@@ -266,16 +298,17 @@ export function drawWyvernPoisonAura(
         aura.layout = layout;
     }
     const distance = Math.hypot(center.x - aura.lastWake.x, center.y - aura.lastWake.y);
+    const wake = WYVERN_POISON_ART.wake;
     // Emit bounded residual vapour only for continuous travel, never teleports or re-selection.
-    if (now - aura.seen > 200 || distance > cell * 2) {
+    if (now - aura.seen > wake.maxGapMilliseconds || distance > cell * wake.teleportDistance) {
         for (const puff of aura.wake) puff.born = -Infinity;
         aura.lastWake.x = center.x;
         aura.lastWake.y = center.y;
-    } else if (distance > cell * 0.18 && now - aura.lastWakeTime >= 90) {
+    } else if (distance > cell * wake.minDistance && now - aura.lastWakeTime >= wake.minIntervalMilliseconds) {
         const puff = aura.wake[aura.nextWake];
         aura.nextWake = (aura.nextWake + 1) % WAKE_CAPACITY;
         const p = aura.lastWake,
-            half = cell * 0.7;
+            half = cell * wake.halfSize;
         const corners = [
             { x: p.x - half, y: p.y - half },
             { x: p.x + half, y: p.y - half },
@@ -290,15 +323,15 @@ export function drawWyvernPoisonAura(
         aura.lastWakeTime = now;
     }
     aura.seen = now;
-    const time = 6.4 + Math.max(0, now - aura.started) / 1000;
-    const opacity = Math.min(1, alpha / 0.5);
+    const time = WYVERN_POISON_ART.initialTime + Math.max(0, now - aura.started) / 1000;
+    const opacity = Math.min(1, alpha / WYVERN_POISON_ART.fullOpacity);
     aura.floor.visible = aura.back.visible = aura.front.visible = true;
     aura.floor.alpha = aura.back.alpha = aura.front.alpha = opacity;
     aura.ground.shader!.resources.poison.uniforms.uTime = time;
     for (const mesh of aura.plumes) mesh.shader!.resources.poison.uniforms.uTime = time;
     for (const puff of aura.wake) {
         const age = (now - puff.born) / 1000;
-        puff.mesh.visible = age >= 0 && age < 1.8;
+        puff.mesh.visible = age >= 0 && age < wake.duration;
         if (puff.mesh.visible) puff.mesh.shader!.resources.poison.uniforms.uTime = age;
     }
 }

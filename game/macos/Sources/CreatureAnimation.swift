@@ -37,6 +37,11 @@ struct CreatureBoardPresentation {
     let ground: CGPoint
     let height: CGFloat
     let widthScale: CGFloat
+
+    func canvasSize(aspect: CGFloat, heightScale: CGFloat, widthRatio: CGFloat) -> CGSize {
+        let canvasHeight = height * heightScale
+        return CGSize(width: canvasHeight * aspect * widthScale * widthRatio, height: canvasHeight)
+    }
 }
 
 private struct CreatureClip: Decodable {
@@ -99,6 +104,13 @@ private struct CreatureClip: Decodable {
         let foot: CGFloat?
     }
 
+    struct BowRelease: Decodable {
+        let x: CGFloat
+        let y: CGFloat
+        let aspect: CGFloat
+        let length: CGFloat
+    }
+
     struct IdleWind: Decodable {
         let speed: Double
         let windFrames: Int
@@ -134,6 +146,7 @@ private struct CreatureClip: Decodable {
     let footAnchor: CGFloat
     let impactFrame: Int?
     let releaseFrame: Int?
+    let bowRelease: BowRelease?
     let pages: [Page]?
     let frameSources: [Source]?
     let registration: [Registration]?
@@ -193,6 +206,7 @@ enum CreatureAnimation {
         let duration: TimeInterval
         let impact: TimeInterval?
         let release: TimeInterval?
+        let lethalMeleeDuration: TimeInterval?
     }
 
     private static let clips: [String: [String: CreatureClip]] = {
@@ -206,10 +220,21 @@ enum CreatureAnimation {
               let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(FramingTable.self, from: data)
     }()
-    private static let timingTable: [String: [String: [Double]]] = {
+    private struct BrowserTiming: Decodable {
+        let holds: [String: [String: [Double]]]
+        let lethalMeleeHolds: [String: [String: Double]]
+        let meleeMinimumHolds: [String: Double]
+    }
+
+    private static let browserTiming: BrowserTiming = {
         guard let url = Bundle.main.url(forResource: "animation-timing", withExtension: "json"),
-              let data = try? Data(contentsOf: url) else { return [:] }
-        return (try? JSONDecoder().decode([String: [String: [Double]]].self, from: data)) ?? [:]
+              let data = try? Data(contentsOf: url) else {
+            return BrowserTiming(holds: [:], lethalMeleeHolds: [:], meleeMinimumHolds: [:])
+        }
+        let decoder = JSONDecoder()
+        if let current = try? decoder.decode(BrowserTiming.self, from: data) { return current }
+        let legacy = (try? decoder.decode([String: [String: [Double]]].self, from: data)) ?? [:]
+        return BrowserTiming(holds: legacy, lethalMeleeHolds: [:], meleeMinimumHolds: [:])
     }()
 
     static var duplicateIdleSpacing: TimeInterval { (framing?.duplicateIdleSpacingMs ?? 0) / 1000 }
@@ -245,9 +270,12 @@ enum CreatureAnimation {
         let idle = clips[creature]?[CreatureAction.idle.rawValue]
         let foot = SpriteRegistration.geometry(creature, action: .idle, index: 0, foot: idle?.footAnchor ?? 0.9)
         let first = idle?.registration?.first
-        let head = presentation.height * foot.height * (first?.y ?? 1) * (first?.foot ?? foot.foot)
+        // The Champion's standing atlas reserves space above the helmet for the plume animation.
+        let championHelmet = idle?.frameSources?.first?.resource == "champion_lab_idle_atlas.webp"
+        let headInset: CGFloat = championHelmet ? 248.0 / 1024 : 0
+        let head = presentation.height * foot.height * (first?.y ?? 1) * ((first?.foot ?? foot.foot) - headInset)
         let offsetX = (profile.flagOffsetXCells ?? 0) * projection.screenCellWidth * facing
-        let offsetY = (profile.flagOffsetYCells ?? 0) * projection.screenCellHeight
+        let offsetY = (championHelmet ? 0 : (profile.flagOffsetYCells ?? 0)) * projection.screenCellHeight
         return CGPoint(x: presentation.ground.x + offsetX,
                        y: presentation.ground.y - head - max(2, projection.spriteCellSize * 0.04) - height / 2 + offsetY)
     }
@@ -267,11 +295,21 @@ enum CreatureAnimation {
         return keys.first { clips[creature]?[$0] != nil }
     }
 
+    private static func browserHolds(for creature: String, key: String, clip: CreatureClip) -> [Double]? {
+        guard clip.frameSources == nil, clip.sequence == nil,
+              let holds = browserTiming.holds[creature]?[key], holds.count == clip.frameCount else { return nil }
+        return holds
+    }
+
+    static func minimumMeleeHold(for creature: String) -> TimeInterval {
+        (browserTiming.meleeMinimumHolds[creature] ?? 0) / 1000
+    }
+
     static func timing(for creature: String, action: CreatureAction, direction: String?,
                        releaseFrame: Int? = nil) -> Timing? {
         guard let key = clipKey(for: creature, action: action, direction: direction),
               let clip = clips[creature]?[key] else { return nil }
-        let webSamples = clip.frameSources == nil ? timingTable[creature]?[key] : nil
+        let webSamples = browserHolds(for: creature, key: key, clip: clip)
         let duration = webSamples.map { $0.reduce(0, +) / 1000 } ?? clip.cycle
         func contact(_ index: Int?) -> TimeInterval? {
             guard let index, (0..<clip.frameCount).contains(index) else { return nil }
@@ -282,7 +320,22 @@ enum CreatureAnimation {
             return Double(index) / Double(clip.frameCount) * duration
         }
         return Timing(duration: duration, impact: contact(clip.impactFrame),
-                      release: contact(releaseFrame) ?? contact(clip.releaseFrame))
+                      release: contact(releaseFrame) ?? contact(clip.releaseFrame),
+                      lethalMeleeDuration: browserTiming.lethalMeleeHolds[creature]?[key].map { $0 / 1000 })
+    }
+
+    static func bowRelease(for stack: Stack, at position: CGPoint, direction: String?, facing: CGFloat,
+                           projection: BattlefieldProjection) -> (point: CGPoint, length: CGFloat)? {
+        guard let key = clipKey(for: stack.name, action: .attack, direction: direction),
+              let clip = clips[stack.name]?[key], let pin = clip.bowRelease, let index = clip.releaseFrame,
+              (0..<clip.frameCount).contains(index) else { return nil }
+        // Match the release cel's drawing transform without waiting for its atlas to decode.
+        let frame = registration(for: stack.name, key: key, clip: clip, index: index)
+        let body = boardPresentation(stack, position: position, projection: projection, facing: facing)
+        let size = body.canvasSize(aspect: pin.aspect, heightScale: frame.height, widthRatio: frame.widthRatio)
+        let point = CGPoint(x: body.ground.x + facing * size.width * (pin.x - frame.anchorX),
+                            y: body.ground.y + size.height * (pin.y - frame.foot))
+        return (point, size.width * pin.length)
     }
 
     static func prewarm(_ creature: String, action: CreatureAction, direction: String? = nil,
@@ -307,19 +360,23 @@ enum CreatureAnimation {
         let attack: CreatureAction = ranged ? .attack : .meleeAttack
         prewarm(stack.name, action: attack, firstPageOnly: true)
         prewarm(stack.name, action: .walk, firstPageOnly: true)
-        if ranged { BattleProjectile.forShooter(stack.name)?.prewarm() }
+        if ranged {
+            BattleProjectile.forShooter(stack.name)?.prewarm()
+            BattleAimArtwork.prewarm(ranged: true)
+        }
         prewarm(stack.name, action: attack, direction: "up", firstPageOnly: true)
         prewarm(stack.name, action: attack, direction: "down", firstPageOnly: true)
-        if !stack.book.isEmpty { prewarm(stack.name, action: .cast, firstPageOnly: true) }
+        if !stack.book.isEmpty {
+            prewarm(stack.name, action: .cast, firstPageOnly: true)
+            BattleAimArtwork.prewarm(ranged: false)
+        }
     }
 
     static func frame(_ creature: String, pose: CreaturePose, inBackground: Bool = false) -> Frame? {
         let requested = pose.action
         guard let key = clipKey(for: creature, action: requested, direction: pose.verticalAttack),
               let clip = clips[creature]?[key] else { return nil }
-        let webSamples = clip.frameSources == nil && clip.sequence == nil
-            ? timingTable[creature]?[key].flatMap { $0.count == clip.frameCount ? $0 : nil }
-            : nil
+        let webSamples = browserHolds(for: creature, key: key, clip: clip)
         let cycle = webSamples.map { $0.reduce(0, +) / 1000 } ?? clip.cycle
         let time: TimeInterval
         if let duration = pose.playbackDuration, duration > 0 {
@@ -371,17 +428,22 @@ enum CreatureAnimation {
             }
             return nil
         }
+        let frame = registration(for: creature, key: key, clip: clip, index: index)
+        let trim = source?.trim
+        let trimRatio = trim.map { $0.height / $0.width } ?? 1
+        return Frame(image: image, index: index, action: frame.action, foot: frame.foot, heightScale: frame.height,
+                     widthRatio: frame.widthRatio * trimRatio, anchorX: frame.anchorX, trim: trim?.rect)
+    }
+
+    private static func registration(for creature: String, key: String, clip: CreatureClip, index: Int)
+        -> (action: CreatureAction, foot: CGFloat, height: CGFloat, widthRatio: CGFloat, anchorX: CGFloat) {
         let action = CreatureAction(rawValue: key) ?? (key.hasPrefix("melee_attack") ? .meleeAttack : .attack)
         let geometry = clip.browserIdleFraming == true ? (height: CGFloat(1), foot: clip.footAnchor) :
             SpriteRegistration.geometry(creature, action: action, index: index, foot: clip.footAnchor)
         let registration = clip.registration.flatMap { $0.indices.contains(index) ? $0[index] : nil }
         let clipHeight = registration?.y ?? 1
-        let trim = source?.trim
-        let trimRatio = trim.map { $0.height / $0.width } ?? 1
-        return Frame(image: image, index: index, action: action, foot: registration?.foot ?? geometry.foot,
-                     heightScale: geometry.height * clipHeight,
-                     widthRatio: (registration?.x ?? 1) / clipHeight * trimRatio,
-                     anchorX: registration?.anchorX ?? 0.5, trim: trim?.rect)
+        return (action, registration?.foot ?? geometry.foot, geometry.height * clipHeight,
+                (registration?.x ?? 1) / clipHeight, registration?.anchorX ?? 0.5)
     }
 }
 
@@ -432,11 +494,27 @@ enum BattlefieldAtlas {
         let rows: Int
         let index: Int
     }
-    private final class Sheet {
+    @MainActor
+    final class Sheet {
         let image: CGImage
-        var frames: [Crop: CGImage] = [:]
+        private var frames: [Crop: CGImage] = [:]
 
         init(_ image: CGImage) { self.image = image }
+
+        func frame(columns: Int, rows: Int, index: Int) -> CGImage? {
+            guard columns > 0, rows > 0, index >= 0 && index < columns * rows else { return nil }
+            let crop = Crop(columns: columns, rows: rows, index: index)
+            if let cached = frames[crop] { return cached }
+            let column = index % columns
+            let row = index / columns
+            let x = column * image.width / columns
+            let y = row * image.height / rows
+            let rect = CGRect(x: x, y: y, width: (column + 1) * image.width / columns - x,
+                              height: (row + 1) * image.height / rows - y)
+            let cel = image.cropping(to: rect)
+            frames[crop] = cel
+            return cel
+        }
     }
 
     static let availability = AtlasAvailability()
@@ -460,18 +538,7 @@ enum BattlefieldAtlas {
             if inBackground { prefetch(resource, maxDimension: maxDimension, combat: combat) }
             return nil
         }
-        let crop = Crop(columns: columns, rows: rows, index: index)
-        if let image = sheet.frames[crop] { return image }
-        let atlas = sheet.image
-        let column = index % columns
-        let row = index / columns
-        let x = column * atlas.width / columns
-        let y = row * atlas.height / rows
-        let rect = CGRect(x: x, y: y, width: (column + 1) * atlas.width / columns - x,
-                          height: (row + 1) * atlas.height / rows - y)
-        let image = atlas.cropping(to: rect)
-        sheet.frames[crop] = image
-        return image
+        return sheet.frame(columns: columns, rows: rows, index: index)
     }
 
     static func prefetch(_ resource: String, maxDimension: Int? = nil, combat: Bool = false) {
@@ -513,7 +580,7 @@ enum BattlefieldAtlas {
         return sheet
     }
 
-    nonisolated private static func decode(_ url: URL, maxDimension: Int?) -> CGImage? {
+    nonisolated static func decode(_ url: URL, maxDimension: Int?) -> CGImage? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         let original: CGImage?
         if let maxDimension {

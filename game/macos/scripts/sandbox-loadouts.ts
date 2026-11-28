@@ -43,6 +43,7 @@ import {
 import { UnitsHolder } from "../../heroes-of-crypto-common/src/units/units_holder";
 import { setDeterministicRandomSource } from "../../heroes-of-crypto-common/src/utils/lib";
 import { exportBattleState } from "../../heroes-of-crypto-common/zig/parity/state_export";
+import { SandboxBattleLog } from "./sandbox-battle-log";
 
 interface SandboxTeam {
     augments: Partial<Record<AugmentType["type"], number>>;
@@ -92,7 +93,9 @@ function cloneConfiguration(value: unknown): unknown {
 
 globalThis.structuredClone ??= cloneConfiguration as typeof structuredClone;
 
-export function configureSandbox(input: SandboxConfiguration) {
+let narration: SandboxBattleLog | undefined;
+
+export function configureSandbox(input: SandboxConfiguration, startNarration = false) {
     const seed = input.boardSeed ?? 142;
     setDeterministicRandomSource(makeRng(seed));
     try {
@@ -196,6 +199,10 @@ export function configureSandbox(input: SandboxConfiguration) {
         unitsHolder.refreshStackPowerForAllUnits();
         unitsHolder.refreshAuraEffectsForAllUnits();
         unitsHolder.refreshStackPowerForAllUnits();
+        if (startNarration) {
+            narration = new SandboxBattleLog(grid, unitsHolder, fightProperties, seed);
+            return;
+        }
         const snapshot = exportBattleState({ unitsHolder, grid, fightProperties }, { seed, rng: seed });
         const setup = snapshot.setup as { perTeam: Record<number, object> };
         for (const team of teams) {
@@ -243,6 +250,15 @@ const augmentLabels = {
 Object.assign(globalThis, {
     hocConfigureSandbox: (request: string) =>
         JSON.stringify(configureSandbox(JSON.parse(request) as SandboxConfiguration)),
+    hocBeginBattleLog: (request: string) => {
+        narration = undefined;
+        configureSandbox(JSON.parse(request) as SandboxConfiguration, true);
+        return narration !== undefined;
+    },
+    hocAdvanceBattleLog: (journal: string) => {
+        const update = JSON.parse(journal);
+        return update.complete ? JSON.stringify(narration?.advance(update.steps)) : undefined;
+    },
     hocSandboxLoadoutOptions: JSON.stringify({
         artifacts,
         maximumPoints: MAX_AUGMENT_POINTS,

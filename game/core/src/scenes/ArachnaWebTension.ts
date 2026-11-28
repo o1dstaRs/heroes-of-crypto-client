@@ -45,7 +45,7 @@ function distanceFrom(start: number): Float32Array {
 }
 type Influence = { cell: number; distance: number; reflection: number; weight: number };
 const footprints = new Map<number, Influence[]>();
-function nodeFootprint(start: number): Influence[] {
+export function arachnaTensionFootprint(start: number): Influence[] {
     const cached = footprints.get(start);
     if (cached) return cached;
     const dist = distanceFrom(start);
@@ -131,7 +131,7 @@ export function addWebTension(
     const decay = Math.exp(-age * 4.8) * Math.max(0, Math.min(1, (0.66 - age) / 0.16));
     const pulse = (d: number) =>
         Number.isFinite(d) ? Math.exp(-(((d - front) / 8) ** 2) * 0.5) * Math.cos((d - front) * 0.3) : 0;
-    for (const p of nodeFootprint(nearest)) {
+    for (const p of arachnaTensionFootprint(nearest)) {
         const d = p.distance + distance;
         const wave = pulse(d) - 0.32 * pulse(p.reflection + distance);
         const transmission = 1 / Math.sqrt(1 + d * 0.025);

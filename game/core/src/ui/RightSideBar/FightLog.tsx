@@ -173,6 +173,7 @@ FightLogRow.displayName = "FightLogRow";
 
 interface IFightLogProps {
     text: string;
+    copyText?: (text: string) => Promise<void>;
     /** fightLogPaintKey() as of the parent's render: the log is memoized, so a repaint arrives through it. */
     paintKey: string;
 }
@@ -181,7 +182,7 @@ interface IFightLogProps {
  * Memoized: the sidebar re-renders several times a second in a fight while the log text changes once per
  * event. Rows and turn headers are memoized again inside, so a new line renders only itself.
  */
-export const FightLog = React.memo(({ text, paintKey }: IFightLogProps) => {
+export const FightLog = React.memo(({ text, paintKey, copyText }: IFightLogProps) => {
     const [entries, setEntries] = useState<ILogEntry[]>([]);
     const prevLinesRef = useRef<string[]>([]);
     const idRef = useRef(0);
@@ -247,7 +248,9 @@ export const FightLog = React.memo(({ text, paintKey }: IFightLogProps) => {
             }
             copyResetRef.current = window.setTimeout(() => setCopied(false), 1500);
         };
-        if (navigator.clipboard?.writeText) {
+        if (copyText) {
+            copyText(clipboardText).then(markCopied, () => {});
+        } else if (navigator.clipboard?.writeText) {
             navigator.clipboard.writeText(clipboardText).then(markCopied, () => {});
         } else {
             // Older/embedded browsers: the textarea fallback still works everywhere.

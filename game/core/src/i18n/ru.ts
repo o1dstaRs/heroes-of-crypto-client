@@ -867,6 +867,12 @@ export const RU_TRANSLATIONS: Record<string, string> = {
     "Tier 2": "Уровень 2",
     "Board stack limit reached ({count}/{max})": "Достигнут лимит отрядов на поле ({count}/{max})",
     "Place units for both teams to start": "Расставьте отряды обеих команд, чтобы начать",
+    "Stack limit reached. Remove a stack to place {creature}.":
+        "Достигнут лимит отрядов. Удалите отряд, чтобы разместить существо «{creature}».",
+    "No room for {creature}. Clear a {width}×{height} space in a deployment zone.":
+        "Нет места для существа «{creature}». Освободите участок {width}×{height} в зоне расстановки.",
+    "Only Green has room for {creature}.": "Существо «{creature}» можно разместить только в зелёной зоне.",
+    "Only Red has room for {creature}.": "Существо «{creature}» можно разместить только в красной зоне.",
     "Split stack": "Разделить отряд",
 
     // ~~~ Fight chrome and controls ~~~

@@ -127,6 +127,7 @@ import { SynergySlots } from "./RightSideBar/SynergySlots";
 import { UpNextOverlay } from "./UpNextOverlay";
 import { SeatAiControlNotice, aiBadgeLeft } from "./AiControlBadge";
 import { NextLapHazardBadge } from "./NextLapHazardBadge";
+import { SandboxPlacementHint } from "./SandboxPlacementHint";
 import { ExitReplayBadge } from "./ExitReplayBadge";
 import { ReplayLoadingCover } from "./ReplayLoadingCover";
 import { CreaturePortraitImage } from "./CreaturePortraitImage";
@@ -2253,6 +2254,9 @@ export const RankedGameView: React.FC<Props> = ({
                         />
                     )}
                     {pixiReady && gameStarted && <NextLapHazardBadge />}
+                    {pixiReady && sandboxCoop && !gameStarted && !isObserver && !sandboxClosedEarly && (
+                        <SandboxPlacementHint />
+                    )}
                     {/* While the matchup strip is up it carries these notices beside the player's own name;
                         this banner covers the stretch before it appears (ranked placement). */}
                     {pixiReady && !replayOnly && !matchupStripVisible && (

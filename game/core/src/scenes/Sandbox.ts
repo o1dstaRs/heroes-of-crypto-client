@@ -1,3 +1,5 @@
+import { FIRE_WALL_AFTERBURN_SEC } from "./sandbox/FireWallCrossingEffect";
+import { rosterPlacementHint, type RosterPlacementHint } from "./sandbox/rosterPlacementHint";
 import { publishBattleUnitFacings, releaseBattleUnitFacings } from "../pixi/battleUnitFacing";
 import { defaultSummonCell } from "./defaultSummonCell";
 import { TurnIdleSound } from "./turnIdleSound";
@@ -27,7 +29,12 @@ import { isBackstabImpact } from "./backstabFlagEffects";
 import { isTouchGameActive } from "../viewport/gameViewport";
 import { lastFuseDamageTaken } from "./last_fuse_damage_taken";
 import { LastFuseDeaths } from "./sandbox/LastFuseDeaths";
-import { groupCombatExchange, orderCombatExchange, type CombatExchangeStrike } from "./sandbox/combat_exchange";
+import {
+    groupCombatExchange,
+    MELEE_EXCHANGE_MIN_HOLD_MS,
+    orderCombatExchange,
+    type CombatExchangeStrike,
+} from "./sandbox/combat_exchange";
 import { fireBreathHitsForStrike } from "./sandbox/fireBreathImpact";
 import {
     combatStatusFrameFromProperties,
@@ -202,7 +209,7 @@ import { projectRangedObstacles, type RangedObstaclePreview } from "./rangedObst
 import { PremiumTurnOverlay } from "./PremiumTurnOverlay";
 import { DamageStatisticHolder } from "./DamageStats";
 import { FightStatsTracker } from "./FightStatsTracker";
-import { VisibleButtonState, IVisibleUnit, type IFightResultSetup } from "./VisibleState";
+import { VisibleButtonState, IVisibleUnit, type IFightResultSetup, type TargetingCursor } from "./VisibleState";
 import { captureFightResultSetup } from "./fightResultSetup";
 import { images } from "../generated/image_imports";
 import { SceneSettings } from "./SceneSettings";
@@ -757,7 +764,6 @@ const MIRROR_DAMAGE_STROKE = "#12384d";
 // it leaves the last burning cell.
 const FIRE_WALL_DAMAGE_FILL = "#ffb347";
 const FIRE_WALL_DAMAGE_STROKE = "#5a1500";
-const FIRE_WALL_AFTERBURN_SEC = 1.15;
 
 /**
  * Remaining hit points of each center mountain after an `obstacle_attacked` event.
@@ -1130,6 +1136,7 @@ export class Sandbox extends PixiScene {
     private readonly madeOfFireBuffStates = new Map<string, boolean>();
     private aimIntentSink?: (aim: PlayAim | undefined) => void;
     private localAim?: PlayAim;
+    private hoverTargetingCursor?: TargetingCursor;
     private opponentAim?: OpponentAim;
     private opponentAimOverlay?: OpponentAimOverlay;
     private opponentAimPaintKey?: string;
@@ -1981,7 +1988,41 @@ export class Sandbox extends PixiScene {
     }
     public override clearLocalAimTarget(): void {
         this.localAim = undefined;
+        this.hoverTargetingCursor = undefined;
         this.syncLocalAim();
+    }
+    public override getTargetingCursor(): TargetingCursor | undefined {
+        const cursor = this.hoverTargetingCursor;
+        const aim = this.localAim;
+        const unit = this.currentActiveUnit;
+        if (
+            !cursor ||
+            !aim ||
+            !unit ||
+            aim.unitId !== unit.getId() ||
+            unit.isDead() ||
+            this.sc_renderSpellBookOverlay ||
+            this.sc_moveBlocked ||
+            this.isPlayingActionAnimation() ||
+            this.isAwaitingAuthoritativeTurnHandoff() ||
+            this.sc_visibleState?.hasFinished ||
+            !this.canShowHoverForActiveUnit() ||
+            this.isBoardInputLockedByAI()
+        ) {
+            return undefined;
+        }
+        const spell = this.currentActiveSpell;
+        if (cursor === "ranged") {
+            return !spell && aim.kind === PlayAimKind.RANGED && unit.getAttackTypeSelection() === AttackVals.RANGE
+                ? cursor
+                : undefined;
+        }
+        return spell &&
+            aim.kind === PlayAimKind.SPELL &&
+            aim.spellName === spell.getName() &&
+            (aim.targetUnitId || (aim.cell && this.canAimAreaSpellAt(spell, unit, aim.cell)))
+            ? cursor
+            : undefined;
     }
     public override setOpponentAim(intent?: OpponentAim): void {
         this.opponentAim = intent;
@@ -2690,6 +2731,13 @@ export class Sandbox extends PixiScene {
     }
     private getLogicalBattlefieldPoint(worldPos: HoCMath.XY): HoCMath.XY {
         return unprojectBattlefieldPoint(worldPos, this.sc_sceneSettings.getGridSettings()) ?? worldPos;
+    }
+    public override containsBattlefieldPoint(point: HoCMath.XY): boolean {
+        const settings = this.sc_sceneSettings.getGridSettings();
+        return GridMath.isCellWithinGrid(
+            settings,
+            GridMath.getCellForPosition(settings, this.getLogicalBattlefieldPoint(point)),
+        );
     }
     protected canSelectUnitForPlacement(_unit: Unit): boolean {
         return true;
@@ -6271,7 +6319,7 @@ export class Sandbox extends PixiScene {
                                         finishPendingDeath(source.getId());
                                 }),
                                 (source.getUnitProperties?.().level ?? 0) > 2
-                                    ? this.delayReplay(220)
+                                    ? this.delayReplay(MELEE_EXCHANGE_MIN_HOLD_MS)
                                     : Promise.resolve(),
                             ]);
                         } else {
@@ -9083,31 +9131,53 @@ export class Sandbox extends PixiScene {
             return false;
         }
 
+        const viewerTeam = this.getViewerTeam();
+        const concealedFromViewer =
+            forcedTarget.hasBuffActive("Hidden") && viewerTeam !== undefined && forcedTarget.getTeam() !== viewerTeam;
+        this.showBlockedAttackHint(
+            formatAggrBlockedActionHint(concealedFromViewer ? undefined : forcedTarget.getName()),
+        );
+        return true;
+    }
+    private showBlockedAttackHint(hint: string): void {
         // A blocked attack must not leave the previous legal target's arrow, damage numbers, AOE outline,
         // move silhouette, or attack cursor behind the explanation. This is also used by MouseDown so a
         // quick move-and-click gets the same feedback even when hover() has not run at the new pointer yet.
         this.hoverManager.clearAttackVisuals();
         this.hoverManager.clearAOEArea();
+        this.hoverManager.clearSpellPreview();
         this.hoverManager.clearHoverSilhouette();
         this.hoverManager.hoverAttackFromCell = undefined;
         this.hoverRangeAttackObstacle = undefined;
         this.emitLocalMoveIntent(undefined);
         this.sc_isHoveringAttackTarget = false;
+        this.hoverTargetingCursor = undefined;
         this.sc_meleeCursorDirection = undefined;
 
-        const viewerTeam = this.getViewerTeam();
-        const concealedFromViewer =
-            forcedTarget.hasBuffActive("Hidden") && viewerTeam !== undefined && forcedTarget.getTeam() !== viewerTeam;
-        const hint = formatAggrBlockedActionHint(concealedFromViewer ? undefined : forcedTarget.getName());
         if (this.sc_hoverInfoArr.length !== 1 || this.sc_hoverInfoArr[0] !== hint) {
             this.cleanupHoverText(false);
             this.sc_hoverInfoArr = [hint];
             this.sc_hoverTextUpdateNeeded = true;
         }
+    }
+    private showTerrifyingGazeHint(target?: Unit): boolean {
+        if (
+            !target ||
+            target.isDead() ||
+            target.hasBuffActive("Hidden") ||
+            !this.currentActiveUnit?.cannotAttackUnitId(target.getId())
+        )
+            return false;
+        this.showBlockedAttackHint(`Terrifying Gaze — can't attack ${target.getName()}`);
         return true;
     }
-    private clearAggrBlockedActionHint(): void {
-        if (!isAggrBlockedActionHint(this.sc_hoverInfoArr[0])) {
+    private clearBlockedActionHint(includeMovement = false): void {
+        const hint = this.sc_hoverInfoArr?.[0];
+        if (
+            !isAggrBlockedActionHint(hint) &&
+            !hint?.startsWith("Terrifying Gaze — can't attack ") &&
+            !(includeMovement && hint === "Paralyzed — can't move")
+        ) {
             return;
         }
         this.sc_hoverInfoArr = [];
@@ -9603,6 +9673,7 @@ export class Sandbox extends PixiScene {
         ]);
     }
     public override MouseDown(p: HoCMath.XY): void {
+        this.hoverTargetingCursor = undefined;
         this.pointerVisualWorld = p;
         const logicalPoint = this.getLogicalBattlefieldPoint(p);
         this.sc_mouseWorld = logicalPoint;
@@ -10662,6 +10733,31 @@ export class Sandbox extends PixiScene {
     }
     private isRotatableAreaSpell(spell?: PixiRenderableSpell): boolean {
         return spell?.getName() === "Fire Wall";
+    }
+    private canAimAreaSpellAt(spell: PixiRenderableSpell, caster: Unit, cell: HoCMath.XY): boolean {
+        const gs = this.sc_sceneSettings.getGridSettings();
+        const withinGrid = (position: HoCMath.XY) => GridMath.isCellWithinGrid(gs, position);
+        if (!withinGrid(cell) || !SpellHelper.isSpellUsableByCaster(caster, spell)) return false;
+        const targetType = spell.getSpellTargetType();
+        if (targetType === SpellTargetType.ALLIES_AREA) return true;
+        if (targetType !== SpellTargetType.FREE_CELL) return false;
+        if (this.isRotatableAreaSpell(spell)) {
+            return FireWallHelper.fireWallLitCells(this.grid, withinGrid, cell, this.fireWallAimOrientation).length > 0;
+        }
+
+        const name = spell.getName();
+        const cells = this.cellTargetedSpellBlock(spell, cell);
+        if (name === "Meteorite" || name === "Meteor Shower") {
+            return (
+                SpellHelper.cellTargetedSpellBlockFitsGrid(gs, name, cell) &&
+                cells.some((position) => {
+                    const id = this.grid.getOccupantUnitId(position);
+                    const target = id ? this.unitsHolder.getAllUnits().get(id) : undefined;
+                    return !!target && !target.isDead() && target.getTeam() !== caster.getTeam();
+                })
+            );
+        }
+        return cells.every((position) => SmokeHelper.isSmokeableCell(this.grid, withinGrid(position), position));
     }
     private rotateFireWallAim(): boolean {
         if (!this.isRotatableAreaSpell(this.currentActiveSpell)) {
@@ -12557,6 +12653,7 @@ export class Sandbox extends PixiScene {
             // aiming line. Force the visual clear in case a just-finished move left the silhouette locked.
             this.hoverManager.clearHoverSilhouette(true);
             this.localAim = { kind: PlayAimKind.RANGED, unitId: unit.getId(), cell: hoveredCell };
+            this.hoverTargetingCursor = "ranged";
             const cellCenter = hoveredObstacleCenter;
             const projectileHits = this.rangedObstaclePreview(unit, cellCenter, undefined, true).hits;
             const actualHit = projectileHits.at(-1)?.position ?? cellCenter;
@@ -12862,12 +12959,16 @@ export class Sandbox extends PixiScene {
             this.hoverManager.clearObstacleHighlight();
             this.dungeonVisuals.clearScatteredMountainHighlight();
         }
-        const aggrBlocked = this.isAttackBlockedByAggr(evaluation.affectedUnits[0]?.[0], "range");
+        const primary = evaluation.affectedUnits[0]?.[0];
+        if (this.showTerrifyingGazeHint(primary)) return true;
+        const aggrBlocked = this.isAttackBlockedByAggr(primary, "range");
         if (aggrBlocked) {
             this.showAggrBlockedActionHint(aggrBlocked);
             return true;
         }
+        this.clearBlockedActionHint(true);
         this.sc_isHoveringAttackTarget = true;
+        this.hoverTargetingCursor = "ranged";
         return true;
     }
     private attemptFreeThroughShotAttack(worldPos: HoCMath.XY): boolean {
@@ -12886,6 +12987,7 @@ export class Sandbox extends PixiScene {
             false,
         );
         const primary = evaluation.affectedUnits[0]?.[0];
+        if (this.showTerrifyingGazeHint(primary)) return true;
         const aggrBlocked = this.isAttackBlockedByAggr(primary, "range");
         if (aggrBlocked) {
             this.showAggrBlockedActionHint(aggrBlocked);
@@ -12998,14 +13100,16 @@ export class Sandbox extends PixiScene {
             this.showAggrBlockedActionHint(aggrBlockedAreaTarget);
             return true;
         }
-        this.clearAggrBlockedActionHint();
+        this.clearBlockedActionHint(true);
 
-        if (this.currentActiveUnit)
+        if (this.currentActiveUnit) {
             this.localAim = {
                 kind: PlayAimKind.RANGED,
                 unitId: this.currentActiveUnit.getId(),
                 cell: cells.at(-1),
             };
+            this.hoverTargetingCursor = "ranged";
+        }
         this.hoverManager.drawAOEArea(cells);
         // Trajectory line to the selected center — the same arrow a single-target ranged hover draws.
         // The 3x3 outline shows where the splash lands, while the line preserves the throw-direction cue.
@@ -14924,6 +15028,7 @@ export class Sandbox extends PixiScene {
         this.hoverManager.hoveredUnitHighlight = undefined;
         this.hoverRangeAttackObstacle = undefined;
         this.sc_isHoveringAttackTarget = false;
+        this.hoverTargetingCursor = undefined;
         this.sc_meleeCursorDirection = undefined;
         this.sc_hoverInfoArr = [];
         this.sc_hoverTextUpdateNeeded = true;
@@ -16544,6 +16649,7 @@ export class Sandbox extends PixiScene {
         this.buttonManager?.refreshButtons(true);
     }
     private clearBoardHoverPreviews(): void {
+        this.hoverTargetingCursor = undefined;
         this.hoverManager.clearAttackVisuals();
         this.dungeonVisuals.clearScatteredMountainHighlight();
         this.hoverManager.clearHoverSilhouette();
@@ -16555,7 +16661,7 @@ export class Sandbox extends PixiScene {
         this.hoverRangeAttackObstacle = undefined;
         this.sc_hoveredAuraRanges = undefined;
         this.sc_hoveredShotRange = undefined;
-        this.clearAggrBlockedActionHint();
+        this.clearBlockedActionHint(true);
     }
     protected override canShowHoverForActiveUnit(): boolean {
         return true;
@@ -16662,6 +16768,7 @@ export class Sandbox extends PixiScene {
     }
     protected override hover(): void {
         this.localAim = undefined;
+        this.hoverTargetingCursor = undefined;
         if (this.pendingBarrelPlacement) {
             this.updateBarrelPlacementPreview();
             return;
@@ -16674,7 +16781,7 @@ export class Sandbox extends PixiScene {
         // across the target during the short flight; otherwise hover() would draw the dashed line again.
         if (this.rangedProjectiles.hasActive()) {
             this.hoverManager.clearAttackVisuals();
-            this.clearAggrBlockedActionHint();
+            this.clearBlockedActionHint(true);
             return;
         }
 
@@ -16857,6 +16964,7 @@ export class Sandbox extends PixiScene {
         // and relay no move intent, then stop. sc_hoveredAuraRanges/ShotRange/MoveRange are deliberately kept
         // so the drawer still shows what the hovered unit can do.
         if (!canDriveActiveUnit) {
+            this.clearBlockedActionHint(true);
             this.hoverManager.clearAttackVisuals();
             this.hoverManager.clearHoverSilhouette();
             this.hoverManager.clearAOEArea();
@@ -16871,16 +16979,19 @@ export class Sandbox extends PixiScene {
         // --- FIGHT MODE: active unit move-hover silhouette ---
         if (fightProps.hasFightStarted()) {
             if (!this.currentActiveUnit) {
+                this.clearBlockedActionHint(true);
                 this.hoverManager.clearHoverSilhouette();
                 return;
             }
             if (this.isAnimating() || this.isActiveUnitMoving || this.sc_moveBlocked || !this.sc_mouseWorld) {
+                this.clearBlockedActionHint(true);
                 // While a projectile is in flight / the unit is landing an attack, it can't move —
                 // don't draw the move-preview silhouette.
                 this.hoverManager.clearHoverSilhouette();
                 return;
             }
             if (this.currentActiveUnit.hasAbilityActive("AI Driven")) {
+                this.clearBlockedActionHint(true);
                 this.hoverManager.clearHoverSilhouette();
                 return;
             }
@@ -16897,6 +17008,18 @@ export class Sandbox extends PixiScene {
                 const caster = this.currentActiveUnit;
                 const gs2 = this.sc_sceneSettings.getGridSettings();
                 const hoveredUnit = this.getUnitAtPosition(this.sc_mouseWorld);
+                const spellProvoker =
+                    hoveredUnit &&
+                    !hoveredUnit.isDead() &&
+                    !hoveredUnit.hasBuffActive("Hidden") &&
+                    hoveredUnit.getTeam() !== caster.getTeam() &&
+                    !spell.isBuff() &&
+                    (spell.getSpellTargetType() === SpellTargetType.ANY_ENEMY ||
+                        spell.getSpellTargetType() === SpellTargetType.ENEMY_WITHIN_MOVEMENT_RANGE)
+                        ? this.isAttackBlockedByAggr(hoveredUnit, "spell")
+                        : undefined;
+                if (spellProvoker && this.showAggrBlockedActionHint(spellProvoker)) return;
+                this.clearBlockedActionHint(true);
                 // Redrawn on every pointer frame; keep the current target's pinned damage-label anchor.
                 this.hoverManager.clearAttackVisuals(true);
                 this.hoverManager.clearHoverSilhouette();
@@ -17067,6 +17190,12 @@ export class Sandbox extends PixiScene {
                     cell: aimCell && GridMath.isCellWithinGrid(gs2, aimCell) ? aimCell : undefined,
                     targetOrientation: spell.getName() === "Fire Wall" ? this.fireWallAimOrientation + 1 : undefined,
                 };
+                const targetType = spell.getSpellTargetType();
+                const unitIsTargetable =
+                    targetCenter && hoveredUnit && (hoveredUnit.getTeam() === caster.getTeam() || !hoveredUnit.hasBuffActive("Hidden"));
+                const cellIsTargetable = aimCell &&
+                    (targetType === SpellTargetType.ALLIES_AREA || targetType === SpellTargetType.FREE_CELL);
+                if (unitIsTargetable || cellIsTargetable) this.hoverTargetingCursor = "magic";
                 this.hoverManager.drawSpellCastPreview({
                     casterPos,
                     targetPos: hideDirectStatusArrow ? undefined : targetCenter,
@@ -17132,9 +17261,21 @@ export class Sandbox extends PixiScene {
                 return;
             }
 
+            const targetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
+            if (
+                targetUnit &&
+                !targetUnit.isDead() &&
+                targetUnit.getTeam() !== this.currentActiveUnit.getTeam() &&
+                !targetUnit.hasBuffActive("Hidden")
+            ) {
+                if (this.showTerrifyingGazeHint(targetUnit)) return;
+                const provoker = this.isAttackBlockedByAggr(targetUnit, "melee");
+                if (provoker && this.showAggrBlockedActionHint(provoker)) return;
+            }
+            this.clearBlockedActionHint();
+
             // Only checking for attack if we have melee targets calculated
             if (this.canAttackByMeleeTargets && this.currentActiveUnit) {
-                const targetUnit = this.getUnitAtPosition(this.sc_mouseWorld);
                 // A unit with the "Hidden" buff cannot be hovered/targeted for attack; show a
                 // "Hidden" hover message instead (cleared once the cursor leaves the unit).
                 const isHiddenEnemy =
@@ -17506,6 +17647,7 @@ export class Sandbox extends PixiScene {
                             targetSide: isRangeAttackContext && relayedRangeAim ? relayedRangeAim.side + 1 : undefined,
                             attackFrom: attackFromCell,
                         };
+                        if (isRangeAttackContext) this.hoverTargetingCursor = "ranged";
                         const damageUnit = !this.currentActiveUnit.hasAbilityActive("Through Shot")
                             ? (shotEvaluation?.affectedUnits[0]?.[0] ?? targetUnit)
                             : targetUnit;
@@ -18457,7 +18599,12 @@ export class Sandbox extends PixiScene {
             // an attack (striking in place is still allowed, so an attack hover keeps its preview).
             // "Hidden" keeps priority: hovering a concealed enemy stays explained as Hidden.
             const showParalyzedHint =
-                !isAttacking && !this.currentActiveUnit.canMove() && this.sc_hoverInfoArr[0] !== "Hidden";
+                !isAttacking &&
+                GridMath.isCellWithinGrid(gs, cell) &&
+                targetUnit !== this.currentActiveUnit &&
+                this.currentActiveUnit.hasStatusApplied("Paralysis") &&
+                !this.currentActiveUnit.canMove() &&
+                this.sc_hoverInfoArr[0] !== "Hidden";
             if (showParalyzedHint && this.sc_hoverInfoArr[0] !== "Paralyzed — can't move") {
                 this.sc_hoverInfoArr = ["Paralyzed — can't move"];
                 this.sc_hoverTextUpdateNeeded = true;
@@ -18679,6 +18826,7 @@ export class Sandbox extends PixiScene {
         }
     }
     public override Deselect(_onlyWhenNotStarted = false, _refreshStats = true): void {
+        this.hoverTargetingCursor = undefined;
         this.cancelBarrelPlacement();
         // ESC routes here (HandleEscapeKey -> Deselect); also close the spellbook and drop its
         // overlays. closeSpellBook() is a no-op when the book isn't open.
@@ -21504,9 +21652,49 @@ export class Sandbox extends PixiScene {
     protected getPlacementDrawTeam(): TeamType | undefined {
         return undefined;
     }
+    private getRosterPlacementHint(leftPlaced: number, rightPlaced: number): RosterPlacementHint | undefined {
+        const creature =
+            this.selectionFromOverlay && !this.creatureAnimationLabEnabled && this.sc_selectedUnitProperties;
+        if (!creature) return undefined;
+
+        const owner = this.getPlacementOwnerTeam();
+        const fight = FightStateManager.getInstance().getFightProperties();
+        const zones = ([TeamVals.LEFT, TeamVals.RIGHT] as const)
+            .filter((team) => owner === undefined || owner === team)
+            .map((team) => ({
+                team,
+                hasStackSlot:
+                    (team === TeamVals.LEFT ? leftPlaced : rightPlaced) <
+                    fight.getNumberOfUnitsAvailableForPlacement(team),
+                cellHashes: this.placementManager.getAllowedPlacementCellHashesForTeam(team),
+            }));
+        return rosterPlacementHint(
+            creature.name,
+            footprintWidthOf(creature),
+            footprintHeightOf(creature),
+            zones,
+            (cells) => this.grid.areAllCellsEmpty(cells),
+        );
+    }
+    private setRosterPlacementHint(hint?: RosterPlacementHint): void {
+        const state = this.sc_visibleState;
+        if (!state) return;
+        const previous = state.rosterPlacementHint;
+        if (
+            previous?.reason === hint?.reason &&
+            previous?.creatureName === hint?.creatureName &&
+            previous?.team === hint?.team &&
+            previous?.width === hint?.width &&
+            previous?.height === hint?.height
+        )
+            return;
+        state.rosterPlacementHint = hint;
+        this.sc_visibleStateUpdateNeeded = true;
+    }
     private checkStartCondition(): void {
         let leftAllowed = false;
         let rightAllowed = false;
+        let placementHint: RosterPlacementHint | undefined;
         const leftBottomPlacement = this.getPlacement(TeamVals.LEFT, 0);
         const rightTopPlacement = this.getPlacement(TeamVals.RIGHT, 0);
         if (!this.sc_renderSpellBookOverlay && leftBottomPlacement && rightTopPlacement) {
@@ -21518,25 +21706,25 @@ export class Sandbox extends PixiScene {
             // tested the rendered ground point, which can sit outside the placement rectangle after
             // perspective/framing changes even while every occupied cell is valid. That left START
             // disabled for a board the fight engine itself considered startable.
-            leftAllowed = this.unitsHolder
-                .getAllAlliesPlaced(
-                    TeamVals.LEFT,
-                    leftBottomPlacement,
-                    rightTopPlacement,
-                    leftTopPlacement,
-                    rightBottomPlacement,
-                )
-                .some(isRealPlacedUnit);
-            rightAllowed = this.unitsHolder
-                .getAllAlliesPlaced(
-                    TeamVals.RIGHT,
-                    leftBottomPlacement,
-                    rightTopPlacement,
-                    leftTopPlacement,
-                    rightBottomPlacement,
-                )
-                .some(isRealPlacedUnit);
+            const leftPlaced = this.unitsHolder.getAllAlliesPlaced(
+                TeamVals.LEFT,
+                leftBottomPlacement,
+                rightTopPlacement,
+                leftTopPlacement,
+                rightBottomPlacement,
+            );
+            const rightPlaced = this.unitsHolder.getAllAlliesPlaced(
+                TeamVals.RIGHT,
+                leftBottomPlacement,
+                rightTopPlacement,
+                leftTopPlacement,
+                rightBottomPlacement,
+            );
+            leftAllowed = leftPlaced.some(isRealPlacedUnit);
+            rightAllowed = rightPlaced.some(isRealPlacedUnit);
+            placementHint = this.getRosterPlacementHint(leftPlaced.length, rightPlaced.length);
         }
+        this.setRosterPlacementHint(placementHint);
         if (this.canStartFightNow(leftAllowed, rightAllowed)) {
             if (this.sc_visibleState) {
                 if (!this.sc_visibleState.canBeStarted) {
@@ -21575,6 +21763,7 @@ export class Sandbox extends PixiScene {
                 // game were unaffected only because this pre-fight listener never connects there.)
                 if (started) {
                     this.sc_visibleState.hasFinished = false;
+                    this.setRosterPlacementHint();
                 }
                 this.sc_visibleStateUpdateNeeded = true;
             }

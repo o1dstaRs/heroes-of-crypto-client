@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AttackVals, MovementVals } from "@heroesofcrypto/common";
 
 import { HOC_GAME_FONT_FAMILY } from "../../fontFamilies";
@@ -6,7 +6,7 @@ import { usePixiManager } from "../../pixi/PixiGameManager";
 import { IHoverInfo, ISpellEffectSummary, SpellEffectSummaryKind } from "../../scenes/VisibleState";
 import { images } from "../../generated/image_imports";
 import { spellElementStyle, type SpellElementStyle } from "../spellElementStyle";
-import { popoverPositionAtPointer } from "./popoverPosition";
+import { usePointerPopover } from "./usePointerPopover";
 
 const getLevelEmoji = (hoverInfo: IHoverInfo): string => {
     let levelEmoji = "";
@@ -276,9 +276,6 @@ const unitAttackElement = (hoverInfo: IHoverInfo): React.JSX.Element => {
 };
 
 const Popover: React.FC = () => {
-    const pointerPositionRef = useRef({ x: 0, y: 0 });
-    const popoverRef = useRef<HTMLDivElement>(null);
-
     const [hoverInfo, setHoverInfo] = useState({} as IHoverInfo);
 
     const manager = usePixiManager();
@@ -300,41 +297,21 @@ const Popover: React.FC = () => {
         !!(hoverInfo.unitName && hoverInfo.attackType) ||
         !!(hoverInfo.attackType && (hoverInfo.damageSpread || hoverInfo.damageRangeDivisor));
 
-    useEffect(() => {
-        let frameId = 0;
-        const paintPosition = () => {
-            frameId = 0;
-            const popover = popoverRef.current;
-            if (!popover) return;
-            const position = popoverPositionAtPointer(pointerPositionRef.current, window.innerHeight);
-            popover.style.transform = `translate3d(${position.x}px, ${position.y}px, 0)`;
-        };
-        const handleMouseMove = (event: MouseEvent) => {
-            pointerPositionRef.current = { x: event.clientX, y: event.clientY };
-            // Keep the last pointer coordinates cheaply while hidden. Gaming mice can emit far more
-            // events than the display can paint, so coalesce direct style writes to one per frame.
-            if (!hasPopoverContent || frameId) return;
-            frameId = window.requestAnimationFrame(paintPosition);
-        };
-
-        window.addEventListener("mousemove", handleMouseMove);
-        if (hasPopoverContent) paintPosition();
-        return () => {
-            window.removeEventListener("mousemove", handleMouseMove);
-            if (frameId) window.cancelAnimationFrame(frameId);
-        };
-    }, [hasPopoverContent]);
+    const popoverRef = usePointerPopover(hasPopoverContent);
 
     return (
         <div
             ref={popoverRef}
+            data-battlefield-popover
             style={{
-                position: "fixed",
+                position: "absolute",
                 top: 0,
                 left: 0,
-                transform: "translate3d(0, 0, 0)",
+                visibility: "hidden",
                 display: hasPopoverContent ? "block" : "none",
                 padding: "10px",
+                width: "max-content",
+                maxWidth: "min(340px, calc(100% - 16px))",
                 backgroundColor: "rgba(0, 0, 0, 0.75)",
                 color: "white",
                 borderRadius: "5px",

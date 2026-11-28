@@ -10,6 +10,7 @@
  */
 
 import { TeamType, MovementType, AttackType, SpellElement, type UnitProperties } from "@heroesofcrypto/common";
+import type { RosterPlacementHint } from "./sandbox/rosterPlacementHint";
 
 export interface IVisibleUnit {
     id: string;
@@ -168,6 +169,7 @@ export interface IVisibleState {
     canRequestAdditionalTime: boolean;
     upNext: IVisibleUnit[];
     lapsNarrowed: number;
+    rosterPlacementHint?: RosterPlacementHint;
     /** Whether the local AI toggle is currently on (drives the "AI Toggle On" badge). */
     aiToggleOn?: boolean;
     /** Full-fight replay playback for the "Exit Replay" button; excludes live action animations. */
@@ -216,6 +218,8 @@ export interface ISpellEffectSummary {
     detail?: string;
 }
 
+export type TargetingCursor = "ranged" | "magic";
+
 export interface IHoverInfo {
     attackType: AttackType;
     damageSpread: string;
@@ -233,6 +237,8 @@ export interface IHoverInfo {
     // HoMM-style attack cursor (themed melee/ranged/magic PNG only shows when actively aiming at a
     // valid target). Optional because UpdateHoverInfo emits {} when no hover info is present.
     isHoveringAttackTarget?: boolean;
+    /** Bow or wand for a locally actionable target under the pointer. */
+    targetingCursor?: TargetingCursor;
     // The side the sword blade must point toward for a legal melee landing. The base asset points left;
     // the cursor hook swaps in its mirrored partner when the target is to the attacker's right.
     meleeCursorDirection?: "left" | "right";

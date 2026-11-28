@@ -124,6 +124,8 @@ export class PixiGameManager {
     public readonly onPossibleSynergiesUpdated = new Signal<(possible: Map<TeamType, SynergyWithLevel[]>) => void>();
     public readonly onVisibleStateUpdated = new Signal<(visibleState: IVisibleState) => void>();
     public readonly onHoverInfoUpdated = new Signal<(hover: IHoverInfo) => void>();
+    public readonly onBattlefieldPointerChanged = new Signal<(point: HoCMath.XY | undefined) => void>();
+    private battlefieldPointer?: HoCMath.XY;
     public readonly onUnitInspectionUpdated = new Signal<(inspection: IUnitInspection | null) => void>();
     private lastInspectedUnit: UnitProperties | undefined;
     public readonly onSelectionCombined = new Signal<
@@ -143,6 +145,7 @@ export class PixiGameManager {
         return this.started;
     }
     private lastSentEmptyHoverInfo = false;
+    private lastSentTargetingCursor?: IHoverInfo["targetingCursor"];
     private amountOfSelectedObjects = 1;
     private pixiApp: PixiApp | null = null;
     private textures: PreloadedPixiTextures | null = null;
@@ -259,7 +262,9 @@ export class PixiGameManager {
         this.addInitEventListener(debugCanvas, "mouseleave", () => {
             if (this.touchBoardInput?.ignoreMouse()) return;
             this.m_hoveringCanvas = false;
+            this.updateBattlefieldPointer();
             this.m_scene?.clearLocalAimTarget();
+            if (this.lastSentTargetingCursor) this.UpdateHoverInfo();
         });
 
         // Pull in Pixi's renderer only when a battlefield actually mounts. PixiGameManager is also
@@ -765,6 +770,7 @@ export class PixiGameManager {
     }
     public SelectTouchCreature(name: string): boolean {
         this.CancelTouchAction();
+        this.updateBattlefieldPointer();
         const selected = getUnitsOverlayFromScene(this.m_scene)?.selectCreatureByName(name) ?? false;
         this.UpdateHoverInfo();
         return selected;
@@ -844,6 +850,7 @@ export class PixiGameManager {
             onGesture: () => {
                 this.CancelTouchAction();
                 this.m_hoveringCanvas = false;
+                this.updateBattlefieldPointer();
                 this.m_scene?.clearLocalAimTarget();
             },
             onView: ({ zoom, x, y }) => {
@@ -871,11 +878,13 @@ export class PixiGameManager {
                 }
                 const world = this.screenToWorld(point.x, point.y);
                 if (inspect || this.touchInspectMode || scene.isTouchInspectionOnly()) {
+                    this.updateBattlefieldPointer();
                     scene.InspectTouchUnit(world);
                     this.onTouchInspection.emit();
                     this.UpdateHoverInfo();
                     return;
                 }
+                this.updateBattlefieldPointer({ x: client.x, y: client.y }, world);
                 scene.MouseMove(world, false);
                 this.UpdateHoverInfo();
                 const run = () => {
@@ -931,14 +940,19 @@ export class PixiGameManager {
         this.addInitEventListener(window, "resize", () => {
             this.CancelTouchAction();
             input.reset(false);
+            this.updateBattlefieldPointer();
         });
         this.addInitEventListener(window, GAME_VIEWPORT_CHANGED, () => {
             this.CancelTouchAction();
             const touch = readGameViewport().touch;
             input.reset(!touch);
+            this.updateBattlefieldPointer();
             if (!touch) input.allowMouse();
         });
-        this.addInitEventListener(window, "blur", () => input.cancel());
+        this.addInitEventListener(window, "blur", () => {
+            input.cancel();
+            this.updateBattlefieldPointer();
+        });
         this.addInitEventListener(document, "visibilitychange", () => {
             if (document.hidden) input.cancel();
         });
@@ -957,6 +971,15 @@ export class PixiGameManager {
         if (down) this.CancelTouchAction();
         if (down && this.m_scene) this.m_scene.Deselect(true);
     }
+    public getBattlefieldPointer(): HoCMath.XY | undefined {
+        return this.battlefieldPointer;
+    }
+    private updateBattlefieldPointer(client?: HoCMath.XY, world?: HoCMath.XY): void {
+        const point = world && this.m_scene?.containsBattlefieldPoint?.(world) ? client : undefined;
+        if (point?.x === this.battlefieldPointer?.x && point?.y === this.battlefieldPointer?.y) return;
+        this.battlefieldPointer = point;
+        this.onBattlefieldPointerChanged.emit(point);
+    }
     public HandleMouseMove(e: MouseEvent): void {
         if (this.touchBoardInput?.ignoreMouse()) return;
         this.m_mouse.x = e.offsetX;
@@ -964,6 +987,7 @@ export class PixiGameManager {
 
         // Convert from canvas pixels → world coords
         const world = this.screenToWorld(e.offsetX, e.offsetY);
+        this.updateBattlefieldPointer({ x: e.clientX, y: e.clientY }, world);
         this.m_scene?.MouseMove(world, this.m_lMouseDown);
 
         // Keep optional right-click panning (no zoom UI) - DISABLED by request
@@ -987,6 +1011,7 @@ export class PixiGameManager {
 
         switch (e.button) {
             case 0: // left
+                this.updateBattlefieldPointer({ x: e.clientX, y: e.clientY }, world);
                 this.m_lMouseDown = true;
                 if (e.shiftKey) this.m_scene?.ShiftMouseDown(world);
                 else this.m_scene?.MouseDown(world);
@@ -1166,6 +1191,7 @@ export class PixiGameManager {
     }
     public Uninitialize(): void {
         this.CancelTouchAction();
+        this.updateBattlefieldPointer();
         this.touchSnapshotKey = "";
         this.touchInspectMode = false;
         this.lifecycleId++;
@@ -1467,10 +1493,10 @@ export class PixiGameManager {
             }
         }
 
-        // Hover text
-        if (this.m_scene?.sc_hoverTextUpdateNeeded) {
+        // Animation and turn changes can end an aim while the mouse stays still.
+        if (this.m_scene?.sc_hoverTextUpdateNeeded || this.targetingCursor() !== this.lastSentTargetingCursor) {
             this.UpdateHoverInfo();
-            this.m_scene.sc_hoverTextUpdateNeeded = false;
+            if (this.m_scene) this.m_scene.sc_hoverTextUpdateNeeded = false;
         }
 
         // Logs
@@ -1575,12 +1601,12 @@ export class PixiGameManager {
             !!this.m_scene?.sc_attackRangeDamageDivisorStr ||
             !!this.m_scene?.sc_hoverUnitNameStr ||
             !!this.m_scene?.sc_hoverInfoArr?.length ||
-            // sc_isHoveringAttackTarget is the cursor-driver for the attack/magic cursor: when the
-            // active unit is aiming at an attackable enemy there may be no other hover-info yet
-            // (damage spread etc. are computed on a later frame), so without this gate the
-            // attack cursor flickers off. Treat "aiming at a target" itself as hover-info.
+            // A legal melee aim can keep the standard pointer before its damage text arrives.
             !!this.m_scene?.sc_isHoveringAttackTarget
         );
+    }
+    private targetingCursor(): IHoverInfo["targetingCursor"] {
+        return this.m_hoveringCanvas ? this.m_scene?.getTargetingCursor?.() : undefined;
     }
     public UpdateHoverInfo(): void {
         if (
@@ -1588,7 +1614,9 @@ export class PixiGameManager {
             (this.touchAction.scene !== this.m_scene || this.touchAction.key !== this.m_scene?.getTouchInteractionKey())
         )
             this.CancelTouchAction();
-        if (this.sceneHasHoverInfo() && this.m_scene) {
+        const targetingCursor = this.targetingCursor();
+        this.lastSentTargetingCursor = targetingCursor;
+        if ((targetingCursor || this.sceneHasHoverInfo()) && this.m_scene) {
             this.onHoverInfoUpdated.emit({
                 attackType: this.m_scene.sc_selectedAttackType,
                 damageSpread: this.m_scene.sc_attackDamageSpreadStr,
@@ -1601,6 +1629,7 @@ export class PixiGameManager {
                 spellElement: this.m_scene.sc_hoverSpellElement,
                 spellEffectSummary: this.m_scene.sc_hoverSpellEffectSummary,
                 isHoveringAttackTarget: this.m_scene.sc_isHoveringAttackTarget,
+                targetingCursor,
                 meleeCursorDirection: this.m_scene.sc_meleeCursorDirection,
             });
             this.lastSentEmptyHoverInfo = false;

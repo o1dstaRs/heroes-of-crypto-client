@@ -15,7 +15,6 @@ import {
     griffinTornadoPoint,
     griffinTornadoBounds,
     GRIFFIN_TORNADO_VISUAL_SCALE,
-    GRIFFIN_TORNADO_VERTICAL_SCALE,
     GRIFFIN_TORNADO_EYE_SCALE,
 } from "./GriffinTornadoAura";
 const adapter = DOMAdapter.get();
@@ -81,20 +80,12 @@ test("tight oval eye follows the 2x1 figure and raised coils stay outside it", (
     }
 });
 
-test("the projected funnel fits the red-mark artwork extents at every board depth", () => {
+test("the projected funnel fits the actual aura rows at every board depth", () => {
     const cell = gs.getCellSize();
     for (const y of [gs.getMinY() + 4 * cell, center.y, gs.getMaxY() - 4 * cell]) {
         const at = { x: center.x, y };
-        const bounds = griffinTornadoBounds(
-            { x: at.x, y: at.y - 0.37 * cell },
-            footprint,
-            2,
-            gs,
-            0,
-            GRIFFIN_TORNADO_VISUAL_SCALE,
-            GRIFFIN_TORNADO_VERTICAL_SCALE,
-        );
-        [at.x - 3.3075 * cell, at.y - 3.495 * cell, at.x + 3.3075 * cell, at.y + 2.755 * cell].forEach((value, i) =>
+        const bounds = griffinTornadoBounds(at, footprint, 2, gs, 0, GRIFFIN_TORNADO_VISUAL_SCALE, 1);
+        [at.x - 3.3075 * cell, at.y - 2.5 * cell, at.x + 3.3075 * cell, at.y + 2.5 * cell].forEach((value, i) =>
             expect(bounds[i]).toBeCloseTo(value),
         );
         // Mesh vertices are float32; allow only rounding error on the exact outer cell edges.
@@ -157,7 +148,7 @@ test("turning mirrors the eye toward the front legs and updates the existing sto
     floor.destroy({ children: true });
 });
 
-test("successive artwork expansions leave the factual full-body aura coverage unchanged", () => {
+test("tornado depth follows the full-body aura coverage and range bonuses", () => {
     const cell = gs.getCellSize();
     const baseRange = auraEffects["Range Null Field"].range;
     expect(baseRange).toBe(2);
@@ -184,7 +175,8 @@ test("successive artwork expansions leave the factual full-body aura coverage un
             if (x === 7) expect(covered).toBe((2 + range * 2) * (1 + range * 2));
             const shape = griffinTornadoShape(footprint, range, cell);
             expect(shape.rx * 2).toBeCloseTo((2 + range * 2) * cell * 1.05 * 1.05);
-            expect(shape.ry * 2).toBeCloseTo((1 + range * 2) * cell * 1.25);
+            expect(shape.ry * 2).toBeCloseTo((1 + range * 2) * cell);
+            expect(shape.offsetY).toBe(0);
         }
     }
 });

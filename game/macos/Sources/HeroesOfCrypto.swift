@@ -22,15 +22,16 @@ struct HeroesOfCrypto: App {
     @State private var beforeStatistics = Screen.home
     @State private var beforePremium = Screen.home
     @State private var premiumSignIn = false
+    @State private var sandboxArtwork: SandboxLoadingScreen.Artwork?
     private let statisticsAPI = RankedStatisticsAPI()
 
     var body: some Scene {
         Window(GameWindow.title, id: "home") {
             content
                 .navigationTitle(screen == .skirmish ? GameWindow.sandboxTitle : GameWindow.title)
-                .frame(minWidth: screen == .skirmish ? 960 : 570,
-                       minHeight: screen == .skirmish ? 640 : 560)
+                .frame(minWidth: 570, minHeight: 560)
                 .preferredColorScheme(.dark)
+                .task { sandboxArtwork = await SandboxLoadingScreen.preloadArtwork() }
                 .onChange(of: account.account) { _, profile in
                     if profile?.verified != true { ranked.reset() }
                 }
@@ -48,13 +49,14 @@ struct HeroesOfCrypto: App {
                     if screen.destination != nil { appDelegate.notifications.clear() }
                 }
                 .toolbar {
-                    if screen != .home {
-                        ToolbarItem(placement: .navigation) {
-                            Button(action: goBack) {
-                                Label("Back", systemImage: "chevron.left")
-                            }
-                            .help(screen.destination != nil && beforeOnline == .skirmish ? "Back to Sandbox" : "Back to Home")
+                    ToolbarItem(placement: .navigation) {
+                        Button(action: goBack) {
+                            Label("Back", systemImage: "chevron.left")
                         }
+                        .help(screen.destination != nil && beforeOnline == .skirmish ? "Back to Sandbox" : "Back to Home")
+                        .opacity(screen == .home ? 0 : 1)
+                        .disabled(screen == .home)
+                        .accessibilityHidden(screen == .home)
                     }
                 }
         }
@@ -84,7 +86,7 @@ struct HeroesOfCrypto: App {
                         .disabled(ranked.view == nil || ranked.loading)
                 } else if screen != .statistics {
                     Button("Restart Sandbox") {
-                        model.restart()
+                        if screen == .skirmish || model.battle != nil { model.restart() }
                         screen = .skirmish
                     }
                     .keyboardShortcut("r", modifiers: .command)
@@ -100,7 +102,7 @@ struct HeroesOfCrypto: App {
     @ViewBuilder
     private var content: some View {
         if screen == .skirmish {
-            SkirmishWindow(model: model, openRanked: showRanked, closeSandbox: showHome)
+            SkirmishWindow(model: model, loadingArtwork: sandboxArtwork, openRanked: showRanked, closeSandbox: showHome)
         } else if screen == .statistics {
             RankedStatisticsView(api: statisticsAPI)
                 .onExitCommand(perform: goBack)
@@ -184,15 +186,21 @@ struct HeroesOfCrypto: App {
 
 private struct SkirmishWindow: View {
     let model: SkirmishModel
+    let loadingArtwork: SandboxLoadingScreen.Artwork?
     let openRanked: () -> Void
     let closeSandbox: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var cursor = SandboxCursorController()
     @State private var showsLoading: Bool
     @State private var loadingStartedAt = Date()
+    @State private var battlefieldReadyAt: Date?
+    @State private var optionHeld = false
+    @GestureState private var rosterDrag: RosterCreatureDrag?
 
-    init(model: SkirmishModel, openRanked: @escaping () -> Void, closeSandbox: @escaping () -> Void) {
+    init(model: SkirmishModel, loadingArtwork: SandboxLoadingScreen.Artwork?,
+         openRanked: @escaping () -> Void, closeSandbox: @escaping () -> Void) {
         self.model = model
+        self.loadingArtwork = loadingArtwork
         self.openRanked = openRanked
         self.closeSandbox = closeSandbox
         _showsLoading = State(initialValue: model.battle == nil && model.problem == nil)
@@ -204,7 +212,7 @@ private struct SkirmishWindow: View {
                 .allowsHitTesting(!showsLoading && !model.showsFightResults && !model.isReplaying)
                 .accessibilityHidden(showsLoading || model.showsFightResults || model.isReplaying)
             if showsLoading {
-                SandboxLoadingScreen(startedAt: loadingStartedAt, battlefieldReady: model.battle != nil,
+                SandboxLoadingScreen(startedAt: loadingStartedAt, battlefieldReadyAt: battlefieldReadyAt, artwork: loadingArtwork,
                                      effectsEnabled: model.effectsEnabled, toggleEffects: model.toggleEffects, close: closeSandbox)
                     .transition(.opacity)
                     .zIndex(1)
@@ -226,26 +234,27 @@ private struct SkirmishWindow: View {
         }
         .background(BattlePalette.backdrop)
         .background { SandboxCursorHost(controller: cursor).accessibilityHidden(true) }
+        .background { SandboxOptionMonitor(isHeld: $optionHeld).accessibilityHidden(true) }
         .environment(\.sandboxCursor, cursor)
         .task { await prepareBattlefield() }
         .onExitCommand {
             if showsLoading { closeSandbox() }
             else if model.isReplaying { model.finishReplay() }
             else if model.showsFightResults { model.setFightResultsVisible(false) }
+            else if model.spellbookOpen { model.closeSpellbook() }
             else { model.cancelSelection() }
         }
     }
 
     private func prepareBattlefield() async {
         guard showsLoading else { return }
-        let clock = ContinuousClock()
-        let readyBy = clock.now + .seconds(SandboxLoadingScreen.minimumDuration)
-        loadingStartedAt = Date()
-        await Task.yield()
+        await model.openSandbox()
         guard !Task.isCancelled else { return }
-        model.restart()
         if model.battle != nil {
-            do { try await clock.sleep(until: readyBy) }
+            let readyAt = Date()
+            battlefieldReadyAt = readyAt
+            let finishAt = SandboxLoadingScreen.finishDate(startedAt: loadingStartedAt, readyAt: readyAt)
+            do { try await Task.sleep(for: .seconds(max(0, finishAt.timeIntervalSinceNow))) }
             catch { return }
         }
         guard !Task.isCancelled else { return }
@@ -259,41 +268,70 @@ private struct SkirmishWindow: View {
             if let battle = model.battle {
                 let layout = SidebarLayout(viewport: geometry.size)
                 let boardWidth = geometry.size.width - 2 * layout.width
+                let viewport = CGSize(width: boardWidth, height: geometry.size.height)
+                let projection = BattleResources.projection.map {
+                    BattlefieldProjection(data: $0, width: viewport.width, height: viewport.height,
+                                          legacySize: min(geometry.size.width, geometry.size.height))
+                }
+                let creature = rosterDrag?.creature ?? model.pendingCreature
+                let placementOptions = creature.flatMap { model.rosterPlacements(for: $0) }
+                let placements = placementOptions?.anchors ?? [:]
+                let placementHint = creature.flatMap { placementOptions?.hint(for: $0) }
+                let showsTurnOrder = optionHeld && battle.started && battle.winner == nil && !showsLoading &&
+                    !model.showsFightResults && !model.spellbookOpen
                 HStack(spacing: 0) {
                     LeftBattleSidebar(model: model, battle: battle, layout: layout)
                         .frame(width: layout.width)
                         .background { SidebarStone(side: "left") }
                     Battlefield(battle: battle, playback: model.playback, animating: model.isAnimating,
                                 inspectionEnabled: !showsLoading && !model.spellbookOpen && !model.isReplaying,
-                                legacySize: min(geometry.size.width, geometry.size.height),
-                                placement: model.pendingCreature, placements: model.pendingPlacements,
+                                showStackFootprints: showsTurnOrder,
+                                projection: projection, placement: creature, placements: placements,
+                                placementHint: placementHint,
+                                rosterDragLocation: rosterDrag?.location,
                                 placingBarrel: model.placingBarrel, barrelTargets: model.barrelTargets,
                                 deployedBarrels: model.deployedBarrels,
                                 deploymentZones: model.teamPreview,
+                                inspectedStackID: model.inspected,
                                 creatureLevel: { stack in model.catalogue.first { $0.name == stack.name }?.level },
                                 beginBarrelPlacement: model.beginBarrelPlacement,
-                                placeRosterCreature: { model.placeRosterCreature($0, covering: $1) },
-                                choose: model.choose, attack: model.attack, select: model.select)
+                                choose: model.choose, attack: model.attack, select: model.select,
+                                previewThrough: model.previewThrough, fireThrough: model.fireThrough,
+                                rotateFireWall: model.rotateFireWall)
                         .frame(width: boardWidth, height: geometry.size.height)
                         .allowsHitTesting(!model.isAnimating)
                         .blur(radius: model.spellbookOpen ? 4 : 0)
                         .overlay(alignment: .topLeading) {
                             if !battle.started {
-                                BattlefieldRoster(model: model, boardWidth: boardWidth, viewportHeight: geometry.size.height)
+                                BattlefieldRoster(model: model, boardWidth: boardWidth, viewportHeight: geometry.size.height,
+                                                  drag: $rosterDrag) { creature, location in
+                                    guard CGRect(origin: .zero, size: viewport).contains(location),
+                                          let cell = projection?.cell(at: location) else { return }
+                                    model.placeRosterCreature(creature.id, covering: cell)
+                                }
                                     .padding(7)
+                            } else if showsTurnOrder, let projection {
+                                BattleUpNextOverlay(battle: model.sidebarPlayback?.battle ?? battle,
+                                                    projection: projection, inspect: model.select)
+                                    .allowsHitTesting(!model.isReplaying)
                             }
                         }
+                        .coordinateSpace(name: "battlefield")
                         .clipped()
                     RightBattleSidebar(model: model, battle: battle, layout: layout,
+                                       canPlaceRosterCreature: !placements.isEmpty,
+                                       shortcutsEnabled: !showsLoading && !model.showsFightResults && !model.isReplaying
+                                           && !model.spellbookOpen && rosterDrag == nil,
                                        openRanked: openRanked, closeSandbox: closeSandbox)
                         .frame(width: layout.width)
                         .background { SidebarStone(side: "right") }
                 }
                 .allowsHitTesting(!model.spellbookOpen)
+                .accessibilityHidden(model.spellbookOpen)
                 .overlay {
                     if model.spellbookOpen {
                         Spellbook(spells: battle.spells, caster: battle.activeStack, viewport: geometry.size,
-                                  pick: model.prepare, close: model.cancelSpell)
+                                  pick: model.chooseSpell, close: model.closeSpellbook)
                     }
                 }
                 .modifier(UnitInspectionHoverHost(enabled: !showsLoading && !model.spellbookOpen && !model.showsFightResults))

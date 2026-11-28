@@ -96,7 +96,7 @@ enum BattleResources {
         guard let url = Bundle.main.url(forResource: "\(creature(name))_inspect", withExtension: "webp") else { return nil }
 
         let load = Task {
-            let bitmap = await Task.detached(priority: priority) { decodeInspectorPortrait(url) }.value
+            let bitmap = await Task.detached(priority: priority) { decodeBitmap(at: url) }.value
             if let bitmap {
                 inspectorPortraits.setObject(bitmap, forKey: name as NSString, cost: bitmap.bytesPerRow * bitmap.height)
             }
@@ -107,7 +107,7 @@ enum BattleResources {
         return await load.value
     }
 
-    nonisolated private static func decodeInspectorPortrait(_ url: URL) -> CGImage? {
+    nonisolated static func decodeBitmap(at url: URL) -> CGImage? {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
         return CGImageSourceCreateImageAtIndex(source, 0, [kCGImageSourceShouldCacheImmediately: true] as CFDictionary)
     }
@@ -191,12 +191,27 @@ enum BattleResources {
         if let displayName { return .custom(displayName, size: size) }
         return .system(size: size, design: .serif)
     }
+
+    static func forecastFont(_ size: CGFloat) -> CTFont {
+        CTFontCreateWithName((displayName ?? "Georgia") as CFString, size, nil)
+    }
 }
 
 @MainActor
 final class BattleSound {
+    private struct SpellSound: Decodable { let slug: String }
+    private static let spellSounds: [String: SpellSound] = {
+        guard let url = Bundle.main.url(forResource: "spell-sounds", withExtension: "json", subdirectory: "Sounds"),
+              let data = try? Data(contentsOf: url) else { return [:] }
+        return (try? JSONDecoder().decode([String: SpellSound].self, from: data)) ?? [:]
+    }()
     private var players: [String: AVAudioPlayer] = [:]
     private var movement: AVAudioPlayer?
+
+    static func castKey(for spell: String, caster: String) -> String? {
+        if caster == "Blacksmith" && spell == "Craft" { return "blacksmith_cast" }
+        return spellSounds[spell]?.slug
+    }
 
     func play(_ key: String) {
         guard let player = player(for: key) else { return }

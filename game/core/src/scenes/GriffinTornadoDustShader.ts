@@ -18,17 +18,13 @@ void main(){
 
 // Separate detail layer: the approved wind material and silhouette remain untouched.
 // Fixed-cost GPU particles need neither per-frame geometry uploads nor spawned display objects.
-const fragment = /* glsl */ `#version 300 es
-in vec2 vUV;
-in vec4 vColor;
-out vec4 finalColor;
-uniform float uTime;
+export const griffinTornadoDustMaterial = /* glsl */ `
 float hash(vec2 p){
     vec3 q=fract(vec3(p.xyx)*vec3(.1031,.1030,.0973));
     q+=dot(q,q.yzx+33.33);
     return fract((q.x+q.y)*q.z);
 }
-void main(){
+vec4 griffinDustColor(vec2 vUV, float uTime){
     float h=vUV.y;
     float edge=smoothstep(.12,.28,h)*(1.-smoothstep(.84,.98,h));
     float nearSide=.5-.5*sin(vUV.x*6.2831853);
@@ -72,8 +68,17 @@ void main(){
     vec3 powder=mix(vec3(.20,.19,.17),vec3(.62,.57,.47),nearSide);
     result.rgb+=(1.-result.a)*powder*alpha;
     result.a+=(1.-result.a)*alpha;
-    finalColor=result*vColor;
-}`;
+    return result;
+}
+`;
+
+const fragment = /* glsl */ `#version 300 es
+in vec2 vUV;
+in vec4 vColor;
+out vec4 finalColor;
+uniform float uTime;
+${griffinTornadoDustMaterial}
+void main(){finalColor=griffinDustColor(vUV,uTime)*vColor;}`;
 
 export function createGriffinTornadoDustShader(): Shader {
     return new Shader({

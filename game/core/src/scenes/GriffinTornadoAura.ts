@@ -6,25 +6,37 @@ import { createGriffinTornadoDustShader } from "./GriffinTornadoDustShader";
 
 export const GRIFFIN_TORNADO_DEBRIS_KEY = "vfx_griffin_tornado_silver_v2";
 export const GRIFFIN_TORNADO_VISUAL_SCALE = 1.1025;
-export const GRIFFIN_TORNADO_VERTICAL_SCALE = 1.25;
 export const GRIFFIN_TORNADO_EYE_SCALE = 0.8;
 export type GriffinTornadoForeground = { container: Container; depth: number };
-const SEGMENTS = 40;
-const ROWS = 20;
+export const GRIFFIN_TORNADO_ART = {
+    segments: 40,
+    rows: 20,
+    widthScale: GRIFFIN_TORNADO_VISUAL_SCALE,
+    heightScale: 1,
+    eyeScale: GRIFFIN_TORNADO_EYE_SCALE,
+    eyeInset: 0.22,
+    verticalOffset: 0,
+    innerLiftLimit: 0.6,
+    outerLiftLimit: 0.8,
+    playbackRate: 0.8,
+    fadeMilliseconds: 600,
+    cacheMilliseconds: 5000,
+    minimumOpacity: 0.85,
+};
+const { segments: SEGMENTS, rows: ROWS } = GRIFFIN_TORNADO_ART;
 const TAU = Math.PI * 2;
-const TORNADO_PLAYBACK_RATE = 0.8;
 type Footprint = { width: number; height: number };
 
 export function griffinTornadoShape(footprint: Footprint, range: number, cell: number, facing: -1 | 1 = 1) {
     // A tighter painted eye hugs the figure; artwork never changes gameplay reach.
     const extentX = (range + footprint.width / 2) * cell;
     const extentY = (range + footprint.height / 2) * cell;
-    const eyeInset = 0.22 * cell;
+    const eyeInset = GRIFFIN_TORNADO_ART.eyeInset * cell;
     return {
         rx: extentX * GRIFFIN_TORNADO_VISUAL_SCALE,
-        ry: extentY * GRIFFIN_TORNADO_VERTICAL_SCALE,
-        // User's lower red mark extends the art downward; keep the upper edge in place.
-        offsetY: -0.37 * cell,
+        // Stop the outer coils at the covered rows on both sides of the footprint.
+        ry: extentY * GRIFFIN_TORNADO_ART.heightScale,
+        offsetY: GRIFFIN_TORNADO_ART.verticalOffset * cell,
         // The tighter edge follows the front legs in board space, including on a mirrored board.
         innerOffsetX: -eyeInset * facing,
         innerX: (footprint.width / 2) * cell * Math.SQRT2 * GRIFFIN_TORNADO_EYE_SCALE - eyeInset,
@@ -47,8 +59,8 @@ export function griffinTornadoPoint(
     // Raise the middle coils, keeping both the clear eye and outer range intact.
     const lift = Math.min(
         (shape.innerY / GRIFFIN_TORNADO_EYE_SCALE) * Math.sin(Math.PI * t),
-        (ry - shape.innerY) * 0.6,
-        (shape.ry - ry) * 0.8,
+        (ry - shape.innerY) * GRIFFIN_TORNADO_ART.innerLiftLimit,
+        (shape.ry - ry) * GRIFFIN_TORNADO_ART.outerLiftLimit,
     );
     return {
         x: center.x + c * rx + shape.innerOffsetX * (1 - t),
@@ -129,7 +141,7 @@ export function resetGriffinTornadoAuras(container?: Container, now = performanc
     const storms = owners.get(container);
     if (!storms) return;
     for (const [key, storm] of storms) {
-        if (storm.back.destroyed || storm.front.destroyed || now - storm.seen > 5000) {
+        if (storm.back.destroyed || storm.front.destroyed || now - storm.seen > GRIFFIN_TORNADO_ART.cacheMilliseconds) {
             dispose(storm);
             storms.delete(key);
         } else {
@@ -223,12 +235,14 @@ export function drawGriffinTornadoAura(
         gs,
         narrowing,
         GRIFFIN_TORNADO_VISUAL_SCALE,
-        GRIFFIN_TORNADO_VERTICAL_SCALE,
+        GRIFFIN_TORNADO_ART.heightScale,
     );
     const layout = [center.x, center.y, footprint.width, footprint.height, range, cell, facing, ...bounds].join(":");
     const age = Math.max(0, now - storm.started);
-    const time = (age / 1000) * TORNADO_PLAYBACK_RATE;
-    const opacity = Math.min(1, Math.max(0.85, alpha)) * Math.min(1, age / 600);
+    const time = (age / 1000) * GRIFFIN_TORNADO_ART.playbackRate;
+    const opacity =
+        Math.min(1, Math.max(GRIFFIN_TORNADO_ART.minimumOpacity, alpha)) *
+        Math.min(1, age / GRIFFIN_TORNADO_ART.fadeMilliseconds);
     storm.back.visible = storm.front.visible = true;
     storm.back.alpha = storm.front.alpha = opacity;
     storm.seen = now;

@@ -22,7 +22,7 @@ void main(){
     vColor=uColor*uWorldColorAlpha;
     gl_Position=vec4((uProjectionMatrix*uWorldTransformMatrix*uTransformMatrix*vec3(aPosition,1.)).xy,0.,1.);
 }`;
-const fragment = /* glsl */ `#version 300 es
+export const terrifyingGazeFragment = /* glsl */ `#version 300 es
 in vec2 vUV;
 in vec4 vColor;
 out vec4 finalColor;
@@ -85,7 +85,7 @@ export function createTerrifyingGazeMesh(texture: Texture, size: number): Mesh<M
         glProgram: GlProgram.from({
             name: "terrifying-gaze-flag",
             vertex,
-            fragment,
+            fragment: terrifyingGazeFragment,
             preferredFragmentPrecision: "highp",
         }),
         resources: {

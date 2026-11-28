@@ -30,27 +30,18 @@ struct BattleResultsOverlay: View {
             let compact = size.height < 780
             ZStack {
                 ResultsCastle(size: size)
-                VStack(spacing: compact ? 9 : 13) {
-                    header(height: compact ? 96 : 112)
-                    BattleResultsChart(summary: summary)
-                        .frame(height: compact ? 135 : 170)
-                        .background(.black.opacity(0.43), in: RoundedRectangle(cornerRadius: 10))
-                        .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(edge) }
-                    damageTitle
-                    ViewThatFits(in: .vertical) {
-                        damageColumns
-                        ScrollView(.vertical) { damageColumns }
-                            .scrollBounceBehavior(.basedOnSize)
+                Group {
+                    if size.height <= 820 {
+                        ScrollView {
+                            resultsContent(compact: compact, scrollDamage: false)
+                        }
+                        .scrollBounceBehavior(.basedOnSize)
+                    } else {
+                        resultsContent(compact: compact, scrollDamage: true)
                     }
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    HStack(alignment: .top, spacing: 20) {
-                        ForEach(summary.armies) { army in casualtyColumn(army, compact: compact) }
-                    }
-                    actions
                 }
-                .padding(compact ? 14 : 18)
-                .padding(.top, 5)
                 .frame(width: min(960, size.width * 0.945), height: min(940, size.height * 0.975))
+                .clipShape(RoundedRectangle(cornerRadius: 11))
                 .background { panelBackground }
                 .overlay(alignment: .topTrailing) {
                     Button { model.setFightResultsVisible(false) } label: {
@@ -70,6 +61,33 @@ struct BattleResultsOverlay: View {
         .foregroundStyle(BattlePalette.parchment)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Fight results")
+    }
+
+    private func resultsContent(compact: Bool, scrollDamage: Bool) -> some View {
+        VStack(spacing: compact ? 9 : 13) {
+            header(height: compact ? 96 : 112)
+            BattleResultsChart(summary: summary)
+                .frame(height: 170)
+                .background(.black.opacity(0.43), in: RoundedRectangle(cornerRadius: 10))
+                .overlay { RoundedRectangle(cornerRadius: 10).strokeBorder(edge) }
+            damageTitle
+            if scrollDamage {
+                ViewThatFits(in: .vertical) {
+                    damageColumns(compact: compact)
+                    ScrollView { damageColumns(compact: compact) }
+                        .scrollBounceBehavior(.basedOnSize)
+                }
+                .frame(maxHeight: .infinity, alignment: .top)
+            } else {
+                damageColumns(compact: compact)
+            }
+            HStack(alignment: .top, spacing: 20) {
+                ForEach(summary.armies) { army in casualtyColumn(army) }
+            }
+            actions
+        }
+        .padding(compact ? 14 : 18)
+        .padding(.top, 5)
     }
 
     private var panelBackground: some View {
@@ -195,30 +213,31 @@ struct BattleResultsOverlay: View {
         }
     }
 
-    private var damageColumns: some View {
+    private func damageColumns(compact: Bool) -> some View {
         HStack(alignment: .top, spacing: 20) {
-            ForEach(summary.armies) { army in damageColumn(army) }
+            ForEach(summary.armies) { army in damageColumn(army, compact: compact) }
         }
         .padding(.horizontal, 5)
         .padding(.bottom, 3)
     }
 
-    private func damageColumn(_ army: BattleFightSummary.Army) -> some View {
+    private func damageColumn(_ army: BattleFightSummary.Army, compact: Bool) -> some View {
         let tone = resultTone(army.team)
+        let iconSide: CGFloat = compact ? 35.2 : 40
         let activeSynergies = synergies(for: army.team)
         let otherHasSynergies = summary.armies.contains { $0.team != army.team && !synergies(for: $0.team).isEmpty }
         return VStack(alignment: .leading, spacing: 5) {
             if !activeSynergies.isEmpty || otherHasSynergies {
-                HStack(spacing: 8) {
+                HStack(spacing: 12) {
                     if activeSynergies.isEmpty {
                         Text("No synergies").font(.caption.italic()).foregroundStyle(BattlePalette.sidebarTitle)
                     }
                     ForEach(activeSynergies, id: \.key) { synergy in
                         let title = SandboxTeamLoadout.synergyNames[synergy.key] ?? synergy.key
-                        VStack(spacing: 3) {
-                            SidebarIcon(asset: synergy.icon, symbol: "sparkles").frame(width: 23, height: 23)
-                            HStack(spacing: 3) {
-                                ForEach(0..<synergy.level, id: \.self) { _ in Circle().fill(tone).frame(width: 3, height: 3) }
+                        VStack(spacing: 4) {
+                            SidebarIcon(asset: synergy.icon, symbol: "sparkles").frame(width: iconSide, height: iconSide)
+                            HStack(spacing: 4) {
+                                ForEach(0..<synergy.level, id: \.self) { _ in Circle().fill(tone).frame(width: 5, height: 5) }
                             }
                         }
                         .help("\(title) · Level \(synergy.level)")
@@ -226,13 +245,13 @@ struct BattleResultsOverlay: View {
                         .accessibilityLabel("\(title), level \(synergy.level)")
                     }
                 }
-                .frame(maxWidth: .infinity).frame(height: 30)
+                .frame(maxWidth: .infinity).frame(height: iconSide + 11)
             }
             ForEach(army.creatures) { row in
                 HStack(spacing: 9) {
                     CreaturePortrait(name: row.name)
-                        .frame(width: 27, height: 34)
-                        .clipShape(RoundedRectangle(cornerRadius: 5))
+                        .frame(width: 34, height: 46)
+                        .clipShape(RoundedRectangle(cornerRadius: 7))
                         .accessibilityHidden(true)
                     VStack(spacing: 4) {
                         HStack {
@@ -261,7 +280,7 @@ struct BattleResultsOverlay: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func casualtyColumn(_ army: BattleFightSummary.Army, compact: Bool) -> some View {
+    private func casualtyColumn(_ army: BattleFightSummary.Army) -> some View {
         let tone = resultTone(army.team)
         let casualties = army.casualties
         let chosen = model.loadouts[army.team]
@@ -286,36 +305,46 @@ struct BattleResultsOverlay: View {
                     Text("No casualties").font(.caption.italic()).foregroundStyle(BattlePalette.sidebarTitle)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    ViewThatFits(in: .horizontal) {
-                        casualtyPortraits(casualties, compact: compact, tone: tone)
-                        ScrollView(.horizontal) { casualtyPortraits(casualties, compact: compact, tone: tone) }
-                            .scrollIndicators(.hidden)
+                    GeometryReader { viewport in
+                        let gap: CGFloat = 8
+                        let padding: CGFloat = 6
+                        let count = CGFloat(casualties.count)
+                        let available = viewport.size.width - 2 * padding - (count - 1) * gap
+                        let width = casualties.count > 6 ? 60 : min(60, max(40, available / count))
+                        ScrollView(.horizontal) {
+                            casualtyPortraits(casualties, width: width, spacing: gap, tone: tone)
+                                .padding(.horizontal, padding)
+                                .frame(height: viewport.size.height)
+                        }
+                        .scrollBounceBehavior(.basedOnSize)
+                        .scrollIndicators(.hidden)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 if army.team == .opponent && !artifacts.isEmpty { artifactRail(artifacts) }
             }
-            .frame(height: compact ? 48 : 62)
+            .frame(height: 92)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func casualtyPortraits(_ casualties: [BattleFightSummary.Creature], compact: Bool, tone: Color) -> some View {
-        HStack(spacing: 8) {
+    private func casualtyPortraits(_ casualties: [BattleFightSummary.Creature], width: CGFloat, spacing: CGFloat,
+                                   tone: Color) -> some View {
+        HStack(spacing: spacing) {
             ForEach(casualties) { row in
                 CreaturePortrait(name: row.name)
                     .saturation(0.45).brightness(-0.11)
-                    .frame(width: compact ? 33 : 43, height: compact ? 42 : 55)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .frame(width: width, height: width * 4 / 3)
+                    .clipShape(RoundedRectangle(cornerRadius: 7))
                     .overlay(alignment: .bottomTrailing) {
                         Text("×\(row.lost)")
-                            .font(.system(size: 10, weight: .bold).monospacedDigit())
-                            .padding(.horizontal, 4).padding(.vertical, 2)
+                            .font(.system(size: 11.5, weight: .bold).monospacedDigit())
+                            .padding(.horizontal, 4)
+                            .frame(minWidth: 20)
+                            .frame(height: 20)
                             .background(BattlePalette.color(0x1c0d03), in: Capsule())
                             .overlay { Capsule().strokeBorder(tone, lineWidth: 0.8) }
-                            .offset(x: 3, y: 3)
+                            .offset(x: 4, y: 4)
                     }
-                    .padding([.trailing, .bottom], 3)
                     .help("\(row.name) · \(row.lost) of \(row.deployed) lost")
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("\(row.name), \(row.lost) of \(row.deployed) lost")
@@ -396,10 +425,26 @@ private struct ResultsCastle: View {
 private struct BattleResultsChart: View {
     let summary: BattleFightSummary
 
+    private struct Elimination {
+        let creature: BattleFightSummary.Elimination
+        let lap: Int
+        let origin: CGPoint
+    }
+
+    private var markerRadius: CGFloat {
+        BattlePresentationScript.context?.objectForKeyedSubscript("hocCasualtyRadius")?.toDouble() ?? 16
+    }
+
     var body: some View {
         GeometryReader { geometry in
-            let plot = CGRect(x: 44, y: 15, width: max(1, geometry.size.width - 66), height: max(1, geometry.size.height - 43))
+            let plot = CGRect(x: 46, y: 18, width: max(1, geometry.size.width - 66), height: max(1, geometry.size.height - 54))
             let ticks = summary.samples.indices.filter { $0 == 0 || summary.samples[$0 - 1].lap != summary.samples[$0].lap }
+            let marks = summary.samples.enumerated().flatMap { index, sample in
+                sample.eliminated.map { creature in
+                    Elimination(creature: creature, lap: sample.lap, origin: point(at: index, team: creature.team, in: plot))
+                }
+            }
+            let centers = layout(marks, in: plot)
             Canvas { context, _ in
                 for percent in [0, 25, 50, 75, 100] {
                     let y = plot.maxY - plot.height * Double(percent) / 100
@@ -419,27 +464,70 @@ private struct BattleResultsChart: View {
                 for army in summary.armies {
                     drawSeries(army.team, in: context, plot: plot)
                 }
+                for (mark, center) in zip(marks, centers) where mark.origin != center {
+                    let leader = Path { path in
+                        path.move(to: mark.origin)
+                        path.addLine(to: center)
+                    }
+                    context.stroke(leader, with: .color(resultTone(mark.creature.team).opacity(0.65)),
+                                   style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                }
             }
             .accessibilityHidden(true)
-            ForEach(summary.samples.indices, id: \.self) { index in
-                let sample = summary.samples[index]
-                ForEach(Array(sample.eliminated.enumerated()), id: \.offset) { offset, fallen in
-                    let origin = point(at: index, team: fallen.team, in: plot)
-                    let x = min(plot.maxX - 9, max(plot.minX + 9, origin.x + CGFloat(offset % 3) * 20 - 5))
-                    let y = min(plot.maxY - 9, max(plot.minY + 9, origin.y - 8 + CGFloat(offset / 3) * 18))
-                    CreaturePortrait(name: fallen.name)
-                        .frame(width: 19, height: 19)
-                        .clipShape(Circle())
-                        .overlay { Circle().strokeBorder(resultTone(fallen.team), lineWidth: 1.3) }
-                        .position(x: x, y: y)
-                        .help("\(fallen.team.title) \(fallen.name) eliminated in lap \(sample.lap)")
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("\(fallen.team.title) \(fallen.name) eliminated in lap \(sample.lap)")
-                }
+            ForEach(marks.indices, id: \.self) { index in
+                let mark = marks[index]
+                let label = "\(mark.creature.name): all stacks defeated on lap \(mark.lap)"
+                eliminationPortrait(mark.creature, radius: markerRadius)
+                    .position(centers[index])
+                    .help(label)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(mark.creature.team.title) \(label)")
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Casualties by lap")
+    }
+
+    private func layout(_ marks: [Elimination], in plot: CGRect) -> [CGPoint] {
+        guard !marks.isEmpty else { return [] }
+        let points = marks.map { [$0.origin.x, $0.origin.y] }
+        let bounds = ["left": plot.minX, "right": plot.maxX, "top": plot.minY, "bottom": plot.maxY]
+        let positions = BattlePresentationScript.context?.objectForKeyedSubscript("hocCasualtyCenters")?
+            .call(withArguments: [points, bounds])?.toArray() as? [[Double]]
+        guard let positions, positions.count == marks.count else { return marks.map(\.origin) }
+        return zip(positions, marks).map { center, mark in
+            center.count == 2 ? CGPoint(x: center[0], y: center[1]) : mark.origin
+        }
+    }
+
+    private func eliminationPortrait(_ creature: BattleFightSummary.Elimination, radius: CGFloat) -> some View {
+        let tone = resultTone(creature.team)
+        let background = BattlePalette.color(0x1c0d03)
+        let badgeRadius = radius * 0.45
+        return ZStack {
+            Circle().fill(background)
+                .overlay { Circle().stroke(.black.opacity(0.9), lineWidth: 2.5) }
+            CreaturePortrait(name: creature.name)
+                .frame(width: (radius - 2) * 2, height: (radius - 2) * 2)
+                .clipShape(Circle())
+            Circle().stroke(tone, lineWidth: 1.75).padding(1)
+            Circle().fill(background)
+                .overlay { Circle().stroke(tone, lineWidth: 1.25) }
+                .overlay {
+                    let arm = radius * 0.2
+                    Path { cross in
+                        let middle = badgeRadius
+                        cross.move(to: CGPoint(x: middle - arm, y: middle - arm))
+                        cross.addLine(to: CGPoint(x: middle + arm, y: middle + arm))
+                        cross.move(to: CGPoint(x: middle + arm, y: middle - arm))
+                        cross.addLine(to: CGPoint(x: middle - arm, y: middle + arm))
+                    }
+                    .stroke(BattlePalette.parchment, style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+                }
+                .frame(width: badgeRadius * 2, height: badgeRadius * 2)
+                .offset(x: radius * 0.7, y: radius * 0.7)
+        }
+        .frame(width: radius * 2, height: radius * 2)
     }
 
     private func point(at index: Int, team: Team, in plot: CGRect) -> CGPoint {

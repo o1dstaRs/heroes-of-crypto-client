@@ -1,4 +1,4 @@
-import { Graphics } from "pixi.js";
+import { Graphics, type FillInput, type StrokeInput } from "pixi.js";
 import { GridSettings, type HoCMath } from "@heroesofcrypto/common";
 
 import { projectBattlefieldPoint, projectedRectPoints } from "./sandbox/BattlefieldVisualGrid";
@@ -154,6 +154,24 @@ export function drawMovementArea(
     if (color === ENEMY_MOVEMENT_HIGHLIGHT_COLOR) {
         g.stroke({ color: 0xff8c82, alpha: 0.42 * opacityScale, width: 1.1 });
     }
+}
+
+/** Give each occupied cell its own inset frame, using the painted grid's perspective. */
+export function drawUnitFootprint(
+    g: Graphics,
+    cells: readonly HoCMath.XY[],
+    gs: GridSettings,
+    stroke: StrokeInput,
+    fill?: FillInput,
+): void {
+    if (!cells.length) return;
+    const inset = Math.max(2 / gs.getCellSize(), 0.055);
+    const tuning = resolveMovementAreaTuning();
+    for (const cell of cells) {
+        g.poly(cachedTunedCellFillPolygon(cell, gs, inset, tuning));
+    }
+    if (fill !== undefined) g.fill(fill);
+    g.stroke(stroke);
 }
 
 /** Exact two-row calibration overlay used only by /dev/movement-area-editor. */

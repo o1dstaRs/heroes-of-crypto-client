@@ -1,5 +1,6 @@
 import { TeamVals, type TeamType } from "@heroesofcrypto/common";
-import { personalArmyCssColor } from "../scenes/personalArmyTint";
+import { personalArmyPresetFor } from "../scenes/personalArmyTint";
+import { TEAM_COLOR_RED, TEAM_FLAG_PALETTE_RED, teamFlagPalette } from "../scenes/teamColors";
 import Box from "@mui/joy/Box";
 import React from "react";
 
@@ -11,21 +12,15 @@ type TeamAmountFlagProps = {
     scale?: number;
 };
 
-/** Bright team palette shared by amount flags and stack-power pips. */
-/**
- * The flag/pip colour for a team.
- *
- * This is the one place the React chrome names a team's colour, so it is also where a player's PERSONAL
- * army colour has to be honoured — otherwise their units would be repainted on the board while their stack
- * pips and count flags in the left and top bars stayed green. A chosen colour moves both sides, own and
- * enemy, so the queue and the board never disagree about which flag belongs to whom.
- */
+/** Portrait flags and stack-power pips use the cloth edge shade of the team's battlefield banner. */
 export const getTeamFlagBackground = (teamType: TeamType): string => {
-    const personal = personalArmyCssColor(teamType);
-    if (personal) return personal;
-    if (teamType === TeamVals.LEFT) return "#00d200";
-    if (teamType === TeamVals.RIGHT) return "#ff0000";
-    return "#8b94a6";
+    if (teamType !== TeamVals.LEFT && teamType !== TeamVals.RIGHT) return "#8b94a6";
+    const preset = personalArmyPresetFor(teamType);
+    const edge =
+        preset?.color === TEAM_COLOR_RED
+            ? TEAM_FLAG_PALETTE_RED.edge
+            : (preset?.gradient[0] ?? teamFlagPalette(teamType).edge);
+    return `#${edge.toString(16).padStart(6, "0")}`;
 };
 
 export const TeamAmountFlag = ({ amount, teamType, top = "0px", right = "-5px", scale = 1 }: TeamAmountFlagProps) => {

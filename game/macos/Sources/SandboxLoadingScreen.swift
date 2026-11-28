@@ -2,7 +2,8 @@ import SwiftUI
 
 struct SandboxLoadingScreen: View {
     let startedAt: Date
-    let battlefieldReady: Bool
+    let battlefieldReadyAt: Date?
+    let artwork: Artwork?
     let effectsEnabled: Bool
     let toggleEffects: () -> Void
     let close: () -> Void
@@ -65,15 +66,54 @@ struct SandboxLoadingScreen: View {
         return try? JSONDecoder().decode(Style.self, from: data)
     }()
 
-    private static let barHalf = BattleResources.cgImage("loading_screen_forging_exact_overlay")?.cropping(to: Layout.plateHalf)
+    struct Artwork: Sendable {
+        let base: CGImage?
+        let overlay: CGImage?
+        let barHalf: CGImage?
+        let medallion: CGImage?
 
-    static var minimumDuration: TimeInterval { (style?.minimumDurationMs ?? 2000) / 1000 }
+        fileprivate init() {
+            func bitmap(_ name: String) -> CGImage? {
+                guard let url = Bundle.main.url(forResource: name, withExtension: "webp") else { return nil }
+                return BattleResources.decodeBitmap(at: url)
+            }
+            base = bitmap("loading_screen_forging_base")
+            overlay = bitmap("loading_screen_forging_exact_overlay")
+            barHalf = overlay?.cropping(to: Layout.plateHalf)
+            medallion = bitmap("loading_screen_dragon_medallion")
+        }
+    }
+
+    private static let artworkLoad = Task.detached(priority: .userInitiated) { Artwork() }
+    private static let finishingFraction = 0.1
+    private static var minimumDuration: TimeInterval { max(0.001, (style?.minimumDurationMs ?? 2000) / 1000) }
     static var fadeDuration: TimeInterval { (style?.fadeDurationMs ?? 220) / 1000 }
+
+    static func preloadArtwork() async -> Artwork {
+        if let fire = style?.fire {
+            for flame in [fire.overall, fire.secondary] where flame.enabled {
+                BattlefieldAtlas.prefetch(flameAtlas(flame))
+            }
+        }
+        return await artworkLoad.value
+    }
+
+    static func finishDate(startedAt: Date, readyAt: Date) -> Date {
+        finishStart(startedAt: startedAt, readyAt: readyAt).addingTimeInterval(minimumDuration * finishingFraction)
+    }
+
+    private static func finishStart(startedAt: Date, readyAt: Date) -> Date {
+        max(startedAt.addingTimeInterval(minimumDuration * (1 - finishingFraction)), readyAt)
+    }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 30)) { frame in
             let elapsed = max(0, frame.date.timeIntervalSince(startedAt))
-            let progress = battlefieldReady ? min(1, elapsed / max(0.001, Self.minimumDuration)) : 0
+            let finishElapsed = battlefieldReadyAt.map {
+                max(0, frame.date.timeIntervalSince(Self.finishStart(startedAt: startedAt, readyAt: $0)))
+            } ?? 0
+            let progress = min(1 - Self.finishingFraction, elapsed / Self.minimumDuration) +
+                min(Self.finishingFraction, finishElapsed / Self.minimumDuration)
             Canvas(opaque: true) { context, size in
                 paint(in: context, size: size, progress: progress, flameTime: reduceMotion ? 0 : elapsed)
             }
@@ -97,12 +137,12 @@ struct SandboxLoadingScreen: View {
         var canvas = context
         canvas.translateBy(x: (size.width - art.width * scale) / 2, y: (size.height - art.height * scale) / 2)
         canvas.scaleBy(x: scale, y: scale)
-        draw("loading_screen_forging_base", in: canvas, rect: art)
+        draw(artwork?.base, in: canvas, rect: art)
 
         var overlay = canvas
         overlay.clip(to: Path(Layout.bakedPlate), options: .inverse)
         overlay.clip(to: Path(Layout.bakedCaption), options: .inverse)
-        draw("loading_screen_forging_exact_overlay", in: overlay, rect: art)
+        draw(artwork?.overlay, in: overlay, rect: art)
 
         let fire = Self.style?.fire
         let travel = min(1, progress / 0.99)
@@ -136,7 +176,7 @@ struct SandboxLoadingScreen: View {
             var coin = canvas
             coin.translateBy(x: marker.x, y: marker.y)
             if !reduceMotion { coin.rotate(by: .degrees(travel * 720)) }
-            draw("loading_screen_dragon_medallion", in: coin,
+            draw(artwork?.medallion, in: coin,
                  rect: CGRect(x: -side / 2, y: -side / 2, width: side, height: side))
         }
 
@@ -146,13 +186,13 @@ struct SandboxLoadingScreen: View {
         canvas.draw(label, at: CGPoint(x: art.midX, y: 821))
     }
 
-    private func draw(_ asset: String, in context: GraphicsContext, rect: CGRect) {
-        guard let bitmap = BattleResources.cgImage(asset) else { return }
+    private func draw(_ bitmap: CGImage?, in context: GraphicsContext, rect: CGRect) {
+        guard let bitmap else { return }
         context.draw(Image(decorative: bitmap, scale: 1), in: rect)
     }
 
     private func drawPlate(in context: GraphicsContext, from start: CGFloat, to end: CGFloat, desaturated: Bool) {
-        guard end > start, let half = Self.barHalf else { return }
+        guard end > start, let half = artwork?.barHalf else { return }
         var plate = context
         plate.clip(to: Path(CGRect(x: start, y: Layout.plate.minY, width: end - start, height: Layout.plate.height)))
         if desaturated { plate.addFilter(.saturation(0)) }
@@ -196,11 +236,11 @@ struct SandboxLoadingScreen: View {
         layer.opacity = min(1, flame.alpha)
         layer.blendMode = flame.blendMode == "add" ? .plusLighter : flame.blendMode == "screen" ? .screen : .normal
 
-        let atlas = flame.fireType == "brazier" ? "ambient_fire_left_brazier_atlas.webp" : "ambient_fire_left_furnace_atlas.webp"
+        let atlas = Self.flameAtlas(flame)
         let tileWidth = tileSpan / CGFloat(flame.tiles)
         for index in 0..<flame.tiles {
             let frame = (Int(time * flame.fps) + flame.frameOffset + index * flame.phaseStep) % 12
-            guard let texture = BattlefieldAtlas.frame(atlas, columns: 4, rows: 3, index: frame) else { continue }
+            guard let texture = BattlefieldAtlas.frame(atlas, columns: 4, rows: 3, index: frame, inBackground: true) else { continue }
             let slot = mirror ? flame.tiles - 1 - index : index
             var tile = layer
             tile.translateBy(x: start + (CGFloat(slot) + 0.5) * tileWidth, y: top)
@@ -209,5 +249,9 @@ struct SandboxLoadingScreen: View {
             let width = tileWidth * flame.overlap
             tile.draw(Image(decorative: texture, scale: 1), in: CGRect(x: -width / 2, y: 0, width: width, height: flame.height))
         }
+    }
+
+    private static func flameAtlas(_ flame: Style.Flame) -> String {
+        flame.fireType == "brazier" ? "ambient_fire_left_brazier_atlas.webp" : "ambient_fire_left_furnace_atlas.webp"
     }
 }

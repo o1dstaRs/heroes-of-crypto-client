@@ -42,6 +42,18 @@ zig build "-Dtarget=$zig_arch-macos.14.0" -Doptimize=ReleaseSafe "-Dcommon-sha=$
 bun scripts/make-skirmish.ts "$contents/Resources"
 bun scripts/bundle-startup.ts "$contents/Resources"
 bun scripts/bundle-animation-timing.ts "$contents/Resources/animation-timing.json"
+bun scripts/bundle-wind-aura.ts "$contents/Resources"
+bun scripts/bundle-arachna-aura.ts "$contents/Resources"
+bun scripts/bundle-abomination-sand.ts "$contents/Resources"
+bun scripts/bundle-smoke-cloud.ts "$contents/Resources"
+bun scripts/bundle-damage-spells.ts "$contents/Resources"
+bun build --target browser --format iife --minify scripts/battle-presentation.ts --outfile "$contents/Resources/battle-presentation.js"
+if [[ "$fixture_test" == false ]]; then
+    xcrun clang -arch "$swift_arch" -mmacosx-version-min=14.0 -O2 -fobjc-arc \
+        scripts/render-status-shader.m -framework AppKit -framework ImageIO -framework OpenGL -o "$stage/render-status-shader"
+fi
+bun scripts/bundle-status-effects.ts "$contents/Resources" "$stage/render-status-shader"
+bun scripts/bundle-fight-log.ts "$contents/Resources"
 bun build --target browser --format iife --minify --define 'process.env={}' \
     scripts/sandbox-loadouts.ts --outfile "$contents/Resources/sandbox-loadouts.js"
 cp Info.plist "$contents/Info.plist"
@@ -54,11 +66,17 @@ xcrun swiftc "${swift_flags[@]}" Sources/*.swift "$archive" -o "$contents/MacOS/
 if [[ "${1:-}" == "--test" ]]; then
     smoke="$contents/MacOS/skirmish-smoke"
     xcrun swiftc "${swift_flags[@]}" Sources/NativeBattle.swift Sources/BattlefieldProjection.swift Sources/BattlePlayback.swift \
+        Sources/BattlefieldAuraRenderer.swift Sources/BattlefieldWindAura.swift Sources/BattlefieldGriffinAura.swift \
+        Sources/BattlefieldWyvernAura.swift Sources/BattlefieldArachnaAura.swift Sources/ArachnaContactSimulation.swift \
+        Sources/BattlefieldAbominationAura.swift Tests/AbominationAuraSmoke.swift \
+        Sources/BattleSmokeClouds.swift Tests/SmokeVolumeSmoke.swift \
+        Sources/BattleDamageSpell.swift Sources/BattleStatusEffects.swift Sources/BattleChakram.swift Sources/SandboxKeyboardShortcuts.swift \
         Sources/CreatureAnimation.swift Sources/BattleProjectile.swift Sources/FairyIdleAppearance.swift Sources/BattleMageIdleAppearance.swift \
+        Sources/ElfIdleAppearance.swift \
         Sources/LeprechaunAppearance.swift \
         Sources/FirePitRegistration.swift Sources/SandboxTurnClock.swift Sources/SandboxSetup.swift Sources/SandboxLoadouts.swift \
         Sources/BattleFightSummary.swift Sources/UnitInspectionDescriptions.swift \
-        Tests/SkirmishSmoke.swift "$archive" -o "$smoke"
+        Tests/SkirmishSmoke.swift Tests/DamageSpellSmoke.swift Tests/StatusEffectSmoke.swift Tests/BattleLogSmoke.swift "$archive" -o "$smoke"
     "$smoke" "$contents/Resources/skirmish.json"
     rm "$smoke"
     auth_smoke="$contents/MacOS/auth-smoke"

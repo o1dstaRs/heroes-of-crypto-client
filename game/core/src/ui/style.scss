@@ -135,9 +135,8 @@ select {
     font-family: var(--hoc-font-ui);
 }
 
-/* HoMM-style pointer for clickable UI. Keep disabled controls honest, and let the battle cursor's
-   temporary `cursor: none !important` rule continue to win while a melee target is being aimed at.
-   MUI's own classes are listed explicitly: components set `cursor: pointer` through `sx`, which
+/* Themed pointer for clickable UI. MUI's own classes are listed explicitly because
+   components set `cursor: pointer` through `sx`, which
    compiles to a generated class, and no plain element selector reaches those. The tooltip carriers
    are here too — anything that pops a description on hover should read as touchable, which is the
    whole point of the themed pointer. */

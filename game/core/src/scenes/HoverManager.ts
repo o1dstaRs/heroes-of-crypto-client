@@ -39,8 +39,7 @@ import {
     shotCasingVisibleSlice,
     shotTrajectoryAuthoringOffsetToWorld,
 } from "./shotTrajectoryTuning";
-import { tunedCellFillPolygon } from "./movementAreaVisual";
-import { placementZonePolygon } from "../pixi/PixiDrawablePlacement";
+import { drawUnitFootprint } from "./movementAreaVisual";
 import { glyphScaleX, keepGlyphRowUpright } from "../pixi/boardMirror";
 import { inheritedAbsoluteScaleOf, legacyBoardChildScaleCompensation } from "../pixi/boardFit";
 
@@ -1022,26 +1021,26 @@ export class HoverManager {
             this.updateBoardHoverSilhouette(this.boardHoverProps, this.boardHoverCenter);
         }
     }
-    private drawFootprintCells(gfx: Graphics, cells: HoCMath.XY[], invalid: boolean): void {
+    private drawFootprintCells(gfx: Graphics, cells: readonly HoCMath.XY[], invalid: boolean): void {
         const gs = this.context.sceneSettings.getGridSettings();
-        const size = gs.getCellSize();
-        const inset = Math.max(2, size * 0.055);
+        const width = Math.max(2, gs.getCellSize() * 0.035);
         const pulse = (Math.sin(this.hoverGlowPhase * 1.2) + 1) / 2;
         const strokeColor = invalid ? 0xff5555 : 0xffe2a0;
         const fillColor = invalid ? 0xff3333 : 0xffc85a;
-        const fillAlpha = invalid ? 0.25 : 0.16 + pulse * 0.06;
+        const fillAlpha = invalid ? 0.25 : 0.24 + pulse * 0.04;
         const strokeAlpha = invalid ? 1 : 0.82 + pulse * 0.18;
 
-        // Multi-cell creatures need one readable footprint, not a separate framed tile under every body
-        // section. Picking only the four outer corners removes the internal 2x1 / 2x2 seams while retaining
-        // the same visual inset as the established 1x1 support-cell treatment.
-        const polygon =
-            cells.length === 1
-                ? tunedCellFillPolygon(cells[0], gs, inset / size)
-                : placementZonePolygon(cells, gs, inset / size);
-        gfx.poly(polygon)
-            .fill({ color: fillColor, alpha: fillAlpha })
-            .stroke({ width: Math.max(2, size * 0.035), color: strokeColor, alpha: strokeAlpha });
+        drawUnitFootprint(gfx, cells, gs, { width: width + 3, color: 0x17120b, alpha: 0.84 });
+        drawUnitFootprint(
+            gfx,
+            cells,
+            gs,
+            { width, color: strokeColor, alpha: strokeAlpha },
+            {
+                color: fillColor,
+                alpha: fillAlpha,
+            },
+        );
     }
     public drawHoverPlacementCell(gfx: Graphics): void {
         const cells = this.hoverSelectedCells;
@@ -1081,19 +1080,13 @@ export class HoverManager {
         const graphics = this.ensureMeleeAttackOrigin();
         if (!graphics) return;
         const gs = this.context.sceneSettings.getGridSettings();
-        const inset = Math.max(2, gs.getCellSize() * 0.055) / gs.getCellSize();
-        const polygon =
-            cells.length === 1 ? tunedCellFillPolygon(cells[0], gs, inset) : placementZonePolygon(cells, gs, inset);
         const width = Math.max(2.5, gs.getCellSize() * 0.035);
         // The floor wash can disappear underneath an adjacent creature or the attacker standing still.
-        // Keep only its perimeter above the figures, so the exact landing remains readable in both cases.
+        // Keep each cell's frame above the figures so the exact landing remains readable in both cases.
         graphics.clear();
         graphics.visible = true;
-        graphics
-            .poly(polygon)
-            .stroke({ width: width + 3, color: 0x17120b, alpha: 0.9, join: "round" })
-            .poly(polygon)
-            .stroke({ width, color: 0xffe2a0, alpha: 1, join: "round" });
+        drawUnitFootprint(graphics, cells, gs, { width: width + 3, color: 0x17120b, alpha: 0.9, join: "round" });
+        drawUnitFootprint(graphics, cells, gs, { width, color: 0xffe2a0, alpha: 1, join: "round" });
     }
     public isCellReachableForActiveUnit(cell: HoCMath.XY): boolean {
         const currentActiveUnit = this.context.getCurrentActiveUnit();

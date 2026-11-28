@@ -1,6 +1,7 @@
 import { GlProgram, Shader } from "pixi.js";
 
 export const ABOMINATION_STORM_REVOLUTION_MS = 36_000;
+export const ABOMINATION_SAND_LAYER_OPACITY = 0.66;
 const WIND_TIME_SCALE = 16_000 / ABOMINATION_STORM_REVOLUTION_MS;
 export type AbominationSandVariant = 0 | 1 | 2 | 3 | 4;
 export const ABOMINATION_SAND_VARIANTS = [
@@ -69,36 +70,12 @@ uniform vec4 uColor;
 uniform float uLift;
 void main() {
     vUV = aUV;
-    vColor = uColor * uWorldColorAlpha * 0.66;
+    vColor = uColor * uWorldColorAlpha * ${ABOMINATION_SAND_LAYER_OPACITY};
     gl_Position = vec4((uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix * vec3(aPosition + vec2(0.0, uLift), 1.0)).xy, 0.0, 1.0);
 }`;
 
 /** Advected dust clumps and wind-aligned grains share a slow, turbulent spiral flow. */
-const fragment = /* glsl */ `#version 300 es
-in vec2 vUV;
-in vec4 vColor;
-out vec4 finalColor;
-uniform float uTime;
-uniform float uPhaseOffset;
-uniform float uArms;
-uniform float uPitch;
-uniform float uTightness;
-uniform float uBackground;
-uniform float uGain;
-uniform float uScale;
-uniform float uSquareShape;
-uniform float uBaseLayer;
-uniform float uFrontLayer;
-uniform float uAirLayer;
-uniform vec4 uMotion;
-uniform vec4 uStep;
-uniform vec4 uWake0;
-uniform vec4 uWake1;
-uniform vec4 uWake2;
-uniform vec4 uWake3;
-uniform vec4 uWake4;
-uniform vec4 uWake5;
-
+export const abominationSandMaterial = /* glsl */ `
 #define WIND_TIME (uTime * ${WIND_TIME_SCALE.toFixed(12)})
 
 float hash(vec2 p) {
@@ -108,7 +85,7 @@ float hash(vec2 p) {
 }
 vec2 rotate(vec2 p, float angle) {
     float c = cos(angle), s = sin(angle);
-    return mat2(c, s, -s, c) * p;
+    return mat2(vec2(c, s), vec2(-s, c)) * p;
 }
 // Smooth spatial noise is advected continuously, never randomized per frame.
 float noise(vec2 p) {
@@ -200,7 +177,7 @@ float saltatingGrains(vec2 p) {
     }
     return result;
 }
-void main() {
+vec4 sandColor(vec2 vUV) {
     vec2 p = vUV * 2.0 - 1.0;
     float radius = length(p);
     // L8 contours keep each turn aligned to the aura square, with soft corners.
@@ -230,8 +207,7 @@ void main() {
 
     // Wind erodes the arm edges without breaking the rounded-square centreline.
     if (uFrontLayer > 0.5 && radius > 0.49) {
-        finalColor = vec4(0.0);
-        return;
+        return vec4(0.0);
     }
     float phase = atan(p.y, p.x + 0.000001) * uArms + spiralRadius * uPitch + angle * uArms;
     phase += 0.10 * sin(spiralRadius * 24.0 - angle);
@@ -261,8 +237,7 @@ void main() {
         float alpha = (plume * (trail * 0.30 + torn * 0.22)
                     + (fineGrains * 0.55 + suspendedSand * 1.25) * (0.18 + plume * trail * 0.82)
                     + movementWake(p) * 0.12) * boundary;
-        finalColor = vec4(sand * alpha, alpha) * vColor;
-        return;
+        return vec4(sand * alpha, alpha);
     }
     if (uBaseLayer > 0.5) {
         // Low dust between coils, but a visibly denser sand source under the feet.
@@ -271,8 +246,7 @@ void main() {
         float wake = movementWake(p) * 0.36 + footfall(p) * 0.40;
         float alpha = min(0.78, 0.018 + density * 0.05 + fineGrains * 0.16 * gust + source + wake) * boundary;
         sand = mix(sand, vec3(0.69, 0.49, 0.26), epicentre * (0.30 + coreJets * 0.20));
-        finalColor = vec4(sand * alpha, alpha) * vColor;
-        return;
+        return vec4(sand * alpha, alpha);
     }
     float mediumGrains = grains(nearField, 23.0 * uScale, 7.4, 0.85, 1.5 + gust * 0.6);
     // Broken wind filaments, much finer than the arms, sweep through the dust.
@@ -288,8 +262,7 @@ void main() {
         sand = mix(sand, vec3(0.78, 0.63, 0.39), hops * 0.50);
         vec4 billows = footBillows(p);
         vec4 dust = vec4(sand * alpha, alpha);
-        finalColor = (billows + dust * (1.0 - billows.a)) * vColor;
-        return;
+        return billows + dust * (1.0 - billows.a);
     }
     // Heavy grains lag the fine airborne dust and gradually settle along the floor.
     vec2 heavyField = rotate(flowP + eddy * 0.018, angle * 0.85) - vec2(0.0, WIND_TIME * 0.012);
@@ -310,7 +283,36 @@ void main() {
     float alpha = (1.0 - (1.0 - min(grainAlpha, 0.75)) * (1.0 - haze)) * boundary;
     // A restrained sunlit edge gives grains contrast without additive gold sparkle.
     sand = mix(sand, vec3(0.79, 0.64, 0.38), min(0.45, grainAlpha * 0.6));
-    finalColor = vec4(sand * alpha, alpha) * vColor;
+    return vec4(sand * alpha, alpha);
+}`;
+
+const fragment = /* glsl */ `#version 300 es
+in vec2 vUV;
+in vec4 vColor;
+out vec4 finalColor;
+uniform float uTime;
+uniform float uPhaseOffset;
+uniform float uArms;
+uniform float uPitch;
+uniform float uTightness;
+uniform float uBackground;
+uniform float uGain;
+uniform float uScale;
+uniform float uSquareShape;
+uniform float uBaseLayer;
+uniform float uFrontLayer;
+uniform float uAirLayer;
+uniform vec4 uMotion;
+uniform vec4 uStep;
+uniform vec4 uWake0;
+uniform vec4 uWake1;
+uniform vec4 uWake2;
+uniform vec4 uWake3;
+uniform vec4 uWake4;
+uniform vec4 uWake5;
+${abominationSandMaterial}
+void main() {
+    finalColor = sandColor(vUV) * vColor;
 }`;
 
 export function createAbominationSandShader(

@@ -14,6 +14,9 @@ export interface LeftSidebarPortraitArt {
     artScaleX?: number;
 }
 
+export const LEFT_SIDEBAR_ART_SCALE = 1.08;
+export const LEFT_SIDEBAR_ART_SCALE_X = 0.96;
+
 const runtimeImages = images as Readonly<Record<string, string | undefined>>;
 
 /** The complete test-server `*_left_screen_x2.webp` portrait set. */

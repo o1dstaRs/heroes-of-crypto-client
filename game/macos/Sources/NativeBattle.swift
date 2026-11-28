@@ -8,6 +8,17 @@ struct Cell: Codable, Hashable {
     var label: String { "\(UnicodeScalar(65 + Int(x)) ?? "?")\(y + 1)" }
 }
 
+struct BattleFireWallAim: Decodable, Equatable {
+    let anchor: Cell
+    let footprint: [Cell]
+    let lit: [Cell]
+}
+
+struct BattleTerrainTile: Decodable, Equatable {
+    let cell: Cell
+    let laps: Int
+}
+
 enum Team: Int, Decodable {
     case draw, opponent, player
 
@@ -57,6 +68,7 @@ struct Stack: Decodable, Equatable, Identifiable {
     let maxHP: Double
     let shots: Double?
     let shotDistance: Double
+    let fullDamageShotCells: Int?
     let selectedAttack: AttackMode
     let attack: Double
     let armor: Double
@@ -72,14 +84,19 @@ struct Stack: Decodable, Equatable, Identifiable {
     let responded: Bool
     let immobilized: Bool
     let waiting: Bool
+    var skipping: Bool? = nil
     let stackPower: Double
     let abilities: [String]
     let book: [StackSpell]
     let statuses: [StackStatus]
+    var auras: [BattleAura]? = nil
     let cells: [Cell]
 
     var cumulativeHealth: Double { amount > 0 ? Double(amount - 1) * maxHP + max(0, hp) : 0 }
     var hasWaterShield: Bool { statuses.contains { $0.kind == .buff && $0.name == "Water Shield" } }
+    var hasEmberCovenant: Bool {
+        statuses.contains { $0.kind == .buff && $0.name == "Ember Covenant Blessing" && $0.laps > 0 }
+    }
 
     var anchor: Cell? {
         guard let x = cells.map(\.x).max(), let y = cells.map(\.y).max() else { return nil }
@@ -93,9 +110,10 @@ struct Stack: Decodable, Equatable, Identifiable {
 
     private enum CodingKeys: String, CodingKey {
         case id, name, team, faction, amount, losses, hp, shots, cells, attack, armor, initiative, movement, morale, luck
-        case abilities, book, statuses, flies, responded, immobilized, waiting
+        case abilities, book, statuses, auras, flies, responded, immobilized, waiting, skipping
         case maxHP = "max_hp"
         case shotDistance = "shot_distance"
+        case fullDamageShotCells = "full_damage_shot_cells"
         case selectedAttack = "selected_attack"
         case rangeArmor = "range_armor"
         case magicResist = "magic_resist"
@@ -103,6 +121,12 @@ struct Stack: Decodable, Equatable, Identifiable {
         case damageMax = "damage_max"
         case stackPower = "stack_power"
     }
+}
+
+struct BattleAura: Decodable, Equatable {
+    let name: String
+    let range: Double
+    let positive: Bool
 }
 
 struct StackSpell: Decodable, Equatable {
@@ -186,6 +210,81 @@ struct BattleAttackAngle: Decodable, Equatable {
     let cell: Cell
     let side: ShotSide?
     var splash: BattleSplash? = nil
+    var range: BattleRangeAim? = nil
+    var hit: BattleShotHit? = nil
+    var hits: [BattleShotHit]? = nil
+}
+
+struct BattleAimPoint: Decodable, Equatable {
+    let x: CGFloat
+    let y: CGFloat
+
+    var point: CGPoint { CGPoint(x: x, y: y) }
+}
+
+struct BattleRangeAim: Decodable, Equatable {
+    let aim: BattleAimPoint
+    let obstacle: BattleAimPoint?
+    let primary: Int?
+    let hit: BattleShotHit?
+    var hits: [BattleShotHit]? = nil
+    let divisor: Int
+    let clean: Bool
+    let stopsAtObstacle: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case aim, obstacle, primary, hit, hits, divisor, clean
+        case stopsAtObstacle = "stops_at_obstacle"
+    }
+}
+
+struct BattleThroughAim: Decodable, Equatable {
+    let end: BattleAimPoint
+    let obstacle: Bool
+    let valid: Bool
+    let hits: [BattleShotHit]
+}
+
+struct BattleShotHit: Decodable, Equatable {
+    struct Gaze: Codable, Equatable {
+        let min: Double
+        let max: Double
+        let percentageMax: Double
+        let procChance: Double
+        let hp: Double
+        let totalHp: Double
+        let immune: Bool
+        let multipleHits: Bool
+    }
+
+    let target: Int
+    let divisor: Int
+    let min: Double
+    let max: Double
+    let gaze: Gaze?
+}
+
+struct BattleSpellTarget: Decodable, Equatable {
+    struct Damage: Decodable, Equatable {
+        let target: Int
+        let damage: Double
+    }
+
+    let target: Int
+    let primary: Int
+    let end: BattleAimPoint?
+    let positive: Bool
+    let spared: Bool
+    let damage: Double?
+    let splash: Cell?
+    var footprint: [Cell]? = nil
+    let secondary: [Damage]
+}
+
+struct BattleMeteorAim: Decodable, Equatable {
+    let anchor: Cell
+    let footprint: [Cell]
+    let hits: [BattleSpellTarget.Damage]
 }
 
 struct BattleSplash: Decodable, Equatable {
@@ -207,6 +306,7 @@ struct BattleSplash: Decodable, Equatable {
 struct BattleAreaAim: Decodable, Equatable {
     let aim: Cell
     let splash: BattleSplash
+    var hits: [BattleShotHit]? = nil
 }
 
 struct BattleAttackOptions: Decodable, Equatable {
@@ -215,16 +315,41 @@ struct BattleAttackOptions: Decodable, Equatable {
 }
 
 struct Moment: Decodable, Equatable {
+    struct ChakramFlight: Decodable, Equatable {
+        struct Contact: Decodable, Equatable {
+            enum Kind: String, Decodable { case hit, miss, shield }
+
+            let target: Int
+            let kind: Kind
+            let route: [Cell]
+            let delta: Double
+            let casualties: Int
+        }
+
+        let actor: Int
+        let contacts: [Contact]
+    }
+
     struct HealthChange: Decodable, Equatable {
         let target: Int
         let delta: Double
         let casualties: Int
     }
 
+    struct GazeImpact: Decodable, Equatable {
+        let actor: Int
+        let target: Int
+        let damage: Double
+        let casualties: Int
+        let lethal: Bool
+    }
+
     struct StatusApplication: Decodable, Equatable {
         let target: Int
         let kind: StackStatus.Kind
         let name: String
+        var borrowedFrom: Int? = nil
+        var laps: Double? = nil
     }
 
     let kind: MomentKind
@@ -234,12 +359,20 @@ struct Moment: Decodable, Equatable {
     let aimSide: ShotSide?
     let spell: String?
     var splash: BattleSplash? = nil
+    var projectileEnd: BattleAimPoint? = nil
+    var spellArea: [Cell]? = nil
+    var crossedFire: [Cell]? = nil
+    var mirrorSources: [Int]? = nil
     var counterattack: Counterattack? = nil
+    var chakramFlights: [ChakramFlight]? = nil
+    var gazeImpacts: [GazeImpact]? = nil
     let route: [Cell]
     let hurt: [Int]?
     let healthChanges: [HealthChange]?
     let statusApplications: [StatusApplication]?
     var waterShieldBreaks: [Int]? = nil
+    var covenantBreaks: [Int]? = nil
+    var covenantAbsorbs: [Int]? = nil
 }
 
 struct Counterattack: Decodable, Equatable {
@@ -254,6 +387,8 @@ struct BattleView: Decodable, Equatable {
     let map: BattlefieldMap
     let lap: Int
     let active: Int?
+    var aggrTarget: Int? = nil
+    var terrifyingGazeTarget: Int? = nil
     let activeTeamStacksToAct: Int
     let automatedTurn: Bool
     let mode: AttackMode?
@@ -266,6 +401,7 @@ struct BattleView: Decodable, Equatable {
     let stacks: [Stack]
     let attacks: [Int]
     let attackOptions: [BattleAttackOptions]
+    var canAimThrough: Bool? = nil
     let areaAims: [BattleAreaAim]
     let moves: [Cell]
     let holes: [Cell]
@@ -276,13 +412,23 @@ struct BattleView: Decodable, Equatable {
     let spells: [BattleSpell]
     let preparedSpell: Int32?
     let spellCells: [Cell]
-    let canCast: Bool
+    var spellTargets: [BattleSpellTarget]? = nil
+    var meteorAims: [BattleMeteorAim]? = nil
+    var fireTiles: [BattleTerrainTile]? = nil
+    var smokeTiles: [BattleTerrainTile]? = nil
+    var fireCells: [Cell]? { fireTiles?.map(\.cell) }
+    var fireWallAims: [BattleFireWallAim]? = nil
     let queue: [Int]
     let revision: Int
     let moments: [Moment]
     let damage: [StackDamage]
 
     var activeStack: Stack? { stacks.first { $0.id == active } }
+    var turnOrder: [Stack] {
+        let byID = Dictionary(uniqueKeysWithValues: stacks.map { ($0.id, $0) })
+        var seen = Set<Int>()
+        return ([active].compactMap { $0 } + queue).compactMap { seen.insert($0).inserted ? byID[$0] : nil }
+    }
     var movingStack: Stack? { started ? activeStack : stacks.first { $0.id == deploying } }
     var movementLandings: FootprintLandings {
         let stack = movingStack
@@ -290,8 +436,27 @@ struct BattleView: Decodable, Equatable {
                                  standing: started ? nil : stack?.anchor)
     }
     var playerTurn: Bool { started && !stalled && winner == nil && active != nil && !automatedTurn }
+    func actionHint(at cell: Cell, target: Stack?, canAttackHere: Bool) -> String? {
+        guard playerTurn, preparedSpell == nil, let actor = activeStack, !canAttackHere else { return nil }
+        let enemy = target.flatMap { $0.team == actor.team ? nil : $0 }
+        if let enemy, enemy.id == terrifyingGazeTarget {
+            return "Terrifying Gaze — can't attack \(enemy.name)"
+        }
+        let aimingArea = mode == .ranged && actor.abilities.contains("Area Throw")
+        if let aggrTarget, enemy?.id != aggrTarget,
+           enemy != nil || stones.contains(cell) || canAimThrough == true || aimingArea,
+           let source = stacks.first(where: { $0.id == aggrTarget }) {
+            return "Aggr — must attack \(source.name)"
+        }
+        if target?.id != actor.id && actor.immobilized &&
+            actor.statuses.contains(where: { $0.name == "Paralysis" && $0.laps > 0 }) {
+            return "Paralyzed — can't move"
+        }
+        return nil
+    }
     var opponentTurn: Bool { started && !stalled && winner == nil && active != nil && automatedTurn }
     var spell: BattleSpell? { spells.first { $0.id == preparedSpell } }
+    var damageSpell: BattleDamageSpell? { spell.flatMap { BattleDamageSpell(rawValue: $0.name) } }
     var narrowing: Int {
         holes.map { min(Int($0.x), Int($0.y), size - 1 - Int($0.x), size - 1 - Int($0.y)) + 1 }.max() ?? 0
     }
@@ -378,7 +543,41 @@ final class NativeBattle: @unchecked Sendable {
         return try JSONDecoder().decode(BattleView.self, from: data)
     }
 
+    func logSteps() -> String? {
+        lock.withLock {
+            let size = hoc_macos_log_steps(handle, nil, 0)
+            guard size > 0 else { return nil }
+            var bytes = [UInt8](repeating: 0, count: size)
+            guard hoc_macos_log_steps(handle, &bytes, size) == size else { return nil }
+            return String(decoding: bytes, as: UTF8.self)
+        }
+    }
+
+    func logStateMismatch(_ digest: String) -> String? {
+        lock.withLock {
+            var message = [UInt8](repeating: 0, count: 512)
+            let bytes = Array(digest.utf8)
+            if hoc_macos_check_log_state(handle, bytes, bytes.count, &message, message.count) { return nil }
+            return String(decoding: message.prefix { $0 != 0 }, as: UTF8.self)
+        }
+    }
+
     func choose(_ cell: Cell) -> Bool { lock.withLock { hoc_macos_choose_cell(handle, cell.x, cell.y) } }
+    func previewThrough(_ point: CGPoint) -> BattleThroughAim? {
+        let data = lock.withLock {
+            var buffer = Data(count: 8192)
+            let length = buffer.withUnsafeMutableBytes { bytes in
+                hoc_macos_preview_through(handle, point.x, point.y, bytes.bindMemory(to: UInt8.self).baseAddress, bytes.count)
+            }
+            guard length > 0, length <= buffer.count else { return Data() }
+            buffer.count = length
+            return buffer
+        }
+        return try? JSONDecoder().decode(BattleThroughAim.self, from: data)
+    }
+    func fireThrough(_ point: CGPoint) -> Bool {
+        lock.withLock { hoc_macos_fire_through(handle, point.x, point.y) }
+    }
     func attack(_ target: Int, from angle: BattleAttackAngle) -> Bool {
         guard let id = UInt8(exactly: target) else { return false }
         return lock.withLock {
@@ -391,8 +590,8 @@ final class NativeBattle: @unchecked Sendable {
     }
     func ready() -> Bool { lock.withLock { hoc_macos_ready(handle) } }
     func perform(_ command: TurnCommand) -> Bool { lock.withLock { hoc_macos_turn_command(handle, command.raw) } }
-    func prepare(_ spell: Int32?) -> Bool { lock.withLock { hoc_macos_prepare_spell(handle, spell ?? -1) } }
-    func cast() -> Bool { lock.withLock { hoc_macos_cast_untargeted(handle) } }
+    func chooseSpell(_ spell: Int32?) -> Bool { lock.withLock { hoc_macos_choose_spell(handle, spell ?? -1) } }
+    func rotateFireWall() -> Bool { lock.withLock { hoc_macos_rotate_fire_wall(handle) } }
     func playOpponent(forced: Bool = false) -> Bool { lock.withLock { hoc_macos_opponent_turn(handle, forced) } }
 
     func opponentTurnView(forced: Bool = false) async throws -> BattleView? {

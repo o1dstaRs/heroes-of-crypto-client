@@ -11,11 +11,13 @@ import { FINAL_STATIC_BATTLEFIELD_TEXTURES } from "../../core/src/pixi/battlefie
 import { BATTLEFIELD_HEIGHT_RATIO } from "../../core/src/pixi/boardFit";
 import { LOADING_EXIT_FADE_MS, minimumLoadingScreenDurationMs } from "../../core/src/pixi/loadingProgress";
 import { normalizeLoadingScreenFireTuning } from "../../core/src/scenes/loadingScreenFireTuning";
+import { DEFAULT_MOVEMENT_AREA_TUNING } from "../../core/src/scenes/movementAreaTuning";
 import { BATTLEFIELD_GRID_ROWS } from "../../core/src/scenes/sandbox/BattlefieldVisualGrid";
 import { AMBIENT_FIRE_DEFINITIONS } from "../../core/src/scenes/sandbox/ambientFireTuning";
 import { SPELL_BOOK_FURNITURE, spellIconTextureKey } from "../../core/src/scenes/spellIcons";
 import { SYNERGY_KEY_TO_IMAGE } from "../../core/src/ui/LeftSideBar/SynergiesConstants";
 import { synergyEffectAtLevel } from "../../core/src/ui/LeftSideBar/synergyLadder";
+import spellSounds from "../../core/src/ui/audio/spellSoundManifest.json";
 import { battlePortraitFacingScale } from "../../core/src/ui/battlePortraitFacing";
 import { resolveCreaturePortraitVisual } from "../../core/src/ui/creaturePortraitVisual";
 import { getPickPreviewOrder } from "../../core/src/ui/pickPreviewOrder";
@@ -58,6 +60,7 @@ import { exportBattleState } from "../../heroes-of-crypto-common/zig/parity/stat
 import { bundleAnimations } from "./bundle-animations";
 import { bundleInspection, inspectionSpellNames } from "./bundle-inspection";
 import { bundleProjectiles } from "./bundle-projectiles";
+import { bundleSidebarPortraits } from "./bundle-sidebar-portraits";
 
 const output = process.argv[2];
 if (!output) throw new Error("Pass the app's Resources directory.");
@@ -227,6 +230,7 @@ writeFileSync(
     JSON.stringify({
         artwork: BATTLEFIELD_ARTWORK,
         rows: BATTLEFIELD_GRID_ROWS,
+        aim: { ...DEFAULT_MOVEMENT_AREA_TUNING, cellSize: settings.getCellSize() },
         heightRatio: BATTLEFIELD_HEIGHT_RATIO,
         overscan: BATTLEFIELD_HORIZONTAL_OVERSCAN,
         horizontalBias: BATTLEFIELD_HORIZONTAL_BIAS,
@@ -242,9 +246,21 @@ for (const file of ["HoCForge-Regular.ttf", "OFL.txt"]) {
 }
 const sounds = join(output, "Sounds");
 mkdirSync(sounds, { recursive: true });
-for (const event of ["place_unit", "spellbook_open", "spellbook_close", "heal", "water_shield_dissolve"]) {
+for (const event of [
+    "place_unit",
+    "spellbook_open",
+    "spellbook_close",
+    "heal",
+    "blacksmith_cast",
+    "summon",
+    "water_shield_dissolve",
+]) {
     copyFileSync(join(corePublic, "audio/events", `${event}.mp3`), join(sounds, `${event}.mp3`));
 }
+for (const { slug } of Object.values(spellSounds)) {
+    copyFileSync(join(corePublic, "audio/spells", `${slug}.mp3`), join(sounds, `${slug}.mp3`));
+}
+writeFileSync(join(sounds, "spell-sounds.json"), JSON.stringify(spellSounds));
 for (const { creatureName } of catalogue) {
     const slug = creatureName.toLowerCase().replaceAll(" ", "-");
     for (const action of ["move", "attack", "hurt"]) {
@@ -352,6 +368,7 @@ if (images) {
         "ui_container_frame_2_9slice",
         "ui_creature_name_flag_classic_v9",
         "ui_up_next_smoky_chains_bg_85pct_v5",
+        "ui_up_next_smoky_chains_bg_wide_73pct_v4",
         "ui_control_fullscreen_forged_bronze_v1",
         "ui_control_music_muted_forged_bronze_v1",
         "ui_control_music_on_forged_bronze_v1",
@@ -361,6 +378,9 @@ if (images) {
         "cursor_melee",
         "cursor_ranged",
         "cursor_magic",
+        "shot_range_corner_aaa_v1",
+        "shot_range_corner_aaa_v4_green",
+        "shot_range_corner_aaa_v4_red",
         "loading_screen_forging_base",
         "loading_screen_forging_exact_overlay",
         "loading_screen_dragon_medallion",
@@ -371,6 +391,7 @@ if (images) {
         "tag",
         "immobilized_chain_ball",
         "hourglass",
+        "stop",
         "tr_up",
         "ui_fantasy_radio_off",
         "ui_fantasy_radio_on",
@@ -379,6 +400,9 @@ if (images) {
         "ui_ai_toggle_orb_red_on",
         "damage_analytics_icon",
         "combat_kills_skull_icon_v1",
+        "combat_range_full_arrow_icon_v1",
+        "combat_range_half_broken_arrow_icon_v1",
+        "petrifying_gaze_256",
         "icon_active_option",
         "icon_inactive_option",
         ...[
@@ -412,6 +436,12 @@ if (images) {
         ...AMBIENT_FIRE_DEFINITIONS.map((fire) => fire.textureKey ?? fire.key),
         "ambient_fire_left_furnace_atlas",
         "ambient_fire_left_brazier_atlas",
+        "shot_trajectory_orc_bronze_arrowhead_distant_match_v8",
+        "shot_trajectory_orc_bronze_fletching_distant_match_v8",
+        "shot_trajectory_hammered_bronze_casing_sprite_v4",
+        "magic_aim_dual_helix_default_atlas",
+        "vfx_griffin_tornado_silver_v2",
+        "vfx_pegasus_feather_atlas_v7",
         "fire_pit_grok_video_fire_under_v2_64_atlas",
         "fire_pit_grok_video_fire_over_v2_64_atlas",
         "fire_pit_grok_video_fire_actual_extent_v4_64_atlas",
@@ -444,3 +474,4 @@ bundleAnimations(
     output,
     catalogue.map(({ creatureName }) => creatureName),
 );
+bundleSidebarPortraits(output);

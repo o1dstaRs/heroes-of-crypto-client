@@ -12,12 +12,12 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { ColorMatrixFilter, Graphics, Sprite, Texture } from "pixi.js";
 
-import { FightStateManager, GridConstants, GridSettings, TeamVals } from "@heroesofcrypto/common";
+import { FightStateManager, GridConstants, GridMath, GridSettings, TeamVals } from "@heroesofcrypto/common";
 import type { UnitProperties } from "@heroesofcrypto/common";
 
 import { HoverManager, type ISandboxHoverContext } from "./HoverManager";
 import { SceneSettings } from "./SceneSettings";
-import { placementZonePolygon } from "../pixi/PixiDrawablePlacement";
+import { projectBattlefieldPoint } from "./sandbox/BattlefieldVisualGrid";
 
 const gridSettings = new GridSettings(
     GridConstants.GRID_SIZE,
@@ -153,7 +153,7 @@ describe("placement silhouette facing", () => {
         }
     });
 
-    test("draws 2x1 and 2x2 support footprints as one outer boundary without internal cell seams", () => {
+    test("placement and movement previews leave the seam between adjacent support cells visible", () => {
         const hover = new HoverManager(makeContext(rightFacingSource(TeamVals.LEFT)));
         const footprints = [
             [
@@ -170,14 +170,25 @@ describe("placement silhouette facing", () => {
 
         for (const cells of footprints) {
             hover.hoverSelectedCells = cells;
-            const graphics = new Graphics();
-            hover.drawHoverPlacementCell(graphics);
-
-            const expectedPolygon = placementZonePolygon(cells, gridSettings, 0.055);
-            const instructions = graphics.context.instructions as Array<{ action?: string; data?: { path?: unknown } }>;
-            expect(instructions.filter(({ action }) => action === "fill")).toHaveLength(1);
-            expect(instructions.filter(({ action }) => action === "stroke")).toHaveLength(1);
-            expect(expectedPolygon).toHaveLength(8);
+            hover.hoverBattlefieldFootprintCells = cells;
+            const centers = cells.map((cell) =>
+                GridMath.getPositionForCell(
+                    cell,
+                    gridSettings.getMinX(),
+                    gridSettings.getStep(),
+                    gridSettings.getHalfStep(),
+                ),
+            );
+            const adjacent = { x: (centers[0].x + centers[1].x) / 2, y: centers[0].y };
+            for (const draw of ["drawHoverPlacementCell", "drawHoverBattlefieldFootprint"] as const) {
+                const graphics = new Graphics();
+                hover[draw](graphics);
+                for (const center of centers) {
+                    expect(graphics.containsPoint(projectBattlefieldPoint(center, gridSettings))).toBe(true);
+                }
+                expect(graphics.containsPoint(projectBattlefieldPoint(adjacent, gridSettings))).toBe(false);
+                graphics.destroy();
+            }
         }
     });
 
@@ -189,7 +200,11 @@ describe("placement silhouette facing", () => {
         hover.hoverSelectedCellsSwitchToRed = true;
         const invalidGraphics = new Graphics();
         hover.drawHoverPlacementCell(invalidGraphics);
-        expect(invalidGraphics.context.instructions.length).toBeGreaterThan(0);
+        expect(invalidGraphics.context.instructions.at(-1)).toMatchObject({
+            action: "stroke",
+            data: { style: { color: 0xff5555 } },
+        });
+        invalidGraphics.destroy();
     });
 
     test("keeps the exact placement copy fully coloured while a sandbox creature is carried onto the board", () => {

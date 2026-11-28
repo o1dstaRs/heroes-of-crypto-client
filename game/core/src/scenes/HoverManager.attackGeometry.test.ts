@@ -3,7 +3,6 @@ import { GridConstants, GridMath, GridSettings, type HoCMath, type UnitPropertie
 import { Container, Graphics } from "pixi.js";
 
 import { releaseBoardMirror, setBoardMirror } from "../pixi/boardMirror";
-import { placementZonePolygon } from "../pixi/PixiDrawablePlacement";
 import { HoverManager, type ISandboxHoverContext, type RangeTargetEdgeVisual } from "./HoverManager";
 import { CREATURE_ATTACK_FOREGROUND_Z_INDEX } from "./RenderableUnit";
 import { tunedCellFillPolygon } from "./movementAreaVisual";
@@ -94,18 +93,16 @@ describe("melee landing outlines", () => {
                 const cells = GridMath.getFootprintCellsForAnchor(anchor, width, height);
                 expect(hover.hoverBattlefieldFootprintCells).toHaveLength(cells.length);
                 expect(hover.hoverBattlefieldFootprintCells).toEqual(expect.arrayContaining(cells));
-                const polygon =
-                    cells.length === 1
-                        ? tunedCellFillPolygon(anchor, gs, 0.055)
-                        : placementZonePolygon(cells, gs, 0.055);
-                const side = { x: (polygon[0] + polygon[2]) / 2, y: (polygon[1] + polygon[3]) / 2 };
-                const screen = root.toGlobal(side);
-                expect(outline.containsPoint(outline.toLocal(screen))).toBe(true);
-                const center = projectBattlefieldPoint(
-                    GridMath.getPositionForFootprintAnchor(gs, anchor, width, height),
-                    gs,
-                );
-                expect(outline.containsPoint(center)).toBe(false);
+                for (const cell of cells) {
+                    const polygon = tunedCellFillPolygon(cell, gs, 0.055);
+                    const bottom = { x: (polygon[0] + polygon[2]) / 2, y: (polygon[1] + polygon[3]) / 2 };
+                    const left = { x: (polygon[0] + polygon[6]) / 2, y: (polygon[1] + polygon[7]) / 2 };
+                    for (const side of [bottom, left]) {
+                        expect(outline.containsPoint(outline.toLocal(root.toGlobal(side)))).toBe(true);
+                    }
+                    const center = GridMath.getPositionForCell(cell, gs.getMinX(), gs.getStep(), gs.getHalfStep());
+                    expect(outline.containsPoint(projectBattlefieldPoint(center, gs))).toBe(false);
+                }
                 expect(outline.context.instructions.every((instruction) => instruction.action === "stroke")).toBe(true);
                 expect(outline.zIndex).toBeGreaterThan(CREATURE_ATTACK_FOREGROUND_Z_INDEX + 1);
                 expect(outline.visible).toBe(true);

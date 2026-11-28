@@ -67,7 +67,22 @@ struct SandboxStack: Decodable {
     var anchor: Cell { Cell(x: x, y: y) }
 }
 
+struct SandboxRosterPlacement {
+    let anchors: [Cell: Team]
+    let hasStackSlot: Bool
+
+    func hint(for creature: SandboxCreature) -> String? {
+        guard hasStackSlot else { return "Stack limit reached. Remove a stack to place \(creature.name)." }
+        guard let team = anchors.values.first else {
+            let footprint = creature.footprint
+            return "No room for \(creature.name). Clear a \(footprint.width)×\(footprint.height) space in a deployment zone."
+        }
+        return anchors.values.allSatisfy { $0 == team } ? "Only \(team.title) has room for \(creature.name)." : nil
+    }
+}
+
 struct SandboxSetup {
+    static let maximumStacks = 32
     let creatures: [SandboxCreature]
     let sampleArmies: [SandboxStack]
     private let templates: [Int: [String: Any]]
@@ -145,6 +160,19 @@ struct SandboxSetup {
                           ignoring id: Int? = nil, zone: [Cell]? = nil) -> [Cell] {
         let occupied = Set(board.stacks.filter { $0.id != id }.flatMap(\.cells) + board.stones)
         return availableAnchors(for: footprint, team: team, excluding: occupied, zone: zone)
+    }
+
+    func rosterPlacements(for footprint: Footprint, on board: BattleView,
+                          deployment: [Team: SandboxTeamPreview]) -> SandboxRosterPlacement {
+        guard board.stacks.count < Self.maximumStacks else { return SandboxRosterPlacement(anchors: [:], hasStackSlot: false) }
+        let teams = [Team.player, .opponent].filter { team in
+            guard let preview = deployment[team] else { return true }
+            return board.stacks.filter { $0.team == team }.count < preview.capacity
+        }
+        let anchors = Dictionary(uniqueKeysWithValues: teams.flatMap { team in
+            availableAnchors(for: footprint, team: team, on: board, zone: deployment[team]?.cells).map { ($0, team) }
+        })
+        return SandboxRosterPlacement(anchors: anchors, hasStackSlot: !teams.isEmpty)
     }
 
     func arrangeSampleArmies(on board: BattleView, deployment: [Team: SandboxTeamPreview]) throws -> [SandboxStack] {

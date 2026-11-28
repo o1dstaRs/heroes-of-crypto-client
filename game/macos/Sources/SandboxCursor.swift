@@ -18,19 +18,24 @@ final class SandboxCursorController {
     private var board: SandboxCursorMode = .standard
     private var controls: Set<UUID> = []
 
-    fileprivate var mode: SandboxCursorMode { controls.isEmpty ? board : .interactive }
+    fileprivate var mode: SandboxCursorMode {
+        switch board {
+        case .melee, .ranged, .magic: board
+        case .standard, .interactive: controls.isEmpty ? board : .interactive
+        }
+    }
 
     func setBoard(_ next: SandboxCursorMode) {
         let previous = mode
         board = next
-        if mode != previous { surface?.scheduleCursorRefresh() }
+        if mode != previous { surface?.cursorModeChanged() }
     }
 
     func setControl(_ id: UUID, hovering: Bool) {
         let previous = mode
         if hovering { controls.insert(id) }
         else { controls.remove(id) }
-        if mode != previous { surface?.scheduleCursorRefresh() }
+        if mode != previous { surface?.cursorModeChanged() }
     }
 }
 
@@ -63,14 +68,15 @@ struct SandboxCursorHost: NSViewRepresentable {
     let controller: SandboxCursorController
 
     func makeNSView(context: Context) -> Surface {
-        let view = Surface(frame: .zero)
-        view.controller = controller
-        controller.surface = view
-        return view
+        Surface(frame: .zero)
     }
 
     func updateNSView(_ view: Surface, context: Context) {
-        view.scheduleCursorRefresh()
+        guard view.controller !== controller else { return }
+        if view.controller?.surface === view { view.controller?.surface = nil }
+        view.controller = controller
+        controller.surface = view
+        view.cursorModeChanged()
     }
 
     static func dismantleNSView(_ view: Surface, coordinator: ()) {
@@ -83,7 +89,7 @@ struct SandboxCursorHost: NSViewRepresentable {
         weak var controller: SandboxCursorController?
         private var tracking: NSTrackingArea?
         private var installed: NSCursor?
-        private var pendingRefresh = false
+        private var refreshPending = false
 
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
@@ -94,61 +100,79 @@ struct SandboxCursorHost: NSViewRepresentable {
             if let window {
                 center.addObserver(self, selector: #selector(windowBecameKey(_:)),
                                    name: NSWindow.didBecomeKeyNotification, object: window)
-                scheduleCursorRefresh()
+                cursorModeChanged()
             }
         }
 
         @objc private func windowBecameKey(_ notification: Notification) {
-            scheduleCursorRefresh()
+            cursorModeChanged()
         }
 
         override func updateTrackingAreas() {
             super.updateTrackingAreas()
             if tracking == nil {
-                let area = NSTrackingArea(rect: .zero, options: [.cursorUpdate, .mouseMoved, .mouseEnteredAndExited,
-                                                               .activeInKeyWindow, .inVisibleRect],
+                let area = NSTrackingArea(rect: .zero, options: [.cursorUpdate, .mouseMoved, .activeInKeyWindow, .inVisibleRect],
                                           owner: self, userInfo: nil)
                 addTrackingArea(area)
                 tracking = area
             }
-            scheduleCursorRefresh()
         }
 
         override func resetCursorRects() {
             super.resetCursorRects()
-            scheduleCursorRefresh()
+            // AppKit also restores a cursor from these rectangles during layout and hover updates.
+            if let controller, !visibleRect.isEmpty {
+                addCursorRect(visibleRect, cursor: SandboxCursorArtwork.cursor(for: controller.mode))
+            }
+            refreshAfterCursorRects()
         }
 
-        override func cursorUpdate(with event: NSEvent) { scheduleCursorRefresh() }
-        override func mouseEntered(with event: NSEvent) { scheduleCursorRefresh() }
-        override func mouseMoved(with event: NSEvent) { scheduleCursorRefresh() }
-        override func mouseExited(with event: NSEvent) { releaseCursor() }
+        override func cursorUpdate(with event: NSEvent) {
+            if !refreshCursor(at: event.locationInWindow, force: true) { super.cursorUpdate(with: event) }
+        }
 
-        func scheduleCursorRefresh() {
-            guard !pendingRefresh else { return }
-            pendingRefresh = true
-            // AppKit can install its default cursor as part of the same mouse or layout update.
+        override func mouseMoved(with event: NSEvent) {
+            _ = refreshCursor(at: event.locationInWindow)
+        }
+
+        func cursorModeChanged() {
+            guard let window else { return }
+            window.invalidateCursorRects(for: self)
+            _ = refreshCursor(at: window.mouseLocationOutsideOfEventStream, force: true)
+            refreshAfterCursorRects()
+        }
+
+        private func refreshAfterCursorRects() {
+            guard !refreshPending else { return }
+            refreshPending = true
+            // Reapply the requested cursor after AppKit completes a cursor-rectangle reset.
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
-                pendingRefresh = false
-                refreshCursor()
+                refreshPending = false
+                guard let window else { return }
+                _ = refreshCursor(at: window.mouseLocationOutsideOfEventStream, force: true)
             }
         }
 
-        private func refreshCursor() {
-            guard let controller, let window, window.isKeyWindow else { return }
-            let point = window.mouseLocationOutsideOfEventStream
-            guard visibleRect.contains(convert(point, from: nil)) else { return }
-            let content = window.contentView
-            var hit = content?.hitTest(content?.superview?.convert(point, from: nil) ?? point)
+        private func refreshCursor(at point: NSPoint, force: Bool = false) -> Bool {
+            guard let controller, let window, window.isKeyWindow,
+                  visibleRect.contains(convert(point, from: nil)) else { return false }
+            let cursor = isOverEditableText(at: point, in: window) ? NSCursor.iBeam
+                : SandboxCursorArtwork.cursor(for: controller.mode)
+            if force || NSCursor.current !== cursor { cursor.set() }
+            installed = cursor
+            return true
+        }
+
+        private func isOverEditableText(at point: NSPoint, in window: NSWindow) -> Bool {
+            guard let content = window.contentView else { return false }
+            var hit = content.hitTest(content.superview?.convert(point, from: nil) ?? point)
             while let view = hit {
-                if let field = view as? NSTextField, field.isEnabled && field.isEditable { return }
-                if let editor = view as? NSTextView, editor.isEditable { return }
+                if let field = view as? NSTextField, field.isEnabled && field.isEditable { return true }
+                if let editor = view as? NSTextView, editor.isEditable { return true }
                 hit = view.superview
             }
-            let cursor = SandboxCursorArtwork.cursor(for: controller.mode)
-            cursor.set()
-            installed = cursor
+            return false
         }
 
         func releaseCursor() {

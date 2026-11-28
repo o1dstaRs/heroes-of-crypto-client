@@ -4,6 +4,8 @@ struct SandboxPlacementSidebar: View {
     let model: SkirmishModel
     let battle: BattleView
     let compact: Bool
+    let canPlaceRosterCreature: Bool
+    let splitAmount: Binding<Int>
 
     private enum Section: Hashable { case army, board, team(Team) }
     @State private var expanded: Set<Section> = [.army]
@@ -14,12 +16,14 @@ struct SandboxPlacementSidebar: View {
                 section(.army, title: "Army", icon: "army_icon", symbol: "shield") {
                     VStack(spacing: 10) {
                         if let creature = model.pendingCreature {
-                            Text("Place \(creature.name) in either deployment zone.")
-                                .font(BattleResources.display(12))
-                                .foregroundStyle(BattlePalette.gold)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                            if canPlaceRosterCreature {
+                                Text("Place \(creature.name) on an open tile.")
+                                    .font(BattleResources.display(12))
+                                    .foregroundStyle(BattlePalette.gold)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
                         } else if let stack = model.selectedDeploymentStack {
-                            SandboxStackEditor(model: model, stack: stack).id(stack.id)
+                            SandboxStackEditor(model: model, stack: stack, splitAmount: splitAmount).id(stack.id)
                         } else {
                             Text(battle.stacks.isEmpty ? "Choose a creature from the roster." : "Select a stack to edit it.")
                                 .font(BattleResources.display(12))

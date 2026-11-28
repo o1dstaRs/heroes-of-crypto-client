@@ -1,6 +1,6 @@
-import { TeamType } from "@heroesofcrypto/common";
+import type { TeamType } from "@heroesofcrypto/common";
 
-import { IFightCreatureElimination, IFightDeathEntry, IFightStatsSample } from "../../scenes/VisibleState";
+import type { IFightCreatureElimination, IFightDeathEntry, IFightStatsSample } from "../../scenes/VisibleState";
 
 /** Portrait disc on the casualty timeline. The old 10px radius read as a dot on the results chart. */
 export const ELIMINATION_MARKER_RADIUS = 16;
@@ -21,7 +21,7 @@ export interface EliminationMarkerDraft {
     eliminationIndex: number;
 }
 
-export interface LaidOutEliminationMarker extends EliminationMarkerDraft {
+interface EliminationMarkerCenter {
     centerX: number;
     centerY: number;
 }
@@ -112,7 +112,7 @@ export const withUnmarkedEliminations = (
     return copies;
 };
 
-const overlaps = (x: number, y: number, placed: readonly LaidOutEliminationMarker[], minDist: number): boolean => {
+const overlaps = (x: number, y: number, placed: readonly EliminationMarkerCenter[], minDist: number): boolean => {
     const minDistSq = minDist * minDist;
     return placed.some((marker) => {
         const dx = marker.centerX - x;
@@ -129,17 +129,19 @@ const clamp = (value: number, min: number, max: number): number => Math.min(max,
  * Ideal position is the moment on that side's line. Search prefers a horizontal nudge, so time
  * stays readable on the short results chart, and only then steps off the line.
  */
-export const layoutEliminationMarkers = (
-    drafts: readonly EliminationMarkerDraft[],
+export const layoutEliminationMarkers = <
+    Draft extends Pick<EliminationMarkerDraft, "pointX" | "pointY" | "eliminationIndex">,
+>(
+    drafts: readonly Draft[],
     bounds: EliminationPlotBounds,
     radius: number = ELIMINATION_MARKER_RADIUS,
-): LaidOutEliminationMarker[] => {
+): Array<Draft & EliminationMarkerCenter> => {
     const left = Math.min(bounds.left, bounds.right);
     const right = Math.max(bounds.left, bounds.right);
     const top = Math.min(bounds.top, bounds.bottom);
     const bottom = Math.max(bounds.top, bounds.bottom);
     const minDist = radius * 2 + ELIMINATION_MARKER_GAP;
-    const placed: LaidOutEliminationMarker[] = [];
+    const placed: Array<Draft & EliminationMarkerCenter> = [];
     const ordered = [...drafts].sort(
         (a, b) => a.pointX - b.pointX || a.pointY - b.pointY || a.eliminationIndex - b.eliminationIndex,
     );

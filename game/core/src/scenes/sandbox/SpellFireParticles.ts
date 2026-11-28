@@ -1,7 +1,13 @@
 import type { SpellAtmosphereEmitter } from "./SpellAtmosphere";
 import { emitFireAtmosphere } from "./FireSpellAtmosphere";
 import { Container, Graphics, Sprite, Texture } from "pixi.js";
-import { FIRE_SPELL_PLAYBACK_SPEED, FIRE_STRIKE_RELEASE_MS, METEOR_FLIGHT_SCALE } from "../../settings/fireSpellTiming";
+import {
+    FIREBALL_FLIGHT,
+    FIRE_SPELL_PLAYBACK_SPEED,
+    FIRE_STRIKE_FLIGHT,
+    FIRE_STRIKE_RELEASE_MS,
+    METEOR_FLIGHT_SCALE,
+} from "../../settings/fireSpellTiming";
 import { FIRE_RING_LIFE_MS, METEOR_FALL_MS, METEOR_IMPACT_MS, meteorImpactPlan } from "./SpellFireSprites";
 import type { WhirlpoolFootprint as Footprint } from "./WhirlpoolSprites";
 
@@ -31,9 +37,18 @@ export const FIRE_STRIKE_BURN_MS = 1000;
 export const FIRE_STRIKE_EXPLOSION_SPEED = 1.25;
 export const FIRE_STRIKE_EXPLOSION_SCALE = 0.7;
 export const fireStrikeFlightMs = (from: { x: number; y: number }, to: { x: number; y: number }, cell: number) =>
-    Math.max(390, Math.min(780, (Math.hypot(to.x - from.x, to.y - from.y) / cell) * 72));
+    Math.max(
+        FIRE_STRIKE_FLIGHT.min,
+        Math.min(
+            FIRE_STRIKE_FLIGHT.max,
+            (Math.hypot(to.x - from.x, to.y - from.y) / cell) * FIRE_STRIKE_FLIGHT.perCell,
+        ),
+    );
 export const fireballFlightMs = (from: { x: number; y: number }, to: { x: number; y: number }, cell: number) =>
-    Math.max(340, Math.min(780, (Math.hypot(to.x - from.x, to.y - from.y) / cell) * 76));
+    Math.max(
+        FIREBALL_FLIGHT.min,
+        Math.min(FIREBALL_FLIGHT.max, (Math.hypot(to.x - from.x, to.y - from.y) / cell) * FIREBALL_FLIGHT.perCell),
+    );
 export const FIREFORGED_SWORD_BURN_MS = 1450;
 const TAU = Math.PI * 2;
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
@@ -386,9 +401,9 @@ export class SpellFireParticles {
         ground: Footprint,
         source?: () => { x: number; y: number },
         onImpact?: () => void,
+        flight = fireStrikeFlightMs(from, target.center, target.width),
     ): number {
         if (!valid(target) || !valid(ground) || ![from.x, from.y].every(Number.isFinite)) return 0;
-        const flight = fireStrikeFlightMs(from, target.center, target.width);
         this.addFlight("strike", from, target, ground, flight, onImpact, source);
         return (FIRE_STRIKE_RELEASE_MS + flight) / FIRE_SPELL_PLAYBACK_SPEED;
     }
@@ -397,9 +412,9 @@ export class SpellFireParticles {
         target: Footprint,
         ground: Footprint,
         onImpact?: () => void,
+        flight = fireballFlightMs(from, target.center, target.width),
     ): number {
         if (!valid(target) || !valid(ground) || ![from.x, from.y].every(Number.isFinite)) return 0;
-        const flight = fireballFlightMs(from, target.center, target.width);
         this.addFlight("fireball", from, target, ground, flight, onImpact);
         return flight / FIRE_SPELL_PLAYBACK_SPEED;
     }

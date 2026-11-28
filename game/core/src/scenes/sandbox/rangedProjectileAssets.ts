@@ -1,5 +1,11 @@
 import type { ImageKey } from "../../generated/image_imports";
 
+export const RANGED_FLIGHT_SPEED = 64;
+export const ORC_AXE_FLIGHT_SPEED = 52.2;
+export const CHAKRAM_FLIGHT_SPEED = 42;
+export const ARBALESTER_BOLT_SPEED_MULTIPLIER = 1.2;
+export const CANNON_PIERCING_FLIGHT_MULTIPLIER = 1.2;
+
 export const RANGED_PROJECTILE_TEXTURE_KEYS = {
     bolt: "armor_piercing_bolt",
     arbalester: "arbalester_cyan_bolt",

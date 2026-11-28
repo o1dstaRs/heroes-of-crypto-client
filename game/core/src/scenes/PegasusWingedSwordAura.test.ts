@@ -116,14 +116,19 @@ test("destroyed shells recreate the complete effect and floor teardown releases 
 });
 
 test("painted lower edge contracts without changing the upper edge, width or footprint", () => {
+    const cell = gs.getCellSize();
     for (const range of [1, 2, 4])
         for (const facing of [-1, 1] as const) {
-            const base = griffinTornadoShape(footprint, range, gs.getCellSize(), facing);
-            const shape = pegasusAuraShape(footprint, range, gs.getCellSize(), facing);
+            const base = griffinTornadoShape(footprint, range, cell, facing);
+            const shape = pegasusAuraShape(footprint, range, cell, facing);
+            const depthBeforeCompression = (range + footprint.height / 2) * cell * 1.25;
+            const offsetBeforeCompression = -0.37 * cell;
             expect(shape.rx).toBe(base.rx);
-            expect(shape.offsetY + shape.ry).toBeCloseTo(base.offsetY + base.ry);
+            expect(shape.offsetY + shape.ry).toBeCloseTo(offsetBeforeCompression + depthBeforeCompression);
             expect(shape.offsetY - shape.ry).toBeCloseTo(
-                base.offsetY - base.ry + 2 * base.ry * (1 - PEGASUS_ART_DEPTH_SCALE),
+                offsetBeforeCompression -
+                    depthBeforeCompression +
+                    2 * depthBeforeCompression * (1 - PEGASUS_ART_DEPTH_SCALE),
             );
             expect(shape.innerX).toBe(base.innerX);
             expect(shape.innerY).toBe(base.innerY);

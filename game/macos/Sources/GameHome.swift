@@ -161,7 +161,9 @@ private struct GameModeButton: View {
     var premium = false
     let action: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hovered = false
+    @State private var sweepTrigger = false
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -174,13 +176,14 @@ private struct GameModeButton: View {
                             .frame(width: titleSize * 0.92, height: titleSize * 0.92)
                             .accessibilityHidden(true)
                     }
-                    Text(title)
-                        .font(BattleResources.display(titleSize))
-                        .foregroundStyle(titleColor)
+                    titleLabel
                 }
                 Text(detail)
                     .font(.system(size: 13))
                     .foregroundStyle(BattlePalette.sidebarTitle)
+                    .opacity(hovered ? 1 : 0)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: hovered)
+                    .accessibilityHidden(true)
             }
             .multilineTextAlignment(.trailing)
             .padding(.vertical, 10)
@@ -190,10 +193,44 @@ private struct GameModeButton: View {
         }
         .buttonStyle(.plain)
         .focused($focused)
-        .onHover { hovered = $0 }
+        .onHover { inside in
+            hovered = inside
+            if inside { sweepTrigger.toggle() }
+        }
         .modifier(SandboxCursorTarget(hovering: hovered))
         .accessibilityLabel(title)
         .accessibilityHint(detail)
+    }
+
+    private var titleLabel: some View {
+        let label = Text(title).font(BattleResources.display(titleSize))
+        return label.foregroundStyle(titleColor)
+            .overlay {
+                if !reduceMotion {
+                    GeometryReader { bounds in
+                        let width = bounds.size.width
+                        let bandWidth = min(width * 0.55, titleSize * 2.4)
+                        LinearGradient(stops: [
+                            .init(color: .clear, location: 0),
+                            .init(color: BattlePalette.color(0xffcd86).opacity(0.35), location: 0.32),
+                            .init(color: BattlePalette.color(0xfff5dc), location: 0.51),
+                            .init(color: BattlePalette.color(0xffcd86).opacity(0.40), location: 0.65),
+                            .init(color: .clear, location: 1),
+                        ], startPoint: .bottomLeading, endPoint: .topTrailing)
+                        .frame(width: bandWidth)
+                        .keyframeAnimator(initialValue: CGFloat(1), trigger: sweepTrigger) { band, progress in
+                            band.offset(x: (width + bandWidth) * progress - bandWidth)
+                        } keyframes: { _ in
+                            MoveKeyframe(0)
+                            LinearKeyframe(1, duration: 0.82)
+                        }
+                    }
+                    .mask { label }
+                    .opacity(hovered ? 1 : 0)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
+            }
     }
 
     private var titleColor: Color {

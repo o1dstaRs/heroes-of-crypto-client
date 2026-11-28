@@ -1,8 +1,10 @@
 import { BufferImageSource, GlProgram, Shader } from "pixi.js";
 
-/** One owned 32³ periodic density field, shared by all billows and debris. */
-export function createChargeNoise(): BufferImageSource {
-    const size = 32;
+export const CHARGE_NOISE_SIZE = 32;
+
+/** One 32³ periodic density field, shared by all billows and debris. */
+export function chargeNoiseBytes(): Uint8Array {
+    const size = CHARGE_NOISE_SIZE;
     const data = new Uint8Array(size ** 3 * 4);
     let seed = 912781;
     for (let i = 0; i < data.length; i += 4) {
@@ -10,8 +12,13 @@ export function createChargeNoise(): BufferImageSource {
         data[i] = data[i + 1] = data[i + 2] = seed >>> 24;
         data[i + 3] = 255;
     }
+    return data;
+}
+
+export function createChargeNoise(): BufferImageSource {
+    const size = CHARGE_NOISE_SIZE;
     return new BufferImageSource({
-        resource: data,
+        resource: chargeNoiseBytes(),
         width: size,
         height: size,
         depth: size,

@@ -2,6 +2,7 @@ import { writeFileSync } from "node:fs";
 import { BufferImageSource, Container, DOMAdapter, Texture } from "../../core/node_modules/pixi.js/lib/index.mjs";
 
 import { RenderableUnit } from "../../core/src/scenes/RenderableUnit";
+import { MELEE_EXCHANGE_MIN_HOLD_MS } from "../../core/src/scenes/sandbox/combat_exchange";
 import { UNIT_ID_TO_NAME } from "../../core/src/ui/unit_ui_constants";
 import { ToFactionName } from "../../heroes-of-crypto-common/src/factions/faction_type";
 import { PBTypes } from "../../heroes-of-crypto-common/src/generated/protobuf/v1/types";
@@ -22,7 +23,6 @@ const fakeTexture = new Texture({
 const { abilityFactory, effectFactory } = createCombatFactories();
 const grid = simulationGridSettings();
 const world = new Container();
-type OneShot = { frames: unknown[]; frameDurationsMs?: number[]; durationPerFrame: number };
 const states = [
     "attack",
     "attack_up",
@@ -34,7 +34,9 @@ const states = [
     "hit",
     "death",
 ];
-const result: Record<string, Record<string, number[]>> = {};
+const holds: Record<string, Record<string, readonly number[]>> = {};
+const lethalMeleeHolds: Record<string, Record<string, number>> = {};
+const meleeMinimumHolds: Record<string, number> = {};
 try {
     for (const id of allCreatureIds) {
         const name = UNIT_ID_TO_NAME[id];
@@ -53,18 +55,24 @@ try {
         const unit = RenderableUnit.fromBase(base, () => fakeTexture);
         unit.setPosition(0, 4 * grid.getCellSize());
         unit.ensureVisual(world, grid);
-        const clips: Record<string, number[]> = {};
+        const clips: Record<string, readonly number[]> = {};
+        const lethal: Record<string, number> = {};
         for (const state of states) {
             unit.returnToIdleAnimation();
             if (!unit.playOneShotAnimation(state, undefined, true)) continue;
-            const shot = (unit as unknown as { oneShotAnim?: OneShot }).oneShotAnim;
-            if (!shot) continue;
-            const durations = shot.frames.map((_, i) => shot.frameDurationsMs?.[i] ?? shot.durationPerFrame);
-            if (durations.length && durations.every((duration) => Number.isFinite(duration) && duration > 0)) {
-                clips[state] = durations;
+            const playback = unit.getAnimationAtlasPlayback("action");
+            if (!playback?.holdsMs.length || !playback.holdsMs.every((hold) => Number.isFinite(hold) && hold > 0))
+                continue;
+            clips[state] = playback.holdsMs;
+            if (state.startsWith("melee_attack")) {
+                unit.hastenLethalMeleeRecovery();
+                const recovery = unit.getAnimationAtlasPlayback("action");
+                if (recovery) lethal[state] = recovery.holdsMs.reduce((sum, hold) => sum + hold, 0);
             }
         }
-        result[name] = clips;
+        holds[name] = clips;
+        lethalMeleeHolds[name] = lethal;
+        if (level > 2) meleeMinimumHolds[name] = MELEE_EXCHANGE_MIN_HOLD_MS;
         unit.destroyVisuals();
     }
 } finally {
@@ -72,7 +80,7 @@ try {
     fakeTexture.destroy(true);
     DOMAdapter.set(adapter);
 }
-if (Object.values(result).filter((clips) => Object.keys(clips).length > 0).length < 40) {
+if (Object.values(holds).filter((clips) => Object.keys(clips).length > 0).length < 40) {
     throw new Error("Could not export the web creature timing catalogue.");
 }
-writeFileSync(output, JSON.stringify(result));
+writeFileSync(output, JSON.stringify({ holds, lethalMeleeHolds, meleeMinimumHolds }));

@@ -11,6 +11,7 @@ import { usePixiManager } from "../../pixi/PixiGameManager"; // adjust the path 
 import type { SceneEntry } from "../../pixi/PixiScene"; // adjust the path if needed
 
 import { getSceneLink } from "../../utils/reactUtils";
+import { useGameCursor } from "../cursor/useGameCursor";
 import { ScreenBloodOverlay } from "../ScreenBloodOverlay";
 import { useGameLayout } from "../mobile/GameViewport";
 
@@ -30,6 +31,7 @@ const noSelectStyle: React.CSSProperties = {
 
 const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass } }) => {
     const manager = usePixiManager();
+    useGameCursor();
     const { touch } = useGameLayout();
     const initializedRef = useRef(false);
 
@@ -142,7 +144,13 @@ const GameScreen: React.FC<SceneComponentProps> = ({ entry: { name, SceneClass }
                 <canvas ref={glCanvasRef} style={{ position: "absolute", inset: 0, ...noSelectStyle }} />
                 <canvas
                     ref={debugCanvasRef}
-                    style={{ position: "absolute", inset: 0, pointerEvents: "auto", ...noSelectStyle }}
+                    style={{
+                        position: "absolute",
+                        inset: 0,
+                        pointerEvents: "auto",
+                        cursor: "var(--hoc-targeting-cursor, inherit)",
+                        ...noSelectStyle,
+                    }}
                 />
                 <ScreenBloodOverlay />
             </main>

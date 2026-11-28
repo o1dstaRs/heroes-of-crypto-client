@@ -21,8 +21,9 @@ const store = new Map<string, string>();
 };
 
 const AMETHYST = ARMY_COLOR_PRESETS[0];
-const GREEN = "#00d200";
-const RED = "#ff0000";
+const GREEN = "#176238";
+const RED = "#7b1928";
+const AMETHYST_CLOTH = `#${AMETHYST.gradient[0].toString(16)}`;
 
 afterEach(() => {
     clearPersonalArmyTint();
@@ -41,7 +42,7 @@ describe("the chrome's team colour follows the player's own choice", () => {
         writePlayerArmyColorId(AMETHYST.id);
         setPersonalArmyTint(TeamVals.LEFT, true);
 
-        expect(getTeamFlagBackground(TeamVals.LEFT)).toBe(`#${AMETHYST.color.toString(16)}`);
+        expect(getTeamFlagBackground(TeamVals.LEFT)).toBe(AMETHYST_CLOTH);
         expect(getTeamFlagBackground(TeamVals.RIGHT)).toBe(RED);
     });
 
@@ -49,7 +50,7 @@ describe("the chrome's team colour follows the player's own choice", () => {
         writePlayerArmyColorId(AMETHYST.id);
         setPersonalArmyTint(TeamVals.RIGHT, true);
 
-        expect(getTeamFlagBackground(TeamVals.RIGHT)).toBe(`#${AMETHYST.color.toString(16)}`);
+        expect(getTeamFlagBackground(TeamVals.RIGHT)).toBe(AMETHYST_CLOTH);
         // The queue has to stay readable: whoever is opposite this player reads red, LEFT included.
         expect(getTeamFlagBackground(TeamVals.LEFT)).toBe(RED);
     });

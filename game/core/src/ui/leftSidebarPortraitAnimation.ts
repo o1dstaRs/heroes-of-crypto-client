@@ -13,6 +13,9 @@ export interface LeftSidebarPortraitAnimation {
     pages?: readonly SidebarPortraitPage[];
 }
 
+export const leftSidebarPortraitPlayback = (name: string): "loop" | "ping-pong" =>
+    ["Arbalester", "Squire", "Blacksmith"].includes(name) ? "loop" : "ping-pong";
+
 /** The first cel is the loading poster too, so playback never replaces a different pose. */
 export const sidebarPortraitFirstFrame = (animation: Readonly<LeftSidebarPortraitAnimation>) => {
     const page = animation.pages?.[0];

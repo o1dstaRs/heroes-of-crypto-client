@@ -101,6 +101,8 @@ const fixture = (ability: "Through Shot" | "Area Throw", enemyCells: XY[], barre
         currentActiveUnit: shooter,
         sc_sceneSettings: { getGridSettings: () => settings },
         sc_hoverInfoArr: [] as string[],
+        isPlayingActionAnimation: () => false,
+        isBoardInputLockedByAI: () => false,
         isAttackBlockedByAggr: () => undefined,
         clearAggrBlockedActionHint: () => {},
         shouldDeferActionToAuthoritativeReplay: () => true,
@@ -137,6 +139,7 @@ describe("free siege targeting", () => {
 
         expect(f.scene.updateFreeThroughShotHover()).toBe(true);
 
+        expect(f.scene.getTargetingCursor()).toBe("ranged");
         expect(f.scene.sc_hoverInfoArr).toEqual([]);
         expect(f.drawn).toEqual(["arrowhead", "arrow to socket"]);
         const ids = f.enemies.map((enemy) => enemy.getId());
@@ -176,6 +179,7 @@ describe("free siege targeting", () => {
 
         expect(f.scene.updateAreaThrowHover()).toBe(true);
 
+        expect(f.scene.getTargetingCursor()).toBe("ranged");
         expect(f.scene.sc_hoverInfoArr).toEqual([]);
         expect(f.drawn).toEqual(["blast area", "arrowhead", "arrow to socket"]);
         const inBlast = f.enemies.slice(0, 2);

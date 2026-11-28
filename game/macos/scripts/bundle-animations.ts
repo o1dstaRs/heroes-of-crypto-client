@@ -34,6 +34,7 @@ import {
     MAGIC_DRAGON_LAB_FLIGHT_ANCHOR_X,
     MAGIC_DRAGON_LAB_FLIGHT_CANVAS_SCALE,
 } from "../../core/src/scenes/MagicDragonLabFlight";
+import { PEGASUS_FLIGHT_ANCHOR_X, PEGASUS_FLIGHT_SCALE } from "../../core/src/scenes/PegasusFlight";
 import {
     BATTLEFIELD_TOP_ROW_CREATURE_SCALE,
     EFREET_FIGURE_SCALE,
@@ -119,6 +120,23 @@ function registeredAtlasSize(name: string): { width: number; height: number } | 
 
 type ClipRegistration = { x: number; y: number; anchorX?: number; foot?: number };
 
+function hasRegistration({ x, y, foot, anchorX }: ClipRegistration): boolean {
+    return x !== 1 || y !== 1 || foot !== undefined || anchorX !== undefined;
+}
+
+function bowRelease(creature: string, action: string, meta?: IAtlasAnimationMeta) {
+    if ((creature !== "Dryad" && creature !== "Elf") || !action.startsWith("attack") || !meta) return undefined;
+    const origin = meta.projectileOrigin as { x: number; y: number } | undefined;
+    if (!origin || typeof meta.projectileLength !== "number") return undefined;
+    // These coordinates are authored against the whole cel, before atlas packing or downsampling.
+    return {
+        x: origin.x / meta.frameWidth,
+        y: origin.y / meta.frameHeight,
+        aspect: meta.frameWidth / meta.frameHeight,
+        length: meta.projectileLength / meta.frameWidth,
+    };
+}
+
 // These idles select their painted cels through a pager or shader rather than the main body sprite.
 const separateIdleCels = new Set(["Abomination", "Arbalester", "Leprechaun", "Pikeman"]);
 
@@ -142,6 +160,7 @@ const walkRegistration: Record<string, ClipRegistration> = {
         y: MAGIC_DRAGON_LAB_FLIGHT_CANVAS_SCALE,
         anchorX: MAGIC_DRAGON_LAB_FLIGHT_ANCHOR_X,
     },
+    Pegasus: { x: PEGASUS_FLIGHT_SCALE, y: PEGASUS_FLIGHT_SCALE, anchorX: PEGASUS_FLIGHT_ANCHOR_X },
     Squire: { x: SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER, y: SQUIRE_WALK_VISIBLE_SCALE_MULTIPLIER },
     Thunderbird: {
         x: THUNDERBIRD_LAB_FLIGHT_CANVAS_SCALE,
@@ -310,6 +329,7 @@ export function bundleAnimations(output: string, creatures: readonly string[]): 
         }),
     );
     for (const creature of creatures) {
+        const idlePauseMs = atlasIndex[`${creature} Lab`]?.idle?.cycleEndPauseMs;
         const animations: Record<string, object> = {};
         const reference = references.get(creature);
         const webSheets = approvedAnimationAssetKeysForUnit(creature).flatMap((imageKey) => {
@@ -345,31 +365,52 @@ export function bundleAnimations(output: string, creatures: readonly string[]): 
                 }
                 const timeline =
                     action === "idle" && board.frames.length > 1
-                        ? idleTimeline(
-                              creature,
-                              board.holdsMs,
-                              approvedAtlases[`${creature} Lab`]?.idle?.cycleEndPauseMs,
-                          )
+                        ? idleTimeline(creature, board.holdsMs, idlePauseMs)
                         : { durations: board.holdsMs };
                 const footAnchor = board.footAnchorY;
                 const idleFraming = creature === "Wolf" ? undefined : board.idleFraming;
+                const canvas = idleFraming ?? board.actionScale;
                 const profile = framing[creature];
-                const baseHeight = profile.heightCells * (idleFraming?.square ? profile.squareScale : 1);
-                const idleRegistration = idleFraming && {
-                    x: idleFraming.xCells / (baseHeight * profile.scaleX * profile.widthScale),
-                    y: idleFraming.yCells / (baseHeight * profile.scaleY),
-                    anchorX: idleFraming.anchorX,
-                    foot:
-                        creature === "Efreet"
-                            ? efreetFoot(idleFraming.foot, idleFraming.frameHeight)
-                            : idleFraming.foot,
+                const baseHeight = profile.heightCells * (canvas?.square ? profile.squareScale : 1);
+                const canvasRegistration = canvas && {
+                    x: canvas.xCells / (baseHeight * profile.scaleX * profile.widthScale),
+                    y: canvas.yCells / (baseHeight * profile.scaleY),
                 };
+                const idleRegistration = idleFraming &&
+                    canvasRegistration && {
+                        ...canvasRegistration,
+                        anchorX: idleFraming.anchorX,
+                        foot:
+                            creature === "Efreet"
+                                ? efreetFoot(idleFraming.foot, idleFraming.frameHeight)
+                                : idleFraming.foot,
+                    };
                 const sourceMeta = board.frames
                     .map(
                         ({ resource }) =>
                             atlasMetadata.get(resource.replace(/_atlas(?:_half|_quarter)?\.webp$/, ""))?.meta,
                     )
                     .find((meta) => meta?.frameCount === board.frames.length);
+                const authoredRegistration = board.frames.map(
+                    (source, frame) =>
+                        idleRegistration ??
+                        actionRegistration(
+                            creature,
+                            action,
+                            frame,
+                            footAnchor,
+                            files.get(source.resource)!.height / source.rows / (source.trim?.height ?? 1),
+                        ),
+                );
+                // Existing sole and per-frame registrations take precedence over a clip-wide scale.
+                const registration =
+                    board.actionScale &&
+                    canvasRegistration &&
+                    creature !== "Wolf" &&
+                    creature !== "Arbalester" &&
+                    !authoredRegistration.some(hasRegistration)
+                        ? board.frames.map(() => canvasRegistration)
+                        : authoredRegistration;
                 animations[action] = {
                     frameSources: board.frames,
                     frameCount: board.frames.length,
@@ -380,18 +421,9 @@ export function bundleAnimations(output: string, creatures: readonly string[]): 
                     walk: board.walk,
                     impactFrame: sourceMeta?.impactFrameIndex,
                     releaseFrame: sourceMeta?.releaseFrameIndex,
+                    bowRelease: bowRelease(creature, action, sourceMeta),
                     browserIdleFraming: idleRegistration ? true : undefined,
-                    registration: board.frames.map(
-                        (source, frame) =>
-                            idleRegistration ??
-                            actionRegistration(
-                                creature,
-                                action,
-                                frame,
-                                footAnchor,
-                                files.get(source.resource)!.height / source.rows / (source.trim?.height ?? 1),
-                            ),
-                    ),
+                    registration,
                 };
                 continue;
             }
@@ -435,7 +467,11 @@ export function bundleAnimations(output: string, creatures: readonly string[]): 
                     ? meta.frameDurationsMs?.map((duration) => duration / 1.3)
                     : meta.frameDurationsMs;
             const timeline = usesSeparateIdle
-                ? idleTimeline(creature, durations ?? Array(meta.frameCount).fill(meta.frameDurationSec * 1000))
+                ? idleTimeline(
+                      creature,
+                      durations ?? Array(meta.frameCount).fill(meta.frameDurationSec * 1000),
+                      idlePauseMs,
+                  )
                 : { durations };
             animations[action] = {
                 resource,
@@ -448,11 +484,8 @@ export function bundleAnimations(output: string, creatures: readonly string[]): 
                 footAnchor,
                 impactFrame: typeof meta.impactFrameIndex === "number" ? meta.impactFrameIndex : undefined,
                 releaseFrame: typeof meta.releaseFrameIndex === "number" ? meta.releaseFrameIndex : undefined,
-                registration: registration.some(
-                    ({ x, y, foot, anchorX }) => x !== 1 || y !== 1 || foot !== undefined || anchorX !== undefined,
-                )
-                    ? registration
-                    : undefined,
+                bowRelease: bowRelease(creature, action, meta),
+                registration: registration.some(hasRegistration) ? registration : undefined,
                 pages: pages?.map(({ imageKey, firstFrame, frameCount, cols, rows }) => ({
                     resource: `${imageKey}.webp`,
                     firstFrame,

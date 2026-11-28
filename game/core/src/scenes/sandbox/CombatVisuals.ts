@@ -1,4 +1,16 @@
 import {
+    ABLAZE_EMBERS_PER_SECOND,
+    ABLAZE_GLOW_ALPHA,
+    BURN_SMOKE_LIFE,
+    BURN_SMOKE_TINTS,
+    drawFireBurnParticle,
+    FIRE_GLOW_STOPS,
+    FIRE_TINTS,
+    fireWallCrossingParticles,
+    fireAfterburnParticle,
+    type FireBurnParticle as IFireBurnParticle,
+} from "./FireWallCrossingEffect";
+import {
     FlagOverlayLayout,
     type FlagOverlayAttach,
     type FlagNumber,
@@ -239,23 +251,6 @@ interface IFireParticle {
 interface IFireSweep {
     container: Container;
     particles: IFireParticle[];
-}
-
-/** One ember, smoke puff or core flash of a fire-damage burst (see spawnFireBurn). */
-interface IFireBurnParticle {
-    sprite: Sprite;
-    age: number; // seconds; negative while the particle is still waiting to be born
-    life: number;
-    x: number;
-    y: number;
-    riseY: number;
-    driftX: number;
-    startScale: number;
-    endScale: number;
-    peakAlpha: number;
-    fadeInFraction: number;
-    rot: number;
-    spin: number;
 }
 
 interface IFireBurn {
@@ -506,7 +501,6 @@ const FIRE_SWEEP_MS = 120; // time for the wave to rush the WHOLE line (fast, so
 const FIRE_PARTICLE_LIFE = 0.55; // seconds each ember lives
 const FIRE_RISE = 30; // world px an ember floats up over its life
 const FIRE_Z = 1900; // above units (~1000), below the damage numbers (2000) / death shatter (4500)
-const FIRE_TINTS = [0xff3a0a, 0xff6a14, 0xff9a2e, 0xffc861]; // ember red → flame orange → spark gold
 // Tuning for the fire-DAMAGE burst (spawnFireBurn): the flare that erupts on a unit taking fire damage
 // — Fire Shield reflect, the units a dragon's breath burns through, a Fireforged Sword strike. Embers
 // snap in with the damage number and burn out fast; the smoke curls up behind them and lingers, which
@@ -514,9 +508,7 @@ const FIRE_TINTS = [0xff3a0a, 0xff6a14, 0xff9a2e, 0xffc861]; // ember red → fl
 const BURN_FLAME_COUNT = 13;
 const BURN_SMOKE_COUNT = 6;
 const BURN_FLAME_LIFE = 0.46; // seconds an ember burns
-const BURN_SMOKE_LIFE = 0.92; // seconds a smoke puff drifts before it dissipates
 const BURN_FLASH_LIFE = 0.2; // the bright core pop at the moment of the burn
-const BURN_SMOKE_TINTS = [0x4a423c, 0x39322d, 0x5c5148]; // warm soot greys, tinted off the ember texture
 
 const POISON_PARTICLE_LIFE = 0.95; // seconds each toxic puff lingers (longer than an ember — gas hangs)
 const POISON_RISE = 44; // world px a puff floats up over its life (gas rises further than embers)
@@ -3167,10 +3159,8 @@ export class CombatVisuals {
             return Texture.WHITE;
         }
         const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-        grad.addColorStop(0.0, "rgba(255,255,255,1)");
-        grad.addColorStop(0.3, "rgba(255,238,170,0.9)");
-        grad.addColorStop(0.65, "rgba(255,135,40,0.45)");
-        grad.addColorStop(1.0, "rgba(255,70,0,0)");
+        for (const [offset, red, green, blue, alpha] of FIRE_GLOW_STOPS)
+            grad.addColorStop(offset, `rgba(${red},${green},${blue},${alpha})`);
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, size, size);
         this.fireTexture = Texture.from(canvas);
@@ -4739,112 +4729,15 @@ export class CombatVisuals {
     ): void {
         const container = new Container();
         this.attachEffect(container, FIRE_Z);
-        const tex = this.getFireTexture();
-        const texW = tex.width || 64;
-        const size = Math.max(1, cellSize);
-        const wait = Math.max(0, delaySec);
-        const particles: IFireBurnParticle[] = [];
-
-        const push = (sprite: Sprite, particle: Omit<IFireBurnParticle, "sprite">): void => {
-            sprite.anchor.set(0.5);
-            sprite.scale.set(0.001);
-            sprite.alpha = 0;
-            sprite.visible = false;
-            container.addChild(sprite);
-            particles.push({ sprite, ...particle });
-        };
-        const spread = flying ? 0.34 : 0.7; // how wide the sheet is, in cells
-        const lift = flying ? 2.3 : 1.15; // how high the flames leap, in cells
-
-        // 1. The sheet catching on the body: one hot bloom, wide and low for a walker, tall for a flyer.
-        const flash = new Sprite(tex);
-        flash.blendMode = "add";
-        flash.tint = 0xfff0c0;
-        push(flash, {
-            age: -wait,
-            life: WALL_CROSS_FLASH_LIFE,
-            x: center.x,
-            y: center.y - size * (flying ? 0.45 : 0.05),
-            riseY: size * (flying ? 0.7 : 0.2),
-            driftX: 0,
-            startScale: (size * 0.9) / texW,
-            endScale: (size * (flying ? 2.0 : 2.6)) / texW,
-            peakAlpha: 0.9,
-            fadeInFraction: 0.1,
-            rot: 0,
-            spin: 0,
-        });
-
-        // 2. Flame tongues, erupting in a ripple from the middle of the cell outwards and kept coming for
-        //    about as long as the body takes to cross, so the sheet burns under it rather than puffing once.
-        for (let i = 0; i < WALL_CROSS_FLAME_COUNT; i++) {
-            const rand = Math.random();
-            const across = (Math.random() - 0.5) * 2; // -1..1 across the cell
-            const sprite = new Sprite(tex);
-            sprite.blendMode = "add";
-            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
-            push(sprite, {
-                age: -wait - Math.abs(across) * 0.06 - Math.random() * WALL_CROSS_RIPPLE_S,
-                life: WALL_CROSS_FLAME_LIFE * (0.7 + 0.6 * rand),
-                x: center.x + across * size * spread,
-                y: center.y + size * 0.22 - Math.random() * size * 0.12,
-                riseY: size * lift * (0.55 + 0.6 * rand) * (1 - Math.abs(across) * 0.35),
-                driftX: (Math.random() - 0.5) * size * 0.22 + direction.x * size * (flying ? 0.05 : 0.28),
-                startScale: (size * (0.45 + 0.45 * rand)) / texW,
-                endScale: (size * (0.14 + 0.14 * rand)) / texW,
-                peakAlpha: 1,
-                fadeInFraction: 0.07,
-                rot: Math.random() * Math.PI * 2,
-                spin: (Math.random() - 0.5) * 5,
-            });
-        }
-
-        // 3. Sparks: small, bright and thrown far — on and out for a walker kicking through the embers,
-        //    straight up for a flyer.
-        for (let i = 0; i < WALL_CROSS_SPARK_COUNT; i++) {
-            const rand = Math.random();
-            const angle = Math.random() * Math.PI * 2;
-            const throwX = flying ? Math.cos(angle) * 0.4 : direction.x * (0.6 + rand * 0.7) + Math.cos(angle) * 0.35;
-            const sprite = new Sprite(tex);
-            sprite.blendMode = "add";
-            sprite.tint = rand > 0.5 ? 0xfff2c4 : 0xffc861;
-            push(sprite, {
-                age: -wait - Math.random() * WALL_CROSS_RIPPLE_S,
-                life: WALL_CROSS_SPARK_LIFE * (0.6 + 0.7 * rand),
-                x: center.x + (Math.random() - 0.5) * size * 0.35,
-                y: center.y + size * 0.12,
-                riseY: size * (flying ? 1.6 + rand * 1.4 : 0.7 + rand),
-                driftX: throwX * size,
-                startScale: (size * (0.12 + 0.1 * rand)) / texW,
-                endScale: (size * 0.03) / texW,
-                peakAlpha: 1,
-                fadeInFraction: 0.05,
-                rot: 0,
-                spin: 0,
-            });
-        }
-
-        // 4. Soot, born as the flames gutter, drifting up and lingering over the crossed cell.
-        for (let i = 0; i < WALL_CROSS_SMOKE_COUNT; i++) {
-            const rand = Math.random();
-            const sprite = new Sprite(tex);
-            sprite.tint = BURN_SMOKE_TINTS[i % BURN_SMOKE_TINTS.length];
-            push(sprite, {
-                age: -wait - (0.12 + Math.random() * 0.25),
-                life: WALL_CROSS_SMOKE_LIFE * (0.8 + 0.4 * rand),
-                x: center.x + (Math.random() - 0.5) * size * 0.5,
-                y: center.y + (Math.random() - 0.5) * size * 0.2,
-                riseY: size * (0.8 + 0.5 * rand),
-                driftX: (Math.random() - 0.5) * size * 0.5 + direction.x * size * 0.2,
-                startScale: (size * (0.26 + 0.16 * rand)) / texW,
-                endScale: (size * (0.7 + 0.4 * rand)) / texW,
-                peakAlpha: 0.4,
-                fadeInFraction: 0.25,
-                rot: Math.random() * Math.PI * 2,
-                spin: (Math.random() - 0.5) * 1.6,
-            });
-        }
-
+        const particles = fireWallCrossingParticles(
+            this.getFireTexture(),
+            center,
+            cellSize,
+            delaySec,
+            flying,
+            direction,
+        );
+        for (const particle of particles) container.addChild(particle.sprite);
         this.fireBurns.push({ container, particles });
     }
     public igniteUnit(unit: Unit, startDelaySec: number, durationSec: number, cellSize: number): void {
@@ -4951,37 +4844,9 @@ export class CombatVisuals {
                     while (ablaze.emitDebt >= 1) {
                         ablaze.emitDebt -= 1;
                         ablaze.emitted += 1;
-                        const rand = Math.random();
-                        const soot = ablaze.emitted % ABLAZE_SOOT_EVERY === 0;
-                        const sprite = new Sprite(tex);
-                        sprite.anchor.set(0.5);
-                        sprite.scale.set(0.001);
-                        sprite.alpha = 0;
-                        sprite.visible = false;
-                        if (soot) {
-                            sprite.tint = BURN_SMOKE_TINTS[ablaze.emitted % BURN_SMOKE_TINTS.length];
-                        } else {
-                            sprite.blendMode = "add";
-                            sprite.tint = FIRE_TINTS[Math.floor(Math.random() * FIRE_TINTS.length)];
-                        }
-                        ablaze.container.addChild(sprite);
-                        ablaze.particles.push({
-                            sprite,
-                            age: 0,
-                            life: soot ? BURN_SMOKE_LIFE * 0.8 : ABLAZE_EMBER_LIFE * (0.7 + 0.6 * rand),
-                            // Born low on the body and a little behind it, so the trail reads as flames
-                            // licking off the back of something moving.
-                            x: center.x + (Math.random() - 0.5) * size * 0.65,
-                            y: center.y + (Math.random() - 0.15) * size * 0.6,
-                            riseY: size * (soot ? 0.8 : 0.4 + 0.5 * rand),
-                            driftX: (Math.random() - 0.5) * size * 0.3,
-                            startScale: (size * (soot ? 0.28 : 0.26 + 0.24 * rand)) / texW,
-                            endScale: (size * (soot ? 0.65 : 0.05)) / texW,
-                            peakAlpha: soot ? 0.32 : 0.95,
-                            fadeInFraction: soot ? 0.3 : 0.1,
-                            rot: Math.random() * Math.PI * 2,
-                            spin: (Math.random() - 0.5) * (soot ? 1.5 : 5),
-                        });
+                        const particle = fireAfterburnParticle(tex, center, size, ablaze.emitted);
+                        ablaze.container.addChild(particle.sprite);
+                        ablaze.particles.push(particle);
                     }
                 }
             }
@@ -5020,20 +4885,8 @@ export class CombatVisuals {
                 continue;
             }
             anyPending = true;
-            const t = p.age / p.life;
-            const e = easeOutCubic(t);
-            p.sprite.visible = true;
-            p.sprite.position.set(p.x + p.driftX * e, p.y + p.riseY * e);
-            const scale = p.startScale + (p.endScale - p.startScale) * e;
-            // Square on screen, not square in world units — see attachEffect.
-            p.sprite.scale.set(scale, scale * this.boardStretchCache);
             p.rot += p.spin * dt;
-            p.sprite.rotation = p.rot;
-            const alpha =
-                t < p.fadeInFraction
-                    ? (t / p.fadeInFraction) * p.peakAlpha
-                    : p.peakAlpha * (1 - (t - p.fadeInFraction) / (1 - p.fadeInFraction));
-            p.sprite.alpha = Math.max(0, Math.min(1, alpha));
+            drawFireBurnParticle(p, p.age, this.boardStretchCache, p.rot);
         }
         return anyPending;
     }
@@ -5052,27 +4905,3 @@ export class CombatVisuals {
         if (this.context.legacyEffectsEnabled) this.spawnHealBurst(pos, 0xffd76a, 0xfff3c4);
     }
 }
-
-const WALL_CROSS_FLAME_COUNT = 28;
-
-const WALL_CROSS_SPARK_COUNT = 20;
-
-const WALL_CROSS_SMOKE_COUNT = 7;
-
-const WALL_CROSS_RIPPLE_S = 0.28;
-
-const WALL_CROSS_FLAME_LIFE = 0.78;
-
-const WALL_CROSS_SPARK_LIFE = 0.9;
-
-const WALL_CROSS_SMOKE_LIFE = 1.3;
-
-const WALL_CROSS_FLASH_LIFE = 0.3;
-
-const ABLAZE_EMBERS_PER_SECOND = 44;
-
-const ABLAZE_EMBER_LIFE = 0.55;
-
-const ABLAZE_SOOT_EVERY = 5;
-
-const ABLAZE_GLOW_ALPHA = 0.5;

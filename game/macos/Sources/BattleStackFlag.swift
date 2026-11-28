@@ -2,10 +2,12 @@ import SwiftUI
 
 @MainActor
 enum BattleStackFlag {
+    static func height(for cellSize: CGFloat) -> CGFloat { max(9, cellSize * 0.20) }
+
     static func draw(amount: Int, team: Team, id: Int, active: Bool, status: BattleFlagStatus, time: TimeInterval, animateCloth: Bool,
                      cellSize: CGFloat, pixelWidth: CGFloat, at center: CGPoint, in context: GraphicsContext) {
         let width = max(17, cellSize * 0.42)
-        let height = max(9, cellSize * 0.20)
+        let height = height(for: cellSize)
         let rect = CGRect(x: center.x - width / 2, y: center.y - height / 2, width: width, height: height)
         if status.responded, let art = BattleResources.cgImage("tag") {
             let side = width * 2.25
