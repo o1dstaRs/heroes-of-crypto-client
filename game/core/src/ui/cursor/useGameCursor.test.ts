@@ -40,6 +40,8 @@ describe("battlefield cursors", () => {
 
     it("returns to the ordinary pointer when targeting ends", () => {
         expect(resolveCursorMode(undefined)).toBe("default");
-        expect(resolveCursorMode({ unitName: "Healer", attackType: AttackVals.MAGIC } as IHoverInfo)).toBe("interactive");
+        expect(resolveCursorMode({ unitName: "Healer", attackType: AttackVals.MAGIC } as IHoverInfo)).toBe(
+            "interactive",
+        );
     });
 });

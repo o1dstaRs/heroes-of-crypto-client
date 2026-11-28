@@ -91,7 +91,12 @@ addClip("Battle Roar", images.vfx_battle_roar_short_atlas, animationAtlases["Vfx
 addClip("Boar Saliva", BOAR_SALIVA_EFFECT.url, BOAR_SALIVA_EFFECT.meta);
 addClip("Magic Reflection", MAGIC_REFLECTION_EFFECT.url, MAGIC_REFLECTION_EFFECT.meta);
 addClip("Borrowed Grace", images.vfx_borrowed_grace_pop_atlas, animationAtlases["Vfx Borrowed Grace"].pop, "borrow");
-addClip("Petrifying Gaze", images.vfx_petrifying_gaze_pop_atlas, animationAtlases["Vfx Petrifying Gaze"].pop, "petrifying");
+addClip(
+    "Petrifying Gaze",
+    images.vfx_petrifying_gaze_pop_atlas,
+    animationAtlases["Vfx Petrifying Gaze"].pop,
+    "petrifying",
+);
 const woundAtlases = [
     images.vfx_deep_wounds_level_1_atlas,
     images.vfx_deep_wounds_level_2_atlas,

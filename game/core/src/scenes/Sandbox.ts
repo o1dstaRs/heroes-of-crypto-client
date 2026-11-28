@@ -17192,9 +17192,11 @@ export class Sandbox extends PixiScene {
                 };
                 const targetType = spell.getSpellTargetType();
                 const unitIsTargetable =
-                    targetCenter && hoveredUnit && (hoveredUnit.getTeam() === caster.getTeam() || !hoveredUnit.hasBuffActive("Hidden"));
-                const cellIsTargetable = aimCell &&
-                    (targetType === SpellTargetType.ALLIES_AREA || targetType === SpellTargetType.FREE_CELL);
+                    targetCenter &&
+                    hoveredUnit &&
+                    (hoveredUnit.getTeam() === caster.getTeam() || !hoveredUnit.hasBuffActive("Hidden"));
+                const cellIsTargetable =
+                    aimCell && (targetType === SpellTargetType.ALLIES_AREA || targetType === SpellTargetType.FREE_CELL);
                 if (unitIsTargetable || cellIsTargetable) this.hoverTargetingCursor = "magic";
                 this.hoverManager.drawSpellCastPreview({
                     casterPos,
