@@ -109,6 +109,7 @@ export const DraftPlannerBoard: React.FC<{
                 <Box
                     data-portrait-tiles={tiles.columns * tiles.rows}
                     sx={{
+                        isolation: "isolate",
                         display: "grid",
                         gridTemplateColumns: `repeat(${tiles.columns}, minmax(0, 1fr))`,
                         gridTemplateRows: `repeat(${tiles.rows}, minmax(0, 1fr))`,
@@ -128,16 +129,26 @@ export const DraftPlannerBoard: React.FC<{
                 </Box>
                 <Box
                     component="b"
+                    data-stack-count
+                    aria-hidden="true"
                     sx={{
                         position: "absolute",
-                        bottom: -3,
-                        right: -3,
-                        px: "2px",
-                        borderRadius: "2px",
-                        color: "#241a10",
-                        bgcolor: enemy ? "#d9a18c" : "#d6bc8c",
-                        fontSize: 10,
-                        lineHeight: 1.2,
+                        zIndex: 1,
+                        bottom: 1,
+                        right: 1,
+                        minWidth: "1.3em",
+                        px: "0.25em",
+                        border: "1px solid #18110b",
+                        borderRadius: "3px",
+                        boxShadow: "0 1px 3px #000b",
+                        color: "#21140c",
+                        bgcolor: enemy ? "#f0b5a0" : "#f1d397",
+                        fontFamily: "system-ui, sans-serif",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        fontVariantNumeric: "tabular-nums",
+                        lineHeight: 1.15,
+                        textAlign: "center",
                     }}
                 >
                     {unit.amount}

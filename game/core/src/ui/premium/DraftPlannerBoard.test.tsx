@@ -114,6 +114,10 @@ test("a split creature renders one board token per stack, each with its own amou
         'aria-label="Your Unit 36, Front line, projected 12 creatures"',
         'aria-label="Your Unit 36, Front line, projected 1 creatures"',
     ]);
+    expect(Array.from(html.matchAll(/<b[^>]*data-stack-count[^>]*>(\d+)<\/b>/g), (match) => match[1])).toEqual([
+        "12",
+        "1",
+    ]);
     // Selection is per stack: only the split-off token is pressed.
     expect(html.match(/aria-pressed="(true|false)"/g)).toEqual(['aria-pressed="false"', 'aria-pressed="true"']);
 });
